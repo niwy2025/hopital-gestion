@@ -175,13 +175,11 @@ services:
     container_name: hopital-api-gateway
     environment:
       AUTH_SERVICE_URI: http://auth-service:8081
-      ACCOUNT_SERVICE_URI: http://account-service:8082
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       - redis
       - auth-service
-      - account-service
     ports:
       - "8088:8088"
     networks: [hospital-network]
@@ -198,39 +196,14 @@ services:
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/hospital
-      ACCOUNT_SERVICE_BASE_URL: http://account-service:8082
     depends_on:
       - sqlserver
       - sqlserver-init
       - redis
       - kafka
       - keycloak
-      - account-service
     ports:
       - "8081:8081"
-    networks: [hospital-network]
-
-  account-service:
-    build:
-      context: .
-      dockerfile: services/account/Dockerfile
-    container_name: hopital-account-service
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_account;encrypt=false;trustServerCertificate=true
-      SPRING_DATASOURCE_USERNAME: sa
-      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
-      REDIS_HOST: redis
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      HOSPITAL_ADMIN_USERNAME: ${HOSPITAL_ADMIN_USERNAME:-admin}
-      HOSPITAL_ADMIN_EMAIL: ${HOSPITAL_ADMIN_EMAIL:-admin@hopital.local}
-      HOSPITAL_ADMIN_PASSWORD: ${HOSPITAL_ADMIN_PASSWORD:-admin123}
-    depends_on:
-      - sqlserver
-      - sqlserver-init
-      - redis
-      - kafka
-    ports:
-      - "8082:8082"
     networks: [hospital-network]
 
   prometheus:

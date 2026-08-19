@@ -1,16 +1,13 @@
 package com.hopital.auth.infra.integration.keycloak;
 
-import com.hopital.auth.application.dto.AccountResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.util.Base64;
+import com.hopital.auth.application.dto.LoginRequest;
+import com.hopital.auth.application.dto.LoginResponse;
 import org.springframework.stereotype.Component;
 
 @Component
 public class KeycloakAuthClient {
 
-    public String issueAccessToken(AccountResponse account) {
-        String tokenPayload = account.id() + ":" + account.username() + ":" + Instant.now();
-        return Base64.getUrlEncoder().encodeToString(tokenPayload.getBytes(StandardCharsets.UTF_8));
+    public LoginResponse login(LoginRequest request) {
+        return new LoginResponse("replace-with-keycloak-token-exchange", "Bearer");
     }
 }

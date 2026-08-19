@@ -21,12 +21,12 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+    ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
         return ResponseEntity.ok(authApplicationService.login(request));
     }
 
     @GetMapping("/health")
-    public ResponseEntity<String> health() {
+    ResponseEntity<String> health() {
         return ResponseEntity.ok("auth-service-ready");
     }
 }

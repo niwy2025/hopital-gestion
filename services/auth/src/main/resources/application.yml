@@ -23,8 +23,6 @@ spring:
 hospital:
   auth:
     issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/hospital}
-  account-service:
-    base-url: ${ACCOUNT_SERVICE_BASE_URL:http://account-service:8082}
 
 management:
   endpoints:

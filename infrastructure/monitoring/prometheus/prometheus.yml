@@ -27,9 +27,4 @@ scrape_configs:
     static_configs:
       - targets: ["auth-service:8081"]
 
-  - job_name: account-service
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: ["account-service:8082"]
-
   # Add future Spring Boot hospital services here.

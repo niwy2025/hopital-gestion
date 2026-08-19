@@ -1,8 +1,8 @@
 # Hopital Gestion
 
 Monorepo de départ pour une architecture microservices de gestion d'hôpitaux.
-Le dépôt fournit le socle d'infrastructure, un API Gateway Spring Boot, et des
-services `auth` et `account` squelettes, la documentation API et une collection Postman.
+Le dépôt fournit le socle d'infrastructure, un API Gateway Spring Boot, un
+service `auth` squelette, la documentation API et une collection Postman.
 
 ## Arborescence principale
 
@@ -15,12 +15,11 @@ infrastructure/kong/              Notes et commandes Kong Admin API
 infrastructure/monitoring/        Prometheus, Grafana, dashboards et provisioning
 postman/                          Collections Postman
 services/auth/                    Microservice d'authentification
-services/account/                 Microservice comptes, rôles et permissions
 ```
 
 ## Briques incluses
 
-- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`).
+- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`).
 - **Docker Compose** pour orchestrer les dépendances et services locaux.
 - **Kong** comme API Gateway publique.
 - **Keycloak** pour OAuth2/OpenID Connect et l'émission des JWT.
@@ -45,7 +44,6 @@ Ports utiles :
 | Kong Admin API | `http://localhost:8001` | Administration de Kong |
 | API Gateway Spring | `http://localhost:8088` | Gateway applicatif interne |
 | Auth Service | `http://localhost:8081` | Service d'authentification |
-| Account Service | `http://localhost:8082` | Comptes, rôles et permissions |
 | Keycloak | `http://localhost:8080` | Console IAM et endpoints OIDC |
 | SQL Server | `localhost:1433` | Base de données applicative |
 | Kafka | `localhost:9092` | Broker accessible depuis l'hôte |
@@ -75,22 +73,14 @@ Dockerfile
 README.md
 ```
 
-Les services `services/auth` et `services/account` appliquent déjà cette convention et serviront de modèles
+Le service `services/auth` applique déjà cette convention et servira de modèle
 pour les futurs services hospitaliers comme `patient-service`,
 `appointment-service`, `staff-service`, `billing-service` ou
 `notification-service`.
 
-## Authentification, rôles et permissions
-
-`auth-service` accepte un champ `identifier` qui peut contenir un email ou un
-username. Il délègue la validation des credentials à `account-service`, puis
-retourne un token, les rôles et les permissions résolues pour l'utilisateur.
-`account-service` centralise les rôles hospitaliers (`ADMIN`, `DOCTOR`, `NURSE`,
-`RECEPTIONIST`, `PATIENT`) et leurs permissions initiales.
-
 ## Observabilité
 
-Prometheus scrape Kong, Keycloak, `api-gateway`, `auth-service` et `account-service` depuis
+Prometheus scrape Kong, Keycloak, `api-gateway` et `auth-service` depuis
 `infrastructure/monitoring/prometheus/prometheus.yml`. Grafana provisionne la
 datasource Prometheus et un dashboard initial depuis
 `infrastructure/monitoring/grafana`.

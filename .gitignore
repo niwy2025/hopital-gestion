@@ -1,0 +1,20 @@
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Environment
+.env
+!.env.example
+
+# Runtime data
+volumes/
+
+# Logs
+*.log
+
+# Build outputs
+build/
+target/
+__pycache__/
+.pytest_cache/

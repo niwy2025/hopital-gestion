@@ -1,0 +1,39 @@
+{
+  "info": {
+    "name": "Hopital Gestion",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\"\n}"
+        },
+        "url": {
+          "raw": "{{kong_url}}/api/v1/auth/login",
+          "host": ["{{kong_url}}"],
+          "path": ["api", "v1", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "Gateway Readiness",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{gateway_url}}/gateway/ready",
+          "host": ["{{gateway_url}}"],
+          "path": ["gateway", "ready"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "kong_url", "value": "http://localhost:8000" },
+    { "key": "gateway_url", "value": "http://localhost:8088" }
+  ]
+}

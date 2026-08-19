@@ -14,12 +14,13 @@ infrastructure/keycloak/          Realm Keycloak hospital
 infrastructure/kong/              Notes et commandes Kong Admin API
 infrastructure/monitoring/        Prometheus, Grafana, dashboards et provisioning
 postman/                          Collections Postman
+services/account/                 Microservice de gestion des comptes
 services/auth/                    Microservice d'authentification
 ```
 
 ## Briques incluses
 
-- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`).
+- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`).
 - **Docker Compose** pour orchestrer les dépendances et services locaux.
 - **Kong** comme API Gateway publique.
 - **Keycloak** pour OAuth2/OpenID Connect et l'émission des JWT.
@@ -44,6 +45,7 @@ Ports utiles :
 | Kong Admin API | `http://localhost:8001` | Administration de Kong |
 | API Gateway Spring | `http://localhost:8088` | Gateway applicatif interne |
 | Auth Service | `http://localhost:8081` | Service d'authentification |
+| Account Service | `http://localhost:8082` | Gestion des comptes, rôles et permissions |
 | Keycloak | `http://localhost:8080` | Console IAM et endpoints OIDC |
 | SQL Server | `localhost:1433` | Base de données applicative |
 | Kafka | `localhost:9092` | Broker accessible depuis l'hôte |
@@ -73,6 +75,14 @@ Dockerfile
 README.md
 ```
 
+## Migrations de base de données
+
+Chaque service qui possède une base de données conserve ses migrations SQL dans
+`src/main/resources/db/migration`. Les fichiers suivent le format
+`V<version>_<nom-bref-de-la-migration>.sql`, par exemple
+`V1_create_accounts.sql`. Les versions sont strictement croissantes et une
+migration déjà appliquée ne doit jamais être modifiée.
+
 Le service `services/auth` applique déjà cette convention et servira de modèle
 pour les futurs services hospitaliers comme `patient-service`,
 `appointment-service`, `staff-service`, `billing-service` ou
@@ -87,5 +97,6 @@ datasource Prometheus et un dashboard initial depuis
 
 ## Documentation API et tests manuels
 
-La documentation initiale se trouve dans `docs/api`. La collection Postman est
-fournie dans `postman/hopital-gestion.postman_collection.json`.
+La documentation initiale se trouve dans `docs/api`. Les collections Postman
+sont séparées par service dans `postman/collections` et partagent
+l'environnement local `postman/environments/local.postman_environment.json`.

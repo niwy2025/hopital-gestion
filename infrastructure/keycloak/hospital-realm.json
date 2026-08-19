@@ -1,0 +1,40 @@
+{
+  "realm": "hospital",
+  "enabled": true,
+  "displayName": "Hospital Management",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "clients": [
+    {
+      "clientId": "hospital-web",
+      "name": "Hospital Web Client",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "redirectUris": ["http://localhost:4200/*", "http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:4200", "http://localhost:3000"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true
+    },
+    {
+      "clientId": "hospital-services",
+      "name": "Hospital Backend Services",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "change-me-in-production",
+      "protocol": "openid-connect",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "ADMIN", "description": "Hospital platform administrator" },
+      { "name": "DOCTOR", "description": "Medical practitioner" },
+      { "name": "NURSE", "description": "Nursing staff" },
+      { "name": "RECEPTIONIST", "description": "Admissions and front desk" },
+      { "name": "PATIENT", "description": "Patient portal user" }
+    ]
+  }
+}

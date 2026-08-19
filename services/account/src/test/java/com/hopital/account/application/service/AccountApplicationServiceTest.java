@@ -1,0 +1,92 @@
+package com.hopital.account.application.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.hopital.account.application.dto.CreateAccountRequest;
+import com.hopital.account.application.dto.CredentialsValidationRequest;
+import com.hopital.account.application.dto.RoleResponse;
+import com.hopital.account.infra.persistence.entity.AccountEntity;
+import com.hopital.account.infra.persistence.entity.PermissionEntity;
+import com.hopital.account.infra.persistence.entity.RoleEntity;
+import com.hopital.account.infra.persistence.repository.AccountRepository;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@ExtendWith(MockitoExtension.class)
+class AccountApplicationServiceTest {
+
+    @Mock
+    private RolePermissionService rolePermissionService;
+
+    @Mock
+    private AccountRepository accountRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Captor
+    private ArgumentCaptor<AccountEntity> accountCaptor;
+
+    @InjectMocks
+    private AccountApplicationService accountApplicationService;
+
+    @Test
+    void createsAnAccountWithAHashedPassword() {
+        RoleEntity patientRole = new RoleEntity(
+                1L,
+                "PATIENT",
+                "Patient",
+                Set.of(new PermissionEntity(1L, "PROFILE_READ", "Consulter son profil")));
+        when(rolePermissionService.resolveRoles(Set.of("PATIENT"))).thenReturn(Set.of(patientRole));
+        when(rolePermissionService.toResponse(patientRole))
+                .thenReturn(new RoleResponse("PATIENT", "Patient", Set.of()));
+        when(passwordEncoder.encode("plain-password")).thenReturn("hashed-password");
+        when(accountRepository.save(any(AccountEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = accountApplicationService.createAccount(new CreateAccountRequest(
+                "alice",
+                "alice@hopital.local",
+                "Alice",
+                "plain-password",
+                Set.of("PATIENT")));
+
+        verify(accountRepository).save(accountCaptor.capture());
+        assertThat(accountCaptor.getValue().getPasswordHash()).isEqualTo("hashed-password");
+        assertThat(response.username()).isEqualTo("alice");
+        assertThat(response.roles()).singleElement().satisfies(role -> assertThat(role.code()).isEqualTo("PATIENT"));
+    }
+
+    @Test
+    void validatesCredentialsAgainstThePasswordHash() {
+        AccountEntity account = new AccountEntity(
+                UUID.randomUUID(),
+                "alice",
+                "alice@hopital.local",
+                "Alice",
+                "hashed-password",
+                Set.of());
+        when(accountRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("alice", "alice"))
+                .thenReturn(Optional.of(account));
+        when(passwordEncoder.matches("plain-password", "hashed-password")).thenReturn(true);
+
+        var response = accountApplicationService.validateCredentials(
+                new CredentialsValidationRequest("alice", "plain-password"));
+
+        verify(passwordEncoder).matches(eq("plain-password"), eq("hashed-password"));
+        assertThat(response.authenticated()).isTrue();
+        assertThat(response.account().username()).isEqualTo("alice");
+    }
+}

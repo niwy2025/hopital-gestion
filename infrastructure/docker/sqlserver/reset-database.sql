@@ -9,3 +9,9 @@ BEGIN
     CREATE DATABASE hospital_core;
 END;
 GO
+
+IF DB_ID('hospital_account') IS NULL
+BEGIN
+    CREATE DATABASE hospital_account;
+END;
+GO

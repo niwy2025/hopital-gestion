@@ -199,11 +199,32 @@ services:
     depends_on:
       - sqlserver
       - sqlserver-init
+      - account-service
       - redis
       - kafka
       - keycloak
     ports:
       - "8081:8081"
+    networks: [hospital-network]
+
+  account-service:
+    build:
+      context: .
+      dockerfile: services/account/Dockerfile
+    container_name: hopital-account-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_account;encrypt=false;trustServerCertificate=true
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      - sqlserver
+      - sqlserver-init
+      - redis
+      - kafka
+    ports:
+      - "8082:8082"
     networks: [hospital-network]
 
   prometheus:

@@ -1,46 +1,65 @@
 package com.hopital.account.application.service;
 
-import com.hopital.account.application.domain.Permission;
-import com.hopital.account.application.domain.Role;
+import com.hopital.account.application.dto.PermissionResponse;
+import com.hopital.account.application.dto.RoleResponse;
 import com.hopital.account.application.exception.RoleNotFoundException;
+import com.hopital.account.infra.persistence.entity.RoleEntity;
+import com.hopital.account.infra.persistence.repository.RoleRepository;
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class RolePermissionService {
 
-    private final Map<String, Role> roles = Map.of(
-            "ADMIN", new Role("ADMIN", "Administrateur", Set.of(
-                    new Permission("ACCOUNT_READ", "Consulter les comptes"),
-                    new Permission("ACCOUNT_WRITE", "Créer et modifier les comptes"),
-                    new Permission("ROLE_ASSIGN", "Attribuer les rôles"))),
-            "DOCTOR", new Role("DOCTOR", "Médecin", Set.of(
-                    new Permission("PATIENT_READ", "Consulter les dossiers patients"),
-                    new Permission("PRESCRIPTION_WRITE", "Créer des prescriptions"))),
-            "NURSE", new Role("NURSE", "Infirmier", Set.of(
-                    new Permission("PATIENT_READ", "Consulter les dossiers patients"),
-                    new Permission("CARE_WRITE", "Saisir les actes de soin"))),
-            "RECEPTIONIST", new Role("RECEPTIONIST", "Accueil", Set.of(
-                    new Permission("APPOINTMENT_WRITE", "Gérer les rendez-vous"),
-                    new Permission("PATIENT_REGISTER", "Enregistrer les patients"))),
-            "PATIENT", new Role("PATIENT", "Patient", Set.of(
-                    new Permission("PROFILE_READ", "Consulter son profil"),
-                    new Permission("APPOINTMENT_READ", "Consulter ses rendez-vous"))));
+    private final RoleRepository roleRepository;
 
-    public Set<Role> resolveRoles(Set<String> roleCodes) {
-        return roleCodes.stream().map(this::findRole).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    public RolePermissionService(RoleRepository roleRepository) {
+        this.roleRepository = roleRepository;
     }
 
-    public Role findRole(String code) {
-        Role role = roles.get(code.toUpperCase());
+    public Set<RoleEntity> resolveRoles(Set<String> roleCodes) {
+        Set<String> normalizedCodes = roleCodes.stream()
+                .map(code -> code.toUpperCase(Locale.ROOT))
+                .collect(Collectors.toUnmodifiableSet());
+        Map<String, RoleEntity> rolesByCode = new HashMap<>();
+        roleRepository.findAllByCodeIn(normalizedCodes)
+                .forEach(role -> rolesByCode.put(role.getCode(), role));
+        return normalizedCodes.stream()
+                .map(code -> findRole(code, rolesByCode))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    public RoleEntity findRole(String code) {
+        return roleRepository.findByCode(code.toUpperCase(Locale.ROOT))
+                .orElseThrow(() -> new RoleNotFoundException(code));
+    }
+
+    public Set<RoleResponse> listRoles() {
+        return roleRepository.findAll().stream()
+                .map(this::toResponse)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    public RoleResponse toResponse(RoleEntity role) {
+        return new RoleResponse(
+                role.getCode(),
+                role.getLabel(),
+                role.getPermissions().stream()
+                        .map(permission -> new PermissionResponse(permission.getCode(), permission.getDescription()))
+                        .collect(Collectors.toUnmodifiableSet()));
+    }
+
+    private RoleEntity findRole(String code, Map<String, RoleEntity> rolesByCode) {
+        RoleEntity role = rolesByCode.get(code);
         if (role == null) {
             throw new RoleNotFoundException(code);
         }
         return role;
-    }
-
-    public Set<Role> listRoles() {
-        return Set.copyOf(roles.values());
     }
 }

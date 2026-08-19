@@ -1,0 +1,25 @@
+{
+  "info": {
+    "name": "Hopital Gestion - API Gateway",
+    "description": "Requêtes techniques exposées par api-gateway.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Health & Ops",
+      "item": [
+        {
+          "name": "Gateway readiness",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{gateway_url}}/gateway/ready",
+              "host": ["{{gateway_url}}"],
+              "path": ["gateway", "ready"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

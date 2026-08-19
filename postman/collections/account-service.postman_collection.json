@@ -1,0 +1,109 @@
+{
+  "info": {
+    "name": "Hopital Gestion - Account Service",
+    "description": "Requêtes exposées par account-service.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Accounts",
+      "item": [
+        {
+          "name": "List accounts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{account_service_url}}/api/v1/accounts",
+              "host": ["{{account_service_url}}"],
+              "path": ["api", "v1", "accounts"]
+            }
+          }
+        },
+        {
+          "name": "Create account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{account_identifier}}\",\n  \"email\": \"patient01@hopital.local\",\n  \"displayName\": \"Patient 01\",\n  \"password\": \"{{account_password}}\",\n  \"roles\": [\"PATIENT\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{account_service_url}}/api/v1/accounts",
+              "host": ["{{account_service_url}}"],
+              "path": ["api", "v1", "accounts"]
+            }
+          }
+        },
+        {
+          "name": "Find account by identifier",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{account_service_url}}/api/v1/accounts/identifier/{{account_identifier}}",
+              "host": ["{{account_service_url}}"],
+              "path": ["api", "v1", "accounts", "identifier", "{{account_identifier}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Roles",
+      "item": [
+        {
+          "name": "List roles",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{account_service_url}}/api/v1/accounts/roles",
+              "host": ["{{account_service_url}}"],
+              "path": ["api", "v1", "accounts", "roles"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "99 - Internal",
+      "item": [
+        {
+          "name": "Validate credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{account_identifier}}\",\n  \"password\": \"{{account_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{account_service_url}}/internal/accounts/validate-credentials",
+              "host": ["{{account_service_url}}"],
+              "path": ["internal", "accounts", "validate-credentials"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

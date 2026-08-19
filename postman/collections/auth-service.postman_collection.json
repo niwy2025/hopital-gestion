@@ -1,0 +1,56 @@
+{
+  "info": {
+    "name": "Hopital Gestion - Auth Service",
+    "description": "Requêtes exposées par auth-service.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Health",
+      "item": [
+        {
+          "name": "Service health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{auth_service_url}}/api/v1/auth/health",
+              "host": ["{{auth_service_url}}"],
+              "path": ["api", "v1", "auth", "health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{admin_username}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{auth_service_url}}/api/v1/auth/login",
+              "host": ["{{auth_service_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -3,7 +3,7 @@ name: ${COMPOSE_PROJECT_NAME:-hopital-gestion}
 services:
   kong-database:
     image: postgres:16-alpine
-    container_name: hopital-kong-database
+    container_name: kong-database
     environment:
       POSTGRES_DB: ${KONG_PG_DATABASE:-kong}
       POSTGRES_USER: ${KONG_PG_USER:-kong}
@@ -19,7 +19,7 @@ services:
 
   kong-migrations:
     image: kong:3.7
-    container_name: hopital-kong-migrations
+    container_name: kong-migrations
     command: kong migrations bootstrap
     depends_on:
       kong-database:
@@ -35,7 +35,7 @@ services:
 
   kong:
     image: kong:3.7
-    container_name: hopital-kong
+    container_name: kong
     depends_on:
       kong-migrations:
         condition: service_completed_successfully
@@ -56,7 +56,7 @@ services:
 
   kong-init:
     image: curlimages/curl:8.8.0
-    container_name: hopital-kong-init
+    container_name: kong-init
     depends_on:
       - kong
     command: >
@@ -70,7 +70,7 @@ services:
 
   keycloak-database:
     image: postgres:16-alpine
-    container_name: hopital-keycloak-database
+    container_name: keycloak-database
     environment:
       POSTGRES_DB: ${KEYCLOAK_DB:-keycloak}
       POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
@@ -86,7 +86,7 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
-    container_name: hopital-keycloak
+    container_name: keycloak
     command: ["start-dev", "--import-realm"]
     depends_on:
       keycloak-database:
@@ -109,7 +109,7 @@ services:
 
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: hopital-sqlserver
+    container_name: sqlserver
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
@@ -122,22 +122,25 @@ services:
 
   sqlserver-init:
     image: mcr.microsoft.com/mssql-tools
-    container_name: hopital-sqlserver-init
+    container_name: sqlserver-init
     depends_on:
       - sqlserver
     volumes:
       - ./infrastructure/docker/sqlserver/reset-database.sql:/reset-database.sql:ro
     entrypoint: ["/bin/bash", "-c"]
-    command: >
-      for i in {1..60}; do /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P '$${MSSQL_SA_PASSWORD}' -Q 'SELECT 1' && break || sleep 2; done;
-      /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P '$${MSSQL_SA_PASSWORD}' -i /reset-database.sql
+    command:
+      - |
+        for i in {1..60}; do
+          /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD}" -Q 'SELECT 1' && break || sleep 2
+        done
+        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD}" -i /reset-database.sql
     environment:
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
     networks: [hospital-network]
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
-    container_name: hopital-zookeeper
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -145,8 +148,9 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    container_name: hopital-kafka
+    container_name: kafka
     depends_on: [zookeeper]
+    restart: on-failure
     ports:
       - "9092:9092"
     environment:
@@ -160,7 +164,7 @@ services:
 
   redis:
     image: redis:7.2-alpine
-    container_name: hopital-redis
+    container_name: redis
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
@@ -169,10 +173,11 @@ services:
     networks: [hospital-network]
 
   api-gateway:
+    image: api-gateway
     build:
       context: .
       dockerfile: infrastructure/gateway/api-gateway/Dockerfile
-    container_name: hopital-api-gateway
+    container_name: api-gateway
     environment:
       AUTH_SERVICE_URI: http://auth-service:8081
       SPRING_DATA_REDIS_HOST: redis
@@ -185,10 +190,11 @@ services:
     networks: [hospital-network]
 
   auth-service:
+    image: auth-service
     build:
       context: .
       dockerfile: services/auth/Dockerfile
-    container_name: hopital-auth-service
+    container_name: auth-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_auth;encrypt=false;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: sa
@@ -208,10 +214,11 @@ services:
     networks: [hospital-network]
 
   account-service:
+    image: account-service
     build:
       context: .
       dockerfile: services/account/Dockerfile
-    container_name: hopital-account-service
+    container_name: account-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_account;encrypt=false;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: sa
@@ -229,7 +236,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.53.0
-    container_name: hopital-prometheus
+    container_name: prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -242,7 +249,7 @@ services:
 
   grafana:
     image: grafana/grafana:11.1.0
-    container_name: hopital-grafana
+    container_name: grafana
     depends_on: [prometheus]
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}

@@ -90,10 +90,13 @@ pour les futurs services hospitaliers comme `patient-service`,
 
 ## Observabilité
 
-Prometheus scrape Kong, Keycloak, `api-gateway` et `auth-service` depuis
-`infrastructure/monitoring/prometheus/prometheus.yml`. Grafana provisionne la
-datasource Prometheus et un dashboard initial depuis
-`infrastructure/monitoring/grafana`.
+Prometheus collecte Kong, Keycloak, `api-gateway`, `auth-service` et
+`account-service` depuis
+`infrastructure/monitoring/prometheus/prometheus.yml`. Chaque service Spring
+Boot expose `/actuator/prometheus` grâce à Actuator et Micrometer, avec le tag
+`application` pour distinguer ses métriques. Grafana provisionne la datasource
+Prometheus et le dashboard **Hospital services overview**, qui affiche l'état
+des cibles surveillées, le débit HTTP et la mémoire JVM par service.
 
 ## Documentation API et tests manuels
 

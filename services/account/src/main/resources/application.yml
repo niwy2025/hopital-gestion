@@ -30,6 +30,9 @@ hospital:
       admin-password: ${HOSPITAL_ADMIN_PASSWORD:admin123}
 
 management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
   endpoints:
     web:
       exposure:

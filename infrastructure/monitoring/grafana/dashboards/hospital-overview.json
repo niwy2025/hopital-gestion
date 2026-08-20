@@ -7,25 +7,116 @@
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Statut" },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" },
+                      "1": { "color": "green", "index": 1, "text": "OPERATIONNEL" }
+                    },
+                    "type": "value"
+                  }
+                ]
+              },
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
       "id": 1,
-      "options": { "showHeader": true },
+      "options": { "cellHeight": "sm", "showHeader": true, "sortBy": [{ "desc": false, "displayName": "Service" }] },
       "pluginVersion": "11.1.0",
       "targets": [
-        { "expr": "up", "legendFormat": "{{job}} - {{instance}}", "refId": "A" }
+        { "expr": "up", "format": "table", "instant": true, "legendFormat": "", "refId": "A" }
       ],
-      "title": "Service availability",
+      "title": "État des services surveillés",
+      "transformations": [
+        { "id": "labelsToFields", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true },
+            "indexByName": { "job": 0, "instance": 1, "Value": 2 },
+            "renameByName": { "job": "Service", "instance": "Cible", "Value": "Statut" }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 1 }, { "color": "green", "value": 3 }] },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 10 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        { "expr": "sum(up{job=~\"api-gateway|auth-service|account-service\"})", "legendFormat": "Services Spring Boot opérationnels", "refId": "A" }
+      ],
+      "title": "Services applicatifs disponibles",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "requêtes / seconde", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "auto", "spanNulls": false }, "mappings": [], "unit": "reqps" },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 16, "x": 8, "y": 10 },
+      "id": 3,
+      "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        { "expr": "sum by (application) (rate(http_server_requests_seconds_count{application=~\"api-gateway|auth-service|account-service\", uri!~\"/actuator.*\"}[5m]))", "legendFormat": "{{application}}", "refId": "A" }
+      ],
+      "title": "Débit HTTP par service (5 min)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "auto", "spanNulls": false }, "mappings": [], "unit": "bytes" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 17 },
+      "id": 4,
+      "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        { "expr": "sum by (application) (jvm_memory_used_bytes{application=~\"api-gateway|auth-service|account-service\", area=\"heap\"})", "legendFormat": "{{application}}", "refId": "A" }
+      ],
+      "title": "Mémoire JVM (heap) par service",
       "type": "timeseries"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["hospital", "infrastructure"],
+  "tags": ["hospital", "infrastructure", "services"],
   "templating": { "list": [] },
   "time": { "from": "now-1h", "to": "now" },
   "timezone": "browser",
-  "title": "Hospital infrastructure overview",
-  "version": 1,
+  "title": "Hospital services overview",
+  "uid": "hospital-services-overview",
+  "version": 2,
   "weekStart": ""
 }

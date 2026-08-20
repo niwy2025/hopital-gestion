@@ -27,6 +27,9 @@ hospital:
     base-url: ${ACCOUNT_SERVICE_BASE_URL:http://account-service:8082}
 
 management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
   endpoints:
     web:
       exposure:

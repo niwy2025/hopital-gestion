@@ -180,6 +180,7 @@ services:
     container_name: api-gateway
     environment:
       AUTH_SERVICE_URI: http://auth-service:8081
+      ACCOUNT_SERVICE_URI: http://account-service:8082
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
     depends_on:

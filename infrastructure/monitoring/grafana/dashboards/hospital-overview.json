@@ -9,51 +9,29 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "fieldConfig": {
         "defaults": {
-          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
-          "mappings": [],
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" },
+                "1": { "color": "green", "index": 1, "text": "OPERATIONNEL" }
+              },
+              "type": "value"
+            }
+          ],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
         },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Statut" },
-            "properties": [
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "options": {
-                      "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" },
-                      "1": { "color": "green", "index": 1, "text": "OPERATIONNEL" }
-                    },
-                    "type": "value"
-                  }
-                ]
-              },
-              { "id": "custom.cellOptions", "value": { "type": "color-background" } }
-            ]
-          }
-        ]
+        "overrides": []
       },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
       "id": 1,
-      "options": { "cellHeight": "sm", "showHeader": true, "sortBy": [{ "desc": false, "displayName": "Service" }] },
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "textMode": "value_and_name", "wideLayout": false },
       "pluginVersion": "11.1.0",
       "targets": [
-        { "expr": "up", "format": "table", "instant": true, "legendFormat": "", "refId": "A" }
+        { "expr": "up", "instant": true, "legendFormat": "{{job}}", "refId": "A" }
       ],
       "title": "État des services surveillés",
-      "transformations": [
-        { "id": "labelsToFields", "options": {} },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "Time": true, "__name__": true },
-            "indexByName": { "job": 0, "instance": 1, "Value": 2 },
-            "renameByName": { "job": "Service", "instance": "Cible", "Value": "Statut" }
-          }
-        }
-      ],
-      "type": "table"
+      "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
@@ -66,7 +44,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 10 },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 8 },
       "id": 2,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
       "pluginVersion": "11.1.0",
@@ -82,7 +60,7 @@
         "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "requêtes / seconde", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "auto", "spanNulls": false }, "mappings": [], "unit": "reqps" },
         "overrides": []
       },
-      "gridPos": { "h": 7, "w": 16, "x": 8, "y": 10 },
+      "gridPos": { "h": 7, "w": 16, "x": 8, "y": 8 },
       "id": 3,
       "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "pluginVersion": "11.1.0",
@@ -98,7 +76,7 @@
         "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "auto", "spanNulls": false }, "mappings": [], "unit": "bytes" },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 17 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
       "id": 4,
       "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "pluginVersion": "11.1.0",

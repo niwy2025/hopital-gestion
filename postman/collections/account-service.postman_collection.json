@@ -13,8 +13,8 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{account_service_url}}/api/v1/accounts",
-              "host": ["{{account_service_url}}"],
+              "raw": "{{baseUrl}}/api/v1/accounts",
+              "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "accounts"]
             }
           }
@@ -39,8 +39,8 @@
               }
             },
             "url": {
-              "raw": "{{account_service_url}}/api/v1/accounts",
-              "host": ["{{account_service_url}}"],
+              "raw": "{{baseUrl}}/api/v1/accounts",
+              "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "accounts"]
             }
           }
@@ -50,8 +50,8 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{account_service_url}}/api/v1/accounts/identifier/{{account_identifier}}",
-              "host": ["{{account_service_url}}"],
+              "raw": "{{baseUrl}}/api/v1/accounts/identifier/{{account_identifier}}",
+              "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "accounts", "identifier", "{{account_identifier}}"]
             }
           }
@@ -66,8 +66,8 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{account_service_url}}/api/v1/accounts/roles",
-              "host": ["{{account_service_url}}"],
+              "raw": "{{baseUrl}}/api/v1/accounts/roles",
+              "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "accounts", "roles"]
             }
           }
@@ -97,8 +97,8 @@
               }
             },
             "url": {
-              "raw": "{{account_service_url}}/internal/accounts/validate-credentials",
-              "host": ["{{account_service_url}}"],
+              "raw": "{{accountServiceUrl}}/internal/accounts/validate-credentials",
+              "host": ["{{accountServiceUrl}}"],
               "path": ["internal", "accounts", "validate-credentials"]
             }
           }

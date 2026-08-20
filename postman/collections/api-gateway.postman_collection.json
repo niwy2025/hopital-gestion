@@ -13,8 +13,8 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{gateway_url}}/gateway/ready",
-              "host": ["{{gateway_url}}"],
+              "raw": "{{baseUrl}}/gateway/ready",
+              "host": ["{{baseUrl}}"],
               "path": ["gateway", "ready"]
             }
           }

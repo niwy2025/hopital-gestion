@@ -104,6 +104,37 @@
           }
         }
       ]
+    },
+    {
+      "name": "03 - Notifications",
+      "item": [
+        {
+          "name": "Queue email and SMS broadcast",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"APPOINTMENT_REMINDER\",\n  \"channels\": [\"EMAIL\", \"SMS\"],\n  \"recipients\": [\n    {\n      \"email\": \"patient01@hopital.local\",\n      \"phoneNumber\": \"+243810000000\",\n      \"displayName\": \"Patient 01\"\n    }\n  ],\n  \"subject\": \"Rappel de rendez-vous\",\n  \"body\": \"Votre rendez-vous est prévu demain.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/broadcasts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "broadcasts"]
+            }
+          }
+        }
+      ]
     }
   ]
 }

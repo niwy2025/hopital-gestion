@@ -21,6 +21,8 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/hospital}
 
 hospital:
+  notification:
+    topic: ${NOTIFICATION_TOPIC:hospital.notification.request.v1}
   auth:
     issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/hospital}
   account-service:

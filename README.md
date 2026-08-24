@@ -16,11 +16,12 @@ infrastructure/monitoring/        Prometheus, Grafana, dashboards et provisionin
 postman/                          Collections Postman
 services/account/                 Microservice de gestion des comptes
 services/auth/                    Microservice d'authentification
+services/notification/            Microservice asynchrone e-mail et SMS
 ```
 
 ## Briques incluses
 
-- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`).
+- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`).
 - **Docker Compose** pour orchestrer les dépendances et services locaux.
 - **Kong** comme API Gateway publique.
 - **Keycloak** pour OAuth2/OpenID Connect et l'émission des JWT.
@@ -46,6 +47,7 @@ Ports utiles :
 | API Gateway Spring | `http://localhost:8088` | Gateway applicatif interne |
 | Auth Service | `http://localhost:8081` | Service d'authentification |
 | Account Service | `http://localhost:8082` | Gestion des comptes, rôles et permissions |
+| Notification Service | `http://localhost:8083` | Traitement asynchrone des e-mails et SMS |
 | Keycloak | `http://localhost:8080` | Console IAM et endpoints OIDC |
 | SQL Server | `localhost:1433` | Base de données applicative |
 | Kafka | `localhost:9092` | Broker accessible depuis l'hôte |
@@ -83,15 +85,15 @@ Chaque service qui possède une base de données conserve ses migrations SQL dan
 `V1_create_accounts.sql`. Les versions sont strictement croissantes et une
 migration déjà appliquée ne doit jamais être modifiée.
 
-Le service `services/auth` applique déjà cette convention et servira de modèle
+Le service `services/account` applique déjà cette convention et servira de modèle
 pour les futurs services hospitaliers comme `patient-service`,
 `appointment-service`, `staff-service`, `billing-service` ou
 `notification-service`.
 
 ## Observabilité
 
-Prometheus collecte Kong, Keycloak, `api-gateway`, `auth-service` et
-`account-service` depuis
+Prometheus collecte Kong, Keycloak, `api-gateway`, `auth-service`,
+`account-service` et `notification-service` depuis
 `infrastructure/monitoring/prometheus/prometheus.yml`. Chaque service Spring
 Boot expose `/actuator/prometheus` grâce à Actuator et Micrometer, avec le tag
 `application` pour distinguer ses métriques. Grafana provisionne la datasource
@@ -103,3 +105,14 @@ des cibles surveillées, le débit HTTP et la mémoire JVM par service.
 La documentation initiale se trouve dans `docs/api`. Les collections Postman
 sont séparées par service dans `postman/collections` et partagent
 l'environnement local `postman/environments/local.postman_environment.json`.
+
+## Notifications asynchrones
+
+Le topic Kafka `hospital.notification.request.v1` est la file d'attente des
+notifications. Un service métier publie un message avec `sourceService`,
+`type`, `channels`, `recipients`, `subject`, `body` et `metadata`, puis
+`notification-service` se charge de l'envoi e-mail ou SMS hors du chemin HTTP.
+Par exemple, `account-service` publie un e-mail de bienvenue après la création
+confirmée d'un compte. L'endpoint public
+`POST /api/v1/notifications/broadcasts` renvoie `202 Accepted` puis suit le
+même flux Kafka.

@@ -17,11 +17,12 @@ postman/                          Collections Postman
 services/account/                 Microservice de gestion des comptes
 services/auth/                    Microservice d'authentification
 services/notification/            Microservice asynchrone e-mail et SMS
+services/organization/            Référentiel provincial, zones de santé et hôpitaux
 ```
 
 ## Briques incluses
 
-- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`).
+- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`, `organization-service`).
 - **Docker Compose** pour orchestrer les dépendances et services locaux.
 - **Kong** comme API Gateway publique.
 - **Keycloak** pour OAuth2/OpenID Connect et l'émission des JWT.
@@ -48,6 +49,7 @@ Ports utiles :
 | Auth Service | `http://localhost:8081` | Service d'authentification |
 | Account Service | `http://localhost:8082` | Gestion des comptes, rôles et permissions |
 | Notification Service | `http://localhost:8083` | Traitement asynchrone des e-mails et SMS |
+| Organization Service | `http://localhost:8084` | Référentiel des provinces, zones de santé et hôpitaux |
 | Keycloak | `http://localhost:8080` | Console IAM et endpoints OIDC |
 | SQL Server | `localhost:1433` | Base de données applicative |
 | Kafka | `localhost:9092` | Broker accessible depuis l'hôte |
@@ -85,7 +87,7 @@ Chaque service qui possède une base de données conserve ses migrations SQL dan
 `V1_create_accounts.sql`. Les versions sont strictement croissantes et une
 migration déjà appliquée ne doit jamais être modifiée.
 
-Le service `services/account` applique déjà cette convention et servira de modèle
+Les services `services/account` et `services/organization` appliquent déjà cette convention et servent de modèles
 pour les futurs services hospitaliers comme `patient-service`,
 `appointment-service`, `staff-service`, `billing-service` ou
 `notification-service`.
@@ -93,7 +95,7 @@ pour les futurs services hospitaliers comme `patient-service`,
 ## Observabilité
 
 Prometheus collecte Kong, Keycloak, `api-gateway`, `auth-service`,
-`account-service` et `notification-service` depuis
+`account-service`, `notification-service` et `organization-service` depuis
 `infrastructure/monitoring/prometheus/prometheus.yml`. Chaque service Spring
 Boot expose `/actuator/prometheus` grâce à Actuator et Micrometer, avec le tag
 `application` pour distinguer ses métriques. Grafana provisionne la datasource
@@ -116,3 +118,13 @@ Par exemple, `account-service` publie un e-mail de bienvenue après la création
 confirmée d'un compte. L'endpoint public
 `POST /api/v1/notifications/broadcasts` renvoie `202 Accepted` puis suit le
 même flux Kafka.
+
+## Référentiel provincial
+
+Le premier lot métier du système provincial est `organization-service`. Il
+structure la hiérarchie **province → zone de santé → hôpital public** et expose
+ses opérations via Kong sous `/api/v1/organizations`. Les affectations des
+médecins et du personnel viendront dans le prochain lot, avec un service dédié
+au personnel. La protection de ces opérations par les rôles administratifs
+Keycloak reste à activer : les endpoints ne doivent pas encore être considérés
+comme sécurisés en production.

@@ -1,0 +1,98 @@
+{
+  "info": {
+    "name": "Hopital Gestion - Organization Service",
+    "description": "Référentiel provincial : provinces, zones de santé et hôpitaux.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Référentiel provincial",
+      "item": [
+        {
+          "name": "List provinces",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/provinces",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "provinces"]
+            }
+          }
+        },
+        {
+          "name": "Create province",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"KIN\",\n  \"name\": \"Kinshasa\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/provinces",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "provinces"]
+            }
+          }
+        },
+        {
+          "name": "List health zones",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/health-zones",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "health-zones"]
+            }
+          }
+        },
+        {
+          "name": "Create health zone",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"KINSENSO\",\n  \"name\": \"Kinsenso\",\n  \"provinceCode\": \"KIN\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/health-zones",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "health-zones"]
+            }
+          }
+        },
+        {
+          "name": "List hospitals",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/hospitals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "hospitals"]
+            }
+          }
+        },
+        {
+          "name": "Create hospital",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"HGR-KIN-001\",\n  \"name\": \"Hôpital général de référence de Kinsenso\",\n  \"type\": \"GENERAL_REFERENCE\",\n  \"healthZoneCode\": \"KINSENSO\",\n  \"address\": \"Avenue de la Santé\",\n  \"phoneNumber\": \"+243810000000\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/hospitals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "hospitals"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

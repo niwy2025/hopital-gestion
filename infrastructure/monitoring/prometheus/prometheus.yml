@@ -36,3 +36,8 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ["notification-service:8083"]
+
+  - job_name: organization-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["organization-service:8084"]

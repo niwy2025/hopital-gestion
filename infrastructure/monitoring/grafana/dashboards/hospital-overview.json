@@ -157,6 +157,17 @@
       "type": "stat"
     },
     {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" }, "1": { "color": "green", "index": 1, "text": "OPÉRATIONNEL" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 3, "x": 21, "y": 5 },
+      "id": 17,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "pluginVersion": "11.1.0",
+      "targets": [{ "expr": "up{job=\"organization-service\"}", "instant": true, "refId": "A" }],
+      "title": "Organization service",
+      "type": "stat"
+    },
+    {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
       "id": 20,

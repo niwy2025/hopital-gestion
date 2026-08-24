@@ -14,6 +14,9 @@ spring:
       port: ${REDIS_PORT:6379}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+  flyway:
+    locations: classpath:db/migration
+    sql-migration-separator: _
   security:
     oauth2:
       resourceserver:
@@ -25,6 +28,10 @@ hospital:
     topic: ${NOTIFICATION_TOPIC:hospital.notification.request.v1}
   auth:
     issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/hospital}
+    keycloak-base-url: ${KEYCLOAK_BASE_URL:http://keycloak:8080}
+    keycloak-realm: ${KEYCLOAK_REALM:hospital}
+    keycloak-client-id: ${KEYCLOAK_CLIENT_ID:hospital-services}
+    keycloak-client-secret: ${KEYCLOAK_CLIENT_SECRET:change-me-in-production}
   account-service:
     base-url: ${ACCOUNT_SERVICE_BASE_URL:http://account-service:8082}
 

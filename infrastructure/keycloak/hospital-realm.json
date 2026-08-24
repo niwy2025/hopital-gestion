@@ -4,6 +4,9 @@
   "displayName": "Hospital Management",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 86400,
   "clients": [
     {
       "clientId": "hospital-web",
@@ -25,7 +28,7 @@
       "protocol": "openid-connect",
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": false
+      "directAccessGrantsEnabled": true
     }
   ],
   "roles": {

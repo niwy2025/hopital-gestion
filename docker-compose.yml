@@ -110,6 +110,36 @@ services:
       - ./infrastructure/keycloak/hospital-realm.json:/opt/keycloak/data/import/hospital-realm.json:ro
     networks: [hospital-network]
 
+  keycloak-init:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: keycloak-init
+    depends_on:
+      - keycloak
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        until /opt/keycloak/bin/kcadm.sh config credentials \
+          --server http://keycloak:8080 \
+          --realm master \
+          --user "$${KEYCLOAK_ADMIN}" \
+          --password "$${KEYCLOAK_ADMIN_PASSWORD}"; do
+          sleep 2
+        done
+        /opt/keycloak/bin/kcadm.sh update realms/hospital \
+          -s accessTokenLifespan=900 \
+          -s ssoSessionIdleTimeout=28800 \
+          -s ssoSessionMaxLifespan=86400
+        client_id=$$(/opt/keycloak/bin/kcadm.sh get clients -r hospital -q clientId=hospital-services --fields id --format csv | tr -d '\"\r\n')
+        /opt/keycloak/bin/kcadm.sh update clients/$$client_id -r hospital -s directAccessGrantsEnabled=true
+        service_account_id=$$(/opt/keycloak/bin/kcadm.sh get clients/$$client_id/service-account-user -r hospital --fields id --format csv | tr -d '\"\r\n')
+        /opt/keycloak/bin/kcadm.sh add-roles -r hospital --uid $$service_account_id --cclientid realm-management \
+          --rolename manage-users --rolename query-users --rolename view-users --rolename view-realm
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    networks: [hospital-network]
+    restart: on-failure
+
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: sqlserver
@@ -214,13 +244,25 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       NOTIFICATION_TOPIC: hospital.notification.request.v1
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/hospital
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_REALM: hospital
+      KEYCLOAK_CLIENT_ID: hospital-services
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-change-me-in-production}
     depends_on:
-      - sqlserver
-      - sqlserver-init
-      - account-service
-      - redis
-      - kafka
-      - keycloak
+      sqlserver:
+        condition: service_started
+      sqlserver-init:
+        condition: service_started
+      account-service:
+        condition: service_started
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+      keycloak:
+        condition: service_started
+      keycloak-init:
+        condition: service_completed_successfully
     ports:
       - "8081:8081"
     networks: [hospital-network]

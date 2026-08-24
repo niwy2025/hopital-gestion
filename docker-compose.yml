@@ -65,6 +65,9 @@ services:
       curl -sf -X PUT http://kong:8001/services/api-gateway --data url=http://api-gateway:8088;
       curl -sf -X PUT http://kong:8001/services/api-gateway/routes/hospital-api --data 'paths[]=/api/v1' --data strip_path=false;
       curl -sf -X PUT http://kong:8001/services/api-gateway/routes/gateway-ready --data 'paths[]=/gateway' --data strip_path=false;
+      if ! curl -sf http://kong:8001/routes/hospital-api/plugins | grep -q '"name":"cors"'; then
+        curl -sf -X POST http://kong:8001/routes/hospital-api/plugins --data name=cors --data 'config.origins[]=http://localhost:3001' --data 'config.methods[]=GET' --data 'config.methods[]=POST' --data 'config.methods[]=PUT' --data 'config.methods[]=PATCH' --data 'config.methods[]=DELETE' --data 'config.methods[]=OPTIONS' --data 'config.headers[]=Accept' --data 'config.headers[]=Authorization' --data 'config.headers[]=Content-Type' --data config.credentials=true --data config.max_age=3600;
+      fi;
       "
     networks: [hospital-network]
 

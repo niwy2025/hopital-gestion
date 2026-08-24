@@ -2,7 +2,7 @@
 
 Monorepo de départ pour une architecture microservices de gestion d'hôpitaux.
 Le dépôt fournit le socle d'infrastructure, un API Gateway Spring Boot, un
-service `auth` squelette, la documentation API et une collection Postman.
+service `auth`, la documentation API et une collection Postman.
 
 ## Arborescence principale
 
@@ -87,7 +87,7 @@ Chaque service qui possède une base de données conserve ses migrations SQL dan
 `V1_create_accounts.sql`. Les versions sont strictement croissantes et une
 migration déjà appliquée ne doit jamais être modifiée.
 
-Les services `services/account` et `services/organization` appliquent déjà cette convention et servent de modèles
+Les services `services/account`, `services/auth` et `services/organization` appliquent déjà cette convention et servent de modèles
 pour les futurs services hospitaliers comme `patient-service`,
 `appointment-service`, `staff-service`, `billing-service` ou
 `notification-service`.
@@ -107,6 +107,19 @@ des cibles surveillées, le débit HTTP et la mémoire JVM par service.
 La documentation initiale se trouve dans `docs/api`. Les collections Postman
 sont séparées par service dans `postman/collections` et partagent
 l'environnement local `postman/environments/local.postman_environment.json`.
+
+## Authentification
+
+`account-service` reste la source de vérité des comptes et mots de passe. À
+chaque connexion, `auth-service` valide le compte, le crée ou le synchronise
+dans Keycloak si nécessaire, aligne ses rôles, puis demande les jetons. Le
+contrat de connexion retourne `accessToken`, `refreshToken`, `tokenType`,
+`expiresIn`, `expiresAt`, `refreshExpiresIn` et `refreshExpiresAt`.
+
+Les durées locales sont de 15 minutes pour l'access token et 8 heures pour le
+refresh token. Chaque connexion est journalisée avec le `User-Agent` HTTP dans
+la base `hospital_auth`. Consultez [la documentation Auth](docs/api/auth.md)
+pour les corps de requête et réponses.
 
 ## Notifications asynchrones
 

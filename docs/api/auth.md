@@ -1,11 +1,58 @@
 # API Auth Service
 
-Préversion de la documentation des endpoints d'authentification.
+Le navigateur communique uniquement avec l'application. `auth-service` valide
+d'abord les identifiants auprès de `account-service`, synchronise le compte et
+ses rôles avec Keycloak côté serveur, puis retourne les jetons émis. Keycloak
+ne constitue donc pas une interface de connexion exposée aux utilisateurs.
 
 | Méthode | Endpoint | Description |
 | --- | --- | --- |
-| `POST` | `/api/v1/auth/login` | Authentifie un utilisateur via Keycloak et retourne un token JWT. |
-| `POST` | `/api/v1/auth/refresh` | Renouvelle un token avec un refresh token. |
-| `GET` | `/api/v1/auth/me` | Retourne le profil de l'utilisateur courant. |
+| `POST` | `/api/v1/auth/login` | Valide les identifiants et ouvre une session. |
+| `POST` | `/api/v1/auth/refresh` | Renouvelle une session avec son refresh token. |
+| `GET` | `/api/v1/auth/health` | Vérifie la disponibilité du service. |
 
-Les contrats détaillés seront complétés au moment de l'implémentation métier.
+## Connexion
+
+```json
+POST /api/v1/auth/login
+{
+  "username": "admin",
+  "password": "admin123"
+}
+```
+
+Réponse `200 OK` :
+
+```json
+{
+  "accessToken": "<jwt>",
+  "refreshToken": "<refresh-token>",
+  "tokenType": "Bearer",
+  "expiresIn": 900,
+  "expiresAt": "2026-08-24T14:15:13Z",
+  "refreshExpiresIn": 28800,
+  "refreshExpiresAt": "2026-08-24T22:00:13Z",
+  "userAgent": "PostmanRuntime/…"
+}
+```
+
+La durée de vie de l'access token est de **15 minutes**. Le refresh token est
+valide **8 heures** et il est renouvelé à chaque appel de rafraîchissement.
+
+Le header HTTP `User-Agent` est automatiquement conservé dans le journal
+`hospital_auth.dbo.auth_login_audits`, avec le statut de la connexion et la
+date d'expiration de l'access token. Il s'agit d'une donnée de traçabilité :
+elle peut être falsifiée par un client et ne constitue pas une preuve
+d'identité.
+
+## Renouvellement
+
+```json
+POST /api/v1/auth/refresh
+{
+  "refreshToken": "<refresh-token>"
+}
+```
+
+La réponse a exactement le même format que celle de connexion. Le client doit
+remplacer les deux jetons et leurs dates d'expiration par les nouvelles valeurs.

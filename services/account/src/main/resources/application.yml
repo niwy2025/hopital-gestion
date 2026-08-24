@@ -21,8 +21,13 @@ spring:
       port: ${REDIS_PORT:6379}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 hospital:
+  notification:
+    topic: ${NOTIFICATION_TOPIC:hospital.notification.request.v1}
   account:
     seed:
       admin-username: ${HOSPITAL_ADMIN_USERNAME:admin}

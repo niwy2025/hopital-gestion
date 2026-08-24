@@ -5,6 +5,7 @@ import com.hopital.account.application.dto.AuthenticatedAccountResponse;
 import com.hopital.account.application.dto.CreateAccountRequest;
 import com.hopital.account.application.dto.CredentialsValidationRequest;
 import com.hopital.account.application.dto.RoleResponse;
+import com.hopital.account.application.domain.AccountCreatedEvent;
 import com.hopital.account.application.exception.AccountNotFoundException;
 import com.hopital.account.infra.persistence.entity.AccountEntity;
 import com.hopital.account.infra.persistence.repository.AccountRepository;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,14 +24,17 @@ public class AccountApplicationService {
     private final RolePermissionService rolePermissionService;
     private final AccountRepository accountRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public AccountApplicationService(
             RolePermissionService rolePermissionService,
             AccountRepository accountRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            ApplicationEventPublisher applicationEventPublisher) {
         this.rolePermissionService = rolePermissionService;
         this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     public List<AccountResponse> listAccounts() {
@@ -46,7 +51,9 @@ public class AccountApplicationService {
                 request.displayName(),
                 passwordEncoder.encode(request.password()),
                 rolePermissionService.resolveRoles(requestedRoles));
-        return toResponse(accountRepository.save(account));
+        AccountResponse response = toResponse(accountRepository.save(account));
+        applicationEventPublisher.publishEvent(new AccountCreatedEvent(response));
+        return response;
     }
 
     public AccountResponse findByIdentifier(String identifier) {

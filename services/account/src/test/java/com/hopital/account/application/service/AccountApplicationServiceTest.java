@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.hopital.account.application.dto.CreateAccountRequest;
 import com.hopital.account.application.dto.CredentialsValidationRequest;
 import com.hopital.account.application.dto.RoleResponse;
+import com.hopital.account.application.domain.AccountCreatedEvent;
 import com.hopital.account.infra.persistence.entity.AccountEntity;
 import com.hopital.account.infra.persistence.entity.PermissionEntity;
 import com.hopital.account.infra.persistence.entity.RoleEntity;
@@ -24,6 +25,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class AccountApplicationServiceTest {
@@ -37,8 +39,14 @@ class AccountApplicationServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+
     @Captor
     private ArgumentCaptor<AccountEntity> accountCaptor;
+
+    @Captor
+    private ArgumentCaptor<AccountCreatedEvent> accountCreatedEventCaptor;
 
     @InjectMocks
     private AccountApplicationService accountApplicationService;
@@ -64,8 +72,10 @@ class AccountApplicationServiceTest {
                 Set.of("PATIENT")));
 
         verify(accountRepository).save(accountCaptor.capture());
+        verify(applicationEventPublisher).publishEvent(accountCreatedEventCaptor.capture());
         assertThat(accountCaptor.getValue().getPasswordHash()).isEqualTo("hashed-password");
         assertThat(response.username()).isEqualTo("alice");
+        assertThat(accountCreatedEventCaptor.getValue().account().email()).isEqualTo("alice@hopital.local");
         assertThat(response.roles()).singleElement().satisfies(role -> assertThat(role.code()).isEqualTo("PATIENT"));
     }
 

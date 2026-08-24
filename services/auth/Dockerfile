@@ -8,6 +8,7 @@ COPY infrastructure/gateway/api-gateway/pom.xml infrastructure/gateway/api-gatew
 COPY services/auth/pom.xml services/auth/pom.xml
 COPY services/account/pom.xml services/account/pom.xml
 COPY services/notification/pom.xml services/notification/pom.xml
+COPY services/organization/pom.xml services/organization/pom.xml
 COPY services/auth/src services/auth/src
 RUN --mount=type=cache,id=hopital-maven-repository,target=/root/.m2,sharing=locked \
     mvn --batch-mode --no-transfer-progress -pl services/auth -am package -DskipTests

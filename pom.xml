@@ -12,6 +12,7 @@
         <module>infrastructure/gateway/api-gateway</module>
         <module>services/auth</module>
         <module>services/account</module>
+        <module>services/notification</module>
     </modules>
 
     <properties>

@@ -277,6 +277,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_organization;encrypt=false;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: sa
       SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
+      KEYCLOAK_ISSUER_URI: http://localhost:8000/realms/hospital
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/hospital/protocol/openid-connect/certs
     depends_on:
       - sqlserver
       - sqlserver-init

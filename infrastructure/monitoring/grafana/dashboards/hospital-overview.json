@@ -82,7 +82,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" }, "1": { "color": "green", "index": 1, "text": "OPÉRATIONNEL" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
-      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 5 },
+      "gridPos": { "h": 3, "w": 3, "x": 0, "y": 5 },
       "id": 10,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "11.1.0",
@@ -93,7 +93,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" }, "1": { "color": "green", "index": 1, "text": "OPÉRATIONNEL" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
-      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 5 },
+      "gridPos": { "h": 3, "w": 3, "x": 3, "y": 5 },
       "id": 11,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "11.1.0",
@@ -104,7 +104,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" }, "1": { "color": "green", "index": 1, "text": "OPÉRATIONNEL" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
-      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 5 },
+      "gridPos": { "h": 3, "w": 3, "x": 6, "y": 5 },
       "id": 12,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "11.1.0",
@@ -115,7 +115,18 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" }, "1": { "color": "green", "index": 1, "text": "OPÉRATIONNEL" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
-      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 5 },
+      "gridPos": { "h": 3, "w": 3, "x": 9, "y": 5 },
+      "id": 16,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "pluginVersion": "11.1.0",
+      "targets": [{ "expr": "up{job=\"notification-service\"}", "instant": true, "refId": "A" }],
+      "title": "Notification service",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" }, "1": { "color": "green", "index": 1, "text": "OPÉRATIONNEL" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "gridPos": { "h": 3, "w": 3, "x": 12, "y": 5 },
       "id": 13,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "11.1.0",
@@ -126,7 +137,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" }, "1": { "color": "green", "index": 1, "text": "OPÉRATIONNEL" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
-      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 5 },
+      "gridPos": { "h": 3, "w": 3, "x": 15, "y": 5 },
       "id": 14,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "11.1.0",
@@ -137,7 +148,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "INDISPONIBLE" }, "1": { "color": "green", "index": 1, "text": "OPÉRATIONNEL" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
-      "gridPos": { "h": 3, "w": 4, "x": 20, "y": 5 },
+      "gridPos": { "h": 3, "w": 3, "x": 18, "y": 5 },
       "id": 15,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
       "pluginVersion": "11.1.0",
@@ -347,7 +358,7 @@
   "time": { "from": "now-1h", "to": "now" },
   "timezone": "browser",
   "title": "Hôpital — Microservices",
-  "uid": "hospital-services-overview",
+  "uid": "hospital-services-overview-v2",
   "version": 3,
   "weekStart": ""
 }

@@ -1,6 +1,7 @@
 package com.hopital.auth.infra.integration.account;
 
 import com.hopital.auth.application.dto.AuthenticatedAccountResponse;
+import com.hopital.auth.application.dto.AccountResponse;
 import com.hopital.auth.application.dto.CredentialsValidationRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -21,5 +22,12 @@ public class AccountClient {
                 .body(request)
                 .retrieve()
                 .body(AuthenticatedAccountResponse.class);
+    }
+
+    public AccountResponse findByIdentifier(String identifier) {
+        return restClient.get()
+                .uri("/internal/accounts/identifier/{identifier}", identifier)
+                .retrieve()
+                .body(AccountResponse.class);
     }
 }

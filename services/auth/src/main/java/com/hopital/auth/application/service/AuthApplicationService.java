@@ -1,6 +1,7 @@
 package com.hopital.auth.application.service;
 
 import com.hopital.auth.application.dto.AuthenticatedAccountResponse;
+import com.hopital.auth.application.dto.AccountWorkspaceResponse;
 import com.hopital.auth.application.dto.LoginRequest;
 import com.hopital.auth.application.dto.LoginResponse;
 import com.hopital.auth.application.dto.RefreshTokenRequest;
@@ -46,6 +47,14 @@ public class AuthApplicationService {
             throw new AuthException("Session invalide.");
         }
         return toLoginResponse(keycloakAuthClient.refresh(request.refreshToken()), request.userAgent());
+    }
+
+    public AccountWorkspaceResponse getAccountWorkspace(String username, String currentUserAgent) {
+        if (username == null || username.isBlank()) {
+            throw new AuthException("Session invalide.");
+        }
+        var account = accountClient.findByIdentifier(username);
+        return new AccountWorkspaceResponse(account, loginAuditRepository.findKnownDevices(account.id(), currentUserAgent));
     }
 
     private LoginResponse toLoginResponse(KeycloakAuthClient.KeycloakToken token, String userAgent) {

@@ -1,9 +1,12 @@
 package com.hopital.account.api;
 
 import com.hopital.account.application.dto.AuthenticatedAccountResponse;
+import com.hopital.account.application.dto.AccountResponse;
 import com.hopital.account.application.dto.CredentialsValidationRequest;
 import com.hopital.account.application.service.AccountApplicationService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,5 +25,10 @@ public class InternalAccountController {
     @PostMapping("/validate-credentials")
     public ResponseEntity<AuthenticatedAccountResponse> validateCredentials(@RequestBody CredentialsValidationRequest request) {
         return ResponseEntity.ok(accountApplicationService.validateCredentials(request));
+    }
+
+    @GetMapping("/identifier/{identifier}")
+    public ResponseEntity<AccountResponse> findByIdentifier(@PathVariable("identifier") String identifier) {
+        return ResponseEntity.ok(accountApplicationService.findByIdentifier(identifier));
     }
 }

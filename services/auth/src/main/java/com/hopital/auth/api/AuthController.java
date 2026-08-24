@@ -1,10 +1,13 @@
 package com.hopital.auth.api;
 
+import com.hopital.auth.application.dto.AccountWorkspaceResponse;
 import com.hopital.auth.application.dto.LoginRequest;
 import com.hopital.auth.application.dto.LoginResponse;
 import com.hopital.auth.application.dto.RefreshTokenRequest;
 import com.hopital.auth.application.service.AuthApplicationService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,6 +42,14 @@ public class AuthController {
     @GetMapping("/health")
     ResponseEntity<String> health() {
         return ResponseEntity.ok("auth-service-ready");
+    }
+
+    @GetMapping("/me")
+    ResponseEntity<AccountWorkspaceResponse> currentUser(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(value = "User-Agent", defaultValue = "unknown") String userAgent) {
+        return ResponseEntity.ok(authApplicationService.getAccountWorkspace(
+                jwt.getClaimAsString("preferred_username"), resolveUserAgent(null, userAgent)));
     }
 
     private LoginRequest withUserAgent(LoginRequest request, String requestUserAgent) {

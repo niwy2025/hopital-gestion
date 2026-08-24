@@ -185,12 +185,14 @@ services:
       AUTH_SERVICE_URI: http://auth-service:8081
       ACCOUNT_SERVICE_URI: http://account-service:8082
       NOTIFICATION_SERVICE_URI: http://notification-service:8083
+      ORGANIZATION_SERVICE_URI: http://organization-service:8084
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       - redis
       - auth-service
       - notification-service
+      - organization-service
     ports:
       - "8088:8088"
     networks: [hospital-network]
@@ -254,6 +256,23 @@ services:
       - kafka
     ports:
       - "8083:8083"
+    networks: [hospital-network]
+
+  organization-service:
+    image: organization-service
+    build:
+      context: .
+      dockerfile: services/organization/Dockerfile
+    container_name: organization-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_organization;encrypt=false;trustServerCertificate=true
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
+    depends_on:
+      - sqlserver
+      - sqlserver-init
+    ports:
+      - "8084:8084"
     networks: [hospital-network]
 
   prometheus:

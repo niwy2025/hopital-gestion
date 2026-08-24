@@ -27,6 +27,10 @@ spring:
           uri: ${NOTIFICATION_SERVICE_URI:http://notification-service:8083}
           predicates:
             - Path=/api/v1/notifications/**
+        - id: organization-service
+          uri: ${ORGANIZATION_SERVICE_URI:http://organization-service:8084}
+          predicates:
+            - Path=/api/v1/organizations/**
 
 management:
   metrics:

@@ -15,3 +15,9 @@ BEGIN
     CREATE DATABASE hospital_account;
 END;
 GO
+
+IF DB_ID('hospital_organization') IS NULL
+BEGIN
+    CREATE DATABASE hospital_organization;
+END;
+GO

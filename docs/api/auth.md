@@ -9,6 +9,7 @@ ne constitue donc pas une interface de connexion exposée aux utilisateurs.
 | --- | --- | --- |
 | `POST` | `/api/v1/auth/login` | Valide les identifiants et ouvre une session. |
 | `POST` | `/api/v1/auth/refresh` | Renouvelle une session avec son refresh token. |
+| `GET` | `/api/v1/auth/me` | Retourne le compte courant, ses droits et ses appareils reconnus. |
 | `GET` | `/api/v1/auth/health` | Vérifie la disponibilité du service. |
 
 ## Connexion
@@ -56,3 +57,12 @@ POST /api/v1/auth/refresh
 
 La réponse a exactement le même format que celle de connexion. Le client doit
 remplacer les deux jetons et leurs dates d'expiration par les nouvelles valeurs.
+
+## Espace compte
+
+`GET /api/v1/auth/me` requiert `Authorization: Bearer <access-token>`. La
+réponse contient l'identifiant, le nom, l'e-mail, les rôles et permissions du
+compte ainsi que les appareils reconnus. Un appareil est regroupé par
+`User-Agent` et expose sa dernière connexion réussie et son nombre de
+connexions. Le User-Agent est une information déclarative et peut être imité ;
+il ne remplace pas une solution de gestion de sessions ou de révocation.

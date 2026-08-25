@@ -21,3 +21,9 @@ BEGIN
     CREATE DATABASE hospital_organization;
 END;
 GO
+
+IF DB_ID('hospital_laboratory') IS NULL
+BEGIN
+    CREATE DATABASE hospital_laboratory;
+END;
+GO

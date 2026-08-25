@@ -18,11 +18,12 @@ services/account/                 Microservice de gestion des comptes
 services/auth/                    Microservice d'authentification
 services/notification/            Microservice asynchrone e-mail et SMS
 services/organization/            Référentiel territorial, hôpitaux et laboratoires de référence
+services/laboratory/              Cycle des analyses, échantillons, résultats et validations
 ```
 
 ## Briques incluses
 
-- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`, `organization-service`).
+- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`, `organization-service`, `laboratory-service`).
 - **Docker Compose** pour orchestrer les dépendances et services locaux.
 - **Kong** comme API Gateway publique.
 - **Keycloak** pour OAuth2/OpenID Connect et l'émission des JWT.
@@ -69,6 +70,7 @@ Ports utiles :
 | Account Service | `http://localhost:8082` | Gestion des comptes, rôles et permissions |
 | Notification Service | `http://localhost:8083` | Traitement asynchrone des e-mails et SMS |
 | Organization Service | `http://localhost:8084` | Référentiel des provinces, zones de santé et hôpitaux |
+| Laboratory Service | `http://localhost:8085` | Demandes d'analyse, échantillons, résultats et validations |
 | Keycloak | `http://localhost:8080` | Console IAM et endpoints OIDC |
 | SQL Server | `localhost:1433` | Base de données applicative |
 | Kafka | `localhost:9092` | Broker accessible depuis l'hôte |

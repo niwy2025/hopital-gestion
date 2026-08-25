@@ -9,6 +9,7 @@ COPY services/auth/pom.xml services/auth/pom.xml
 COPY services/account/pom.xml services/account/pom.xml
 COPY services/notification/pom.xml services/notification/pom.xml
 COPY services/organization/pom.xml services/organization/pom.xml
+COPY services/laboratory/pom.xml services/laboratory/pom.xml
 
 # Cette couche ne change que si un POM évolue. Docker réutilise alors toutes
 # les dépendances déjà résolues pour une simple modification de code.

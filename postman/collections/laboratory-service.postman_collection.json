@@ -1,0 +1,115 @@
+{
+  "info": {
+    "name": "Hopital Gestion - Laboratory Service",
+    "description": "Cycle des analyses : demande, échantillon, résultat et validation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Cycle des analyses",
+      "item": [
+        {
+          "name": "List analysis requests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/analysis-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "analysis-requests"]
+            }
+          }
+        },
+        {
+          "name": "Create analysis request",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"REQ-001\",\n  \"referenceLaboratoryCode\": \"LRP-KIN\",\n  \"patientReference\": \"PAT-001\",\n  \"patientName\": \"Patient de démonstration\",\n  \"analysisCode\": \"NFS\",\n  \"analysisName\": \"Numération formule sanguine\",\n  \"requesterName\": \"Dr. Mbala\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/analysis-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "analysis-requests"]
+            }
+          }
+        },
+        {
+          "name": "List specimens",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/specimens",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "specimens"]
+            }
+          }
+        },
+        {
+          "name": "Receive specimen",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"SPEC-001\",\n  \"analysisRequestCode\": \"REQ-001\",\n  \"specimenType\": \"BLOOD\",\n  \"collectedAt\": \"2026-08-25T08:00:00Z\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/specimens",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "specimens"]
+            }
+          }
+        },
+        {
+          "name": "List analysis results",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/analysis-results",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "analysis-results"]
+            }
+          }
+        },
+        {
+          "name": "Enter analysis result",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"RES-001\",\n  \"analysisRequestCode\": \"REQ-001\",\n  \"resultValue\": \"12.4\",\n  \"unit\": \"g/dL\",\n  \"referenceRange\": \"12 - 16\",\n  \"comment\": \"Résultat contrôlé avant validation.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/analysis-results",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "analysis-results"]
+            }
+          }
+        },
+        {
+          "name": "Validate analysis result",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"validatedBy\": \"biologiste\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/analysis-results/RES-001/validation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "analysis-results", "RES-001", "validation"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

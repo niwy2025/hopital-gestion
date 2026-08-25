@@ -31,6 +31,10 @@ spring:
           uri: ${ORGANIZATION_SERVICE_URI:http://organization-service:8084}
           predicates:
             - Path=/api/v1/organizations/**
+        - id: laboratory-service
+          uri: ${LABORATORY_SERVICE_URI:http://laboratory-service:8085}
+          predicates:
+            - Path=/api/v1/laboratory/**
 
 management:
   metrics:

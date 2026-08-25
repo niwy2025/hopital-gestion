@@ -1,0 +1,14 @@
+ALTER TABLE analysis_requests
+    ALTER COLUMN created_at DATETIMEOFFSET(6) NOT NULL;
+
+ALTER TABLE specimens
+    ALTER COLUMN collected_at DATETIMEOFFSET(6) NOT NULL;
+
+ALTER TABLE specimens
+    ALTER COLUMN received_at DATETIMEOFFSET(6) NOT NULL;
+
+ALTER TABLE analysis_results
+    ALTER COLUMN entered_at DATETIMEOFFSET(6) NOT NULL;
+
+ALTER TABLE analysis_results
+    ALTER COLUMN validated_at DATETIMEOFFSET(6) NULL;

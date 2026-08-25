@@ -5,6 +5,7 @@ import com.hopital.laboratory.application.dto.AnalysisResultResponse;
 import com.hopital.laboratory.application.dto.CreateAnalysisRequestRequest;
 import com.hopital.laboratory.application.dto.CreateAnalysisResultRequest;
 import com.hopital.laboratory.application.dto.CreateSpecimenRequest;
+import com.hopital.laboratory.application.dto.PageResponse;
 import com.hopital.laboratory.application.dto.SpecimenResponse;
 import com.hopital.laboratory.application.dto.ValidateAnalysisResultRequest;
 import com.hopital.laboratory.application.service.LaboratoryApplicationService;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -35,6 +37,14 @@ public class LaboratoryController {
         return ResponseEntity.ok(laboratoryApplicationService.listAnalysisRequests());
     }
 
+    @GetMapping("/analysis-requests/search")
+    public ResponseEntity<PageResponse<AnalysisRequestResponse>> searchAnalysisRequests(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(laboratoryApplicationService.searchAnalysisRequests(page, size, query));
+    }
+
     @PostMapping("/analysis-requests")
     public ResponseEntity<AnalysisRequestResponse> createAnalysisRequest(
             @Valid @RequestBody CreateAnalysisRequestRequest request) {
@@ -46,6 +56,14 @@ public class LaboratoryController {
         return ResponseEntity.ok(laboratoryApplicationService.listSpecimens());
     }
 
+    @GetMapping("/specimens/search")
+    public ResponseEntity<PageResponse<SpecimenResponse>> searchSpecimens(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(laboratoryApplicationService.searchSpecimens(page, size, query));
+    }
+
     @PostMapping("/specimens")
     public ResponseEntity<SpecimenResponse> receiveSpecimen(@Valid @RequestBody CreateSpecimenRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(laboratoryApplicationService.receiveSpecimen(request));
@@ -54,6 +72,14 @@ public class LaboratoryController {
     @GetMapping("/analysis-results")
     public ResponseEntity<List<AnalysisResultResponse>> listAnalysisResults() {
         return ResponseEntity.ok(laboratoryApplicationService.listAnalysisResults());
+    }
+
+    @GetMapping("/analysis-results/search")
+    public ResponseEntity<PageResponse<AnalysisResultResponse>> searchAnalysisResults(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(laboratoryApplicationService.searchAnalysisResults(page, size, query));
     }
 
     @PostMapping("/analysis-results")

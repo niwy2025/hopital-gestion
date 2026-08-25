@@ -11,8 +11,13 @@ défaut `http://localhost:8888`.
 | Méthode | Endpoint | Description |
 | --- | --- | --- |
 | `GET` | `/api/v1/patients` | Liste les dossiers patients. |
+| `GET` | `/api/v1/patients/search?page=0&size=20&query=amina` | Recherche paginée par code, identité ou hôpital d'enregistrement. |
 | `POST` | `/api/v1/patients` | Crée un dossier patient. |
 | `PATCH` | `/api/v1/patients/{code}/status` | Active ou désactive un dossier. |
+
+Les listes destinées à l'interface utilisent l'endpoint `search`. `page` est
+indexé à partir de `0`, `size` accepte au plus `100` éléments et la réponse
+contient `items`, `page`, `size`, `totalElements` et `totalPages`.
 
 ## Créer un patient
 

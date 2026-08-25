@@ -45,6 +45,14 @@ public class OrganizationController {
         return ResponseEntity.ok(organizationApplicationService.listProvinces());
     }
 
+    @GetMapping("/provinces/search")
+    public ResponseEntity<PageResponse<ProvinceResponse>> searchProvinces(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(organizationApplicationService.searchProvinces(page, size, query));
+    }
+
     @PostMapping("/provinces")
     public ResponseEntity<ProvinceResponse> createProvince(@Valid @RequestBody CreateProvinceRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(organizationApplicationService.createProvince(request));
@@ -88,6 +96,15 @@ public class OrganizationController {
         return ResponseEntity.ok(organizationApplicationService.listHealthAreas());
     }
 
+    @GetMapping("/health-areas/search")
+    public ResponseEntity<PageResponse<HealthAreaResponse>> searchHealthAreas(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String provinceCode) {
+        return ResponseEntity.ok(organizationApplicationService.searchHealthAreas(page, size, query, provinceCode));
+    }
+
     @PostMapping("/health-areas")
     public ResponseEntity<HealthAreaResponse> createHealthArea(@Valid @RequestBody CreateHealthAreaRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(organizationApplicationService.createHealthArea(request));
@@ -105,6 +122,15 @@ public class OrganizationController {
         return ResponseEntity.ok(organizationApplicationService.listHospitals());
     }
 
+    @GetMapping("/hospitals/search")
+    public ResponseEntity<PageResponse<HospitalResponse>> searchHospitals(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String provinceCode) {
+        return ResponseEntity.ok(organizationApplicationService.searchHospitals(page, size, query, provinceCode));
+    }
+
     @PostMapping("/hospitals")
     public ResponseEntity<HospitalResponse> createHospital(@Valid @RequestBody CreateHospitalRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(organizationApplicationService.createHospital(request));
@@ -120,6 +146,16 @@ public class OrganizationController {
     @GetMapping("/reference-laboratories")
     public ResponseEntity<List<ReferenceLaboratoryResponse>> listReferenceLaboratories() {
         return ResponseEntity.ok(organizationApplicationService.listReferenceLaboratories());
+    }
+
+    @GetMapping("/reference-laboratories/search")
+    public ResponseEntity<PageResponse<ReferenceLaboratoryResponse>> searchReferenceLaboratories(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String provinceCode) {
+        return ResponseEntity.ok(
+                organizationApplicationService.searchReferenceLaboratories(page, size, query, provinceCode));
     }
 
     @PostMapping("/reference-laboratories")
@@ -141,6 +177,14 @@ public class OrganizationController {
         return ResponseEntity.ok(organizationApplicationService.listHospitalLaboratories());
     }
 
+    @GetMapping("/hospital-laboratories/search")
+    public ResponseEntity<PageResponse<HospitalLaboratoryResponse>> searchHospitalLaboratories(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(organizationApplicationService.searchHospitalLaboratories(page, size, query));
+    }
+
     @PostMapping("/hospital-laboratories")
     public ResponseEntity<HospitalLaboratoryResponse> createHospitalLaboratory(
             @Valid @RequestBody CreateHospitalLaboratoryRequest request) {
@@ -157,6 +201,14 @@ public class OrganizationController {
     @GetMapping("/laboratory-structures")
     public ResponseEntity<List<LaboratoryStructureResponse>> listLaboratoryStructures() {
         return ResponseEntity.ok(organizationApplicationService.listLaboratoryStructures());
+    }
+
+    @GetMapping("/laboratory-structures/search")
+    public ResponseEntity<PageResponse<LaboratoryStructureResponse>> searchLaboratoryStructures(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(organizationApplicationService.searchLaboratoryStructures(page, size, query));
     }
 
     @PostMapping("/laboratory-structures")

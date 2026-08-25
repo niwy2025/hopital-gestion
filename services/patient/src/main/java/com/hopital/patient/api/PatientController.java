@@ -2,6 +2,7 @@ package com.hopital.patient.api;
 
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.PatientResponse;
+import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.service.PatientApplicationService;
 import jakarta.validation.Valid;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -29,6 +31,14 @@ public class PatientController {
     @GetMapping
     public ResponseEntity<List<PatientResponse>> listPatients() {
         return ResponseEntity.ok(patientApplicationService.listPatients());
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<PageResponse<PatientResponse>> searchPatients(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(patientApplicationService.searchPatients(page, size, query));
     }
 
     @PostMapping

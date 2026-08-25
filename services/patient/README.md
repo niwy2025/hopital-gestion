@@ -7,4 +7,5 @@ hospitalisations et factures seront ajoutées dans des services métier dédiés
 ## Endpoints
 
 - `GET` / `POST` /api/v1/patients
+- `GET /api/v1/patients/search?page=0&size=20&query=...`
 - `PATCH` /api/v1/patients/{code}/status

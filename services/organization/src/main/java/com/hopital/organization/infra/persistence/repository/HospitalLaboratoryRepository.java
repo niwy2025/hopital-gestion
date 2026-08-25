@@ -4,7 +4,11 @@ import com.hopital.organization.infra.persistence.entity.HospitalLaboratoryEntit
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface HospitalLaboratoryRepository extends JpaRepository<HospitalLaboratoryEntity, UUID> {
 
@@ -13,4 +17,16 @@ public interface HospitalLaboratoryRepository extends JpaRepository<HospitalLabo
     Optional<HospitalLaboratoryEntity> findByCodeIgnoreCase(String code);
 
     List<HospitalLaboratoryEntity> findAllByOrderByNameAsc();
+
+    @Query("""
+            SELECT hospitalLaboratory
+            FROM HospitalLaboratoryEntity hospitalLaboratory
+            JOIN hospitalLaboratory.hospital hospital
+            WHERE (:query IS NULL
+                    OR LOWER(hospitalLaboratory.code) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(hospitalLaboratory.name) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(hospital.code) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(hospital.name) LIKE LOWER(CONCAT('%', :query, '%')))
+            """)
+    Page<HospitalLaboratoryEntity> search(@Param("query") String query, Pageable pageable);
 }

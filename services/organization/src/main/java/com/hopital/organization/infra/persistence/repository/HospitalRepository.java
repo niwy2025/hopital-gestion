@@ -4,7 +4,11 @@ import com.hopital.organization.infra.persistence.entity.HospitalEntity;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface HospitalRepository extends JpaRepository<HospitalEntity, UUID> {
 
@@ -13,4 +17,19 @@ public interface HospitalRepository extends JpaRepository<HospitalEntity, UUID> 
     Optional<HospitalEntity> findByCodeIgnoreCase(String code);
 
     List<HospitalEntity> findAllByOrderByNameAsc();
+
+    @Query("""
+            SELECT hospital
+            FROM HospitalEntity hospital
+            JOIN hospital.healthZone healthZone
+            JOIN healthZone.province province
+            WHERE (:query IS NULL
+                    OR LOWER(hospital.code) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(hospital.name) LIKE LOWER(CONCAT('%', :query, '%')))
+              AND (:provinceCode IS NULL OR LOWER(province.code) = LOWER(:provinceCode))
+            """)
+    Page<HospitalEntity> search(
+            @Param("query") String query,
+            @Param("provinceCode") String provinceCode,
+            Pageable pageable);
 }

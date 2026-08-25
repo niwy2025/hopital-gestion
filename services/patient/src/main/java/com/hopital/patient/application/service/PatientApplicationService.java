@@ -2,6 +2,7 @@ package com.hopital.patient.application.service;
 
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.PatientResponse;
+import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.exception.DuplicatePatientException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
@@ -11,6 +12,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +29,18 @@ public class PatientApplicationService {
 
     public List<PatientResponse> listPatients() {
         return patientRepository.findAllByOrderByLastNameAscFirstNameAsc().stream().map(this::toResponse).toList();
+    }
+
+    public PageResponse<PatientResponse> searchPatients(int page, int size, String query) {
+        var patients = patientRepository.search(
+                trimToNull(query),
+                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by("lastName").ascending().and(Sort.by("firstName").ascending())));
+        return new PageResponse<>(
+                patients.getContent().stream().map(this::toResponse).toList(),
+                patients.getNumber(),
+                patients.getSize(),
+                patients.getTotalElements(),
+                patients.getTotalPages());
     }
 
     @Transactional

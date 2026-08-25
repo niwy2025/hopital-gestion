@@ -15,6 +15,9 @@ laboratoires.
 ## Endpoints
 
 - `GET` / `POST /api/v1/laboratory/analysis-requests`
+- `GET /api/v1/laboratory/analysis-requests/search?page=0&size=20&query=...`
 - `GET` / `POST /api/v1/laboratory/specimens`
+- `GET /api/v1/laboratory/specimens/search?page=0&size=20&query=...`
 - `GET` / `POST /api/v1/laboratory/analysis-results`
+- `GET /api/v1/laboratory/analysis-results/search?page=0&size=20&query=...`
 - `PATCH /api/v1/laboratory/analysis-results/{code}/validation`

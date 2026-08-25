@@ -36,6 +36,8 @@ import com.hopital.organization.infra.persistence.repository.ReferenceLaboratory
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.function.Function;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -74,42 +76,72 @@ public class OrganizationApplicationService {
         return provinceRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
+    public PageResponse<ProvinceResponse> searchProvinces(int page, int size, String query) {
+        return toPageResponse(provinceRepository.search(normalizeFilter(query), pageRequest(page, size)), this::toResponse);
+    }
+
     public List<HealthZoneResponse> listHealthZones() {
         return healthZoneRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
     public PageResponse<HealthZoneResponse> searchHealthZones(
             int page, int size, String query, String provinceCode) {
-        var healthZones = healthZoneRepository.search(
-                normalizeFilter(query),
-                normalizeFilter(provinceCode),
-                PageRequest.of(normalizePage(page), normalizePageSize(size), Sort.by("name").ascending()));
-        return new PageResponse<>(
-                healthZones.getContent().stream().map(this::toResponse).toList(),
-                healthZones.getNumber(),
-                healthZones.getSize(),
-                healthZones.getTotalElements(),
-                healthZones.getTotalPages());
+        return toPageResponse(
+                healthZoneRepository.search(
+                        normalizeFilter(query), normalizeFilter(provinceCode), pageRequest(page, size)),
+                this::toResponse);
     }
 
     public List<HealthAreaResponse> listHealthAreas() {
         return healthAreaRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
+    public PageResponse<HealthAreaResponse> searchHealthAreas(
+            int page, int size, String query, String provinceCode) {
+        return toPageResponse(
+                healthAreaRepository.search(
+                        normalizeFilter(query), normalizeFilter(provinceCode), pageRequest(page, size)),
+                this::toResponse);
+    }
+
     public List<HospitalResponse> listHospitals() {
         return hospitalRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
+    }
+
+    public PageResponse<HospitalResponse> searchHospitals(
+            int page, int size, String query, String provinceCode) {
+        return toPageResponse(
+                hospitalRepository.search(
+                        normalizeFilter(query), normalizeFilter(provinceCode), pageRequest(page, size)),
+                this::toResponse);
     }
 
     public List<ReferenceLaboratoryResponse> listReferenceLaboratories() {
         return referenceLaboratoryRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
+    public PageResponse<ReferenceLaboratoryResponse> searchReferenceLaboratories(
+            int page, int size, String query, String provinceCode) {
+        return toPageResponse(
+                referenceLaboratoryRepository.search(
+                        normalizeFilter(query), normalizeFilter(provinceCode), pageRequest(page, size)),
+                this::toResponse);
+    }
+
     public List<HospitalLaboratoryResponse> listHospitalLaboratories() {
         return hospitalLaboratoryRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
+    public PageResponse<HospitalLaboratoryResponse> searchHospitalLaboratories(int page, int size, String query) {
+        return toPageResponse(hospitalLaboratoryRepository.search(normalizeFilter(query), pageRequest(page, size)), this::toResponse);
+    }
+
     public List<LaboratoryStructureResponse> listLaboratoryStructures() {
         return laboratoryStructureRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
+    }
+
+    public PageResponse<LaboratoryStructureResponse> searchLaboratoryStructures(int page, int size, String query) {
+        return toPageResponse(laboratoryStructureRepository.search(normalizeFilter(query), pageRequest(page, size)), this::toResponse);
     }
 
     @Transactional
@@ -359,6 +391,19 @@ public class OrganizationApplicationService {
 
     private String normalizeCode(String code) {
         return code.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private PageRequest pageRequest(int page, int size) {
+        return PageRequest.of(normalizePage(page), normalizePageSize(size), Sort.by("name").ascending());
+    }
+
+    private <T, R> PageResponse<R> toPageResponse(Page<T> page, Function<T, R> mapper) {
+        return new PageResponse<>(
+                page.getContent().stream().map(mapper).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages());
     }
 
     private int normalizePage(int page) {

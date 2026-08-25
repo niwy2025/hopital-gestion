@@ -8,6 +8,7 @@ import com.hopital.laboratory.application.dto.AnalysisResultResponse;
 import com.hopital.laboratory.application.dto.CreateAnalysisRequestRequest;
 import com.hopital.laboratory.application.dto.CreateAnalysisResultRequest;
 import com.hopital.laboratory.application.dto.CreateSpecimenRequest;
+import com.hopital.laboratory.application.dto.PageResponse;
 import com.hopital.laboratory.application.dto.SpecimenResponse;
 import com.hopital.laboratory.application.dto.ValidateAnalysisResultRequest;
 import com.hopital.laboratory.application.exception.DuplicateLaboratoryResourceException;
@@ -23,6 +24,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.function.Function;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,12 +52,26 @@ public class LaboratoryApplicationService {
         return analysisRequestRepository.findAllByOrderByCreatedAtDesc().stream().map(this::toResponse).toList();
     }
 
+    public PageResponse<AnalysisRequestResponse> searchAnalysisRequests(int page, int size, String query) {
+        return toPageResponse(
+                analysisRequestRepository.search(trimToNull(query), pageRequest(page, size, "createdAt")), this::toResponse);
+    }
+
     public List<SpecimenResponse> listSpecimens() {
         return specimenRepository.findAllByOrderByReceivedAtDesc().stream().map(this::toResponse).toList();
     }
 
+    public PageResponse<SpecimenResponse> searchSpecimens(int page, int size, String query) {
+        return toPageResponse(specimenRepository.search(trimToNull(query), pageRequest(page, size, "receivedAt")), this::toResponse);
+    }
+
     public List<AnalysisResultResponse> listAnalysisResults() {
         return analysisResultRepository.findAllByOrderByEnteredAtDesc().stream().map(this::toResponse).toList();
+    }
+
+    public PageResponse<AnalysisResultResponse> searchAnalysisResults(int page, int size, String query) {
+        return toPageResponse(
+                analysisResultRepository.search(trimToNull(query), pageRequest(page, size, "enteredAt")), this::toResponse);
     }
 
     @Transactional
@@ -185,6 +204,19 @@ public class LaboratoryApplicationService {
 
     private String normalizeCode(String code) {
         return code.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private PageRequest pageRequest(int page, int size, String sortField) {
+        return PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by(sortField).descending());
+    }
+
+    private <T, R> PageResponse<R> toPageResponse(Page<T> page, Function<T, R> mapper) {
+        return new PageResponse<>(
+                page.getContent().stream().map(mapper).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages());
     }
 
     private String trimToNull(String value) {

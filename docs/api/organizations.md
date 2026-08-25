@@ -12,6 +12,8 @@ Gateway avec la base locale `http://localhost:8888`.
 ## Provinces
 
 - `GET /api/v1/organizations/provinces` : liste les provinces.
+- `GET /api/v1/organizations/provinces/search` : liste paginée avec recherche
+  par code ou nom.
 - `POST /api/v1/organizations/provinces` : crée une province.
 
 ```json
@@ -46,6 +48,8 @@ La réponse contient `items`, `page`, `size`, `totalElements` et `totalPages`.
 ## Hôpitaux et centres
 
 - `GET /api/v1/organizations/hospitals` : liste les structures.
+- `GET /api/v1/organizations/hospitals/search` : liste paginée avec recherche
+  et filtre de province.
 - `POST /api/v1/organizations/hospitals` : crée une structure dans une zone de
   santé. L'aire est obligatoire pour un centre de santé et facultative pour un
   hôpital de référence ; lorsqu'elle est indiquée, elle doit appartenir à la
@@ -70,6 +74,8 @@ pour le type `HEALTH_CENTER`.
 ## Aires de santé
 
 - `GET /api/v1/organizations/health-areas` : liste les aires de santé.
+- `GET /api/v1/organizations/health-areas/search` : liste paginée avec
+  recherche et filtre de province.
 - `POST /api/v1/organizations/health-areas` : crée une aire dans une zone de
   santé existante.
 
@@ -89,6 +95,8 @@ hôpital, contrairement à un laboratoire provincial de référence.
 
 - `GET /api/v1/organizations/hospital-laboratories` : liste les laboratoires
   internes.
+- `GET /api/v1/organizations/hospital-laboratories/search` : liste paginée
+  avec recherche par laboratoire ou établissement.
 - `POST /api/v1/organizations/hospital-laboratories` : crée un laboratoire
   interne dans un hôpital existant.
 - `PATCH /api/v1/organizations/hospital-laboratories/{code}/status` : active
@@ -103,6 +111,16 @@ hôpital, contrairement à un laboratoire provincial de référence.
   "phoneNumber": "+243810000002"
 }
 ```
+
+## Laboratoires de référence et structures
+
+- `GET /api/v1/organizations/reference-laboratories/search` : liste paginée
+  avec recherche et filtre de province.
+- `GET /api/v1/organizations/laboratory-structures/search` : liste paginée
+  avec recherche par structure ou laboratoire.
+
+Tous les endpoints `search` acceptent `page` et `size` (1 à 100) et renvoient
+`items`, `page`, `size`, `totalElements` et `totalPages`.
 
 Les erreurs métiers respectent le format commun suivant :
 

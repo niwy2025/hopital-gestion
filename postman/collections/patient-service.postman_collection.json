@@ -1,0 +1,59 @@
+{
+  "info": {
+    "name": "Hopital Gestion - Patient Service",
+    "description": "Registre provincial des patients.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Dossiers patients",
+      "item": [
+        {
+          "name": "List patients",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/patients",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "patients"]
+            }
+          }
+        },
+        {
+          "name": "Create patient",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"PAT-0001\",\n  \"firstName\": \"Amina\",\n  \"lastName\": \"Kasongo\",\n  \"dateOfBirth\": \"1992-05-04\",\n  \"gender\": \"FEMALE\",\n  \"phoneNumber\": \"+243 900 000 000\",\n  \"address\": \"Goma\",\n  \"registrationHospitalCode\": \"HGR-GOMA-001\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/patients",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "patients"]
+            }
+          }
+        },
+        {
+          "name": "Deactivate patient",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/patients/PAT-0001/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "patients", "PAT-0001", "status"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

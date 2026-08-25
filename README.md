@@ -19,11 +19,12 @@ services/auth/                    Microservice d'authentification
 services/notification/            Microservice asynchrone e-mail et SMS
 services/organization/            Référentiel territorial, hôpitaux et laboratoires
 services/laboratory/              Cycle des analyses, échantillons, résultats et validations
+services/patient/                 Registre provincial des dossiers patients
 ```
 
 ## Briques incluses
 
-- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`, `organization-service`, `laboratory-service`).
+- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`, `organization-service`, `laboratory-service`, `patient-service`).
 - **Docker Compose** pour orchestrer les dépendances et services locaux.
 - **Kong** comme API Gateway publique.
 - **Keycloak** pour OAuth2/OpenID Connect et l'émission des JWT.
@@ -55,7 +56,8 @@ docker compose up -d --no-deps --force-recreate auth-service
 ```
 
 Remplacez `auth-service` par `account-service`, `notification-service`,
-`organization-service` ou `api-gateway` selon le service modifié. Évitez
+`organization-service`, `laboratory-service`, `patient-service` ou
+`api-gateway` selon le service modifié. Évitez
 `--no-cache` pour le développement courant : cette option force volontairement
 le téléchargement et la reconstruction de toutes les couches.
 
@@ -71,6 +73,7 @@ Ports utiles :
 | Notification Service | `http://localhost:8083` | Traitement asynchrone des e-mails et SMS |
 | Organization Service | `http://localhost:8084` | Référentiel des provinces, zones de santé et hôpitaux |
 | Laboratory Service | `http://localhost:8085` | Demandes d'analyse, échantillons, résultats et validations |
+| Patient Service | `http://localhost:8086` | Registre provincial des dossiers patients |
 | Keycloak | `http://localhost:8080` | Console IAM et endpoints OIDC |
 | SQL Server | `localhost:1433` | Base de données applicative |
 | Kafka | `localhost:9092` | Broker accessible depuis l'hôte |
@@ -105,10 +108,12 @@ README.md
 Chaque service qui possède une base de données conserve ses migrations SQL dans
 `src/main/resources/db/migration`. Les fichiers suivent le format
 `V<version>_<nom-bref-de-la-migration>.sql`, par exemple
-`V1_create_accounts.sql`. Les versions sont strictement croissantes et une
+`V1_create_accounts.sql`. Le séparateur `_` est configuré explicitement dans
+Flyway. Les versions sont strictement croissantes et une
 migration déjà appliquée ne doit jamais être modifiée.
 
-Les services `services/account`, `services/auth` et `services/organization` appliquent déjà cette convention et servent de modèles
+Les services `services/account`, `services/auth`, `services/organization`,
+`services/laboratory` et `services/patient` appliquent déjà cette convention et servent de modèles
 pour les futurs services hospitaliers comme `patient-service`,
 `appointment-service`, `staff-service`, `billing-service` ou
 `notification-service`.
@@ -116,7 +121,8 @@ pour les futurs services hospitaliers comme `patient-service`,
 ## Observabilité
 
 Prometheus collecte Kong, Keycloak, `api-gateway`, `auth-service`,
-`account-service`, `notification-service` et `organization-service` depuis
+`account-service`, `notification-service`, `organization-service`,
+`laboratory-service` et `patient-service` depuis
 `infrastructure/monitoring/prometheus/prometheus.yml`. Chaque service Spring
 Boot expose `/actuator/prometheus` grâce à Actuator et Micrometer, avec le tag
 `application` pour distinguer ses métriques. Grafana provisionne la datasource
@@ -161,7 +167,10 @@ laboratoire interne** et **province → laboratoire de référence → service, 
 ou département**, puis expose ses opérations via Kong sous
 `/api/v1/organizations`. Une demande d’analyse indique le laboratoire exécutant
 (interne ou de référence) et son statut permet au futur dossier patient de
-signaler qu’il est en attente de résultat au laboratoire. Les affectations des
+signaler qu’il est en attente de résultat au laboratoire. Le registre des
+patients est désormais porté par `patient-service` : il rattache chaque dossier
+à son hôpital d'enregistrement et fournit les patients sélectionnables lors
+d'une demande d'analyse. Les affectations des
 médecins et du personnel viendront dans le prochain lot, avec un service dédié
 au personnel. La protection de ces opérations par les rôles administratifs
 Keycloak reste à activer : les endpoints ne doivent pas encore être considérés

@@ -1,0 +1,85 @@
+package com.hopital.patient.application.service;
+
+import com.hopital.patient.application.dto.CreatePatientRequest;
+import com.hopital.patient.application.dto.PatientResponse;
+import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
+import com.hopital.patient.application.exception.DuplicatePatientException;
+import com.hopital.patient.application.exception.PatientNotFoundException;
+import com.hopital.patient.infra.persistence.entity.PatientEntity;
+import com.hopital.patient.infra.persistence.repository.PatientRepository;
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@Transactional(readOnly = true)
+public class PatientApplicationService {
+
+    private final PatientRepository patientRepository;
+
+    public PatientApplicationService(PatientRepository patientRepository) {
+        this.patientRepository = patientRepository;
+    }
+
+    public List<PatientResponse> listPatients() {
+        return patientRepository.findAllByOrderByLastNameAscFirstNameAsc().stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
+    public PatientResponse createPatient(CreatePatientRequest request) {
+        String code = normalizeCode(request.code());
+        if (patientRepository.existsByCodeIgnoreCase(code)) {
+            throw new DuplicatePatientException(code);
+        }
+
+        PatientEntity patient = new PatientEntity(
+                UUID.randomUUID(),
+                code,
+                request.firstName().trim(),
+                request.lastName().trim(),
+                request.dateOfBirth(),
+                request.gender(),
+                trimToNull(request.phoneNumber()),
+                trimToNull(request.address()),
+                normalizeCode(request.registrationHospitalCode()),
+                Instant.now());
+        return toResponse(patientRepository.save(patient));
+    }
+
+    @Transactional
+    public PatientResponse updateStatus(String patientCode, UpdatePatientStatusRequest request) {
+        PatientEntity patient = patientRepository.findByCodeIgnoreCase(normalizeCode(patientCode))
+                .orElseThrow(() -> new PatientNotFoundException(patientCode));
+        patient.setActive(request.active());
+        return toResponse(patient);
+    }
+
+    private PatientResponse toResponse(PatientEntity patient) {
+        return new PatientResponse(
+                patient.getId(),
+                patient.getCode(),
+                patient.getFirstName(),
+                patient.getLastName(),
+                patient.getDateOfBirth(),
+                patient.getGender(),
+                patient.getPhoneNumber(),
+                patient.getAddress(),
+                patient.getRegistrationHospitalCode(),
+                patient.isActive(),
+                patient.getCreatedAt());
+    }
+
+    private String normalizeCode(String code) {
+        return code.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String trimToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
+    }
+}

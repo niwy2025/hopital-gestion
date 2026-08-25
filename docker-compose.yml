@@ -220,6 +220,7 @@ services:
       NOTIFICATION_SERVICE_URI: http://notification-service:8083
       ORGANIZATION_SERVICE_URI: http://organization-service:8084
       LABORATORY_SERVICE_URI: http://laboratory-service:8085
+      PATIENT_SERVICE_URI: http://patient-service:8086
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
     depends_on:
@@ -228,6 +229,7 @@ services:
       - notification-service
       - organization-service
       - laboratory-service
+      - patient-service
     ports:
       - "8088:8088"
     networks: [hospital-network]
@@ -337,6 +339,25 @@ services:
       - sqlserver-init
     ports:
       - "8085:8085"
+    networks: [hospital-network]
+
+  patient-service:
+    image: patient-service
+    build:
+      context: .
+      dockerfile: services/patient/Dockerfile
+    container_name: patient-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_patient;encrypt=false;trustServerCertificate=true
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
+    depends_on:
+      sqlserver:
+        condition: service_started
+      sqlserver-init:
+        condition: service_completed_successfully
+    ports:
+      - "8086:8086"
     networks: [hospital-network]
 
   prometheus:

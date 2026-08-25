@@ -1,0 +1,105 @@
+# Surcharge de production. Elle s'utilise toujours avec docker-compose.yml :
+# docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Les ports applicatifs sont volontairement retirés : seul Caddy est exposé
+# publiquement sur 80/443. Les communications inter-services restent internes.
+services:
+  kong:
+    ports: !reset []
+    restart: unless-stopped
+
+  keycloak:
+    ports: !reset []
+    restart: unless-stopped
+
+  sqlserver:
+    ports: !reset []
+    restart: unless-stopped
+
+  kafka:
+    ports: !reset []
+    restart: unless-stopped
+
+  api-gateway:
+    ports: !reset []
+    restart: unless-stopped
+
+  auth-service:
+    ports: !reset []
+    restart: unless-stopped
+
+  account-service:
+    ports: !reset []
+    restart: unless-stopped
+
+  notification-service:
+    ports: !reset []
+    restart: unless-stopped
+
+  organization-service:
+    ports: !reset []
+    restart: unless-stopped
+
+  laboratory-service:
+    ports: !reset []
+    restart: unless-stopped
+
+  patient-service:
+    ports: !reset []
+    restart: unless-stopped
+
+  prometheus:
+    ports: !reset []
+    restart: unless-stopped
+
+  grafana:
+    ports: !reset []
+    restart: unless-stopped
+
+  zookeeper:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  kong-database:
+    restart: unless-stopped
+
+  keycloak-database:
+    restart: unless-stopped
+
+  kong-migrations:
+    restart: on-failure
+
+  kong-init:
+    restart: on-failure
+
+  sqlserver-init:
+    restart: on-failure
+
+  keycloak-init:
+    restart: on-failure
+
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: caddy
+    depends_on:
+      kong:
+        condition: service_started
+    environment:
+      HOSPITAL_DOMAIN: ${HOSPITAL_DOMAIN:?Définissez HOSPITAL_DOMAIN dans le fichier .env}
+      ACME_EMAIL: ${ACME_EMAIL:?Définissez ACME_EMAIL dans le fichier .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - hospital-network
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

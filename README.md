@@ -61,6 +61,31 @@ Remplacez `auth-service` par `account-service`, `notification-service`,
 `--no-cache` pour le développement courant : cette option force volontairement
 le téléchargement et la reconstruction de toutes les couches.
 
+## Déploiement de production
+
+Le fichier `docker-compose.prod.yml` complète la configuration locale. Il ferme
+tous les ports techniques et publie uniquement Caddy sur `80` et `443` :
+
+```text
+Internet → Caddy (HTTPS) → portail Next.js / Kong → services internes
+```
+
+Avant le premier déploiement, créez un enregistrement DNS pour le domaine vers
+l'adresse IP du serveur, puis préparez les secrets. Les valeurs contenant `$`
+doivent être placées entre guillemets simples, sinon Docker Compose tente de
+les interpréter comme des variables.
+
+```bash
+cp .env.production.example .env
+# Éditez .env : HOSPITAL_DOMAIN, ACME_EMAIL et tous les mots de passe.
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Caddy demande et renouvelle automatiquement le certificat TLS. Les ports
+`80` et `443` doivent donc être accessibles depuis Internet. Le portail
+frontend se déploie ensuite sur le réseau Docker partagé ; consultez son
+README pour la commande dédiée.
+
 Ports utiles :
 
 | Service | URL / port | Usage |

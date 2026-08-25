@@ -116,6 +116,26 @@ class OrganizationApplicationServiceTest {
     }
 
     @Test
+    void createsAReferenceHospitalWithoutAHealthArea() {
+        ProvinceEntity province = new ProvinceEntity("KIN", "Kinshasa");
+        HealthZoneEntity healthZone = new HealthZoneEntity("KINSENSO", "Kinsenso", province);
+        when(hospitalRepository.existsByCodeIgnoreCase("HGR-KIN-002")).thenReturn(false);
+        when(healthZoneRepository.findByCodeIgnoreCase("KINSENSO")).thenReturn(Optional.of(healthZone));
+        when(hospitalRepository.save(any(HospitalEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = organizationApplicationService.createHospital(new CreateHospitalRequest(
+                "hgr-kin-002",
+                "Hôpital général de référence de Kinsenso",
+                HospitalType.GENERAL_REFERENCE,
+                "kinsenso",
+                null,
+                "Avenue de la Santé",
+                "+243810000000"));
+
+        assertThat(response.healthAreaCode()).isNull();
+    }
+
+    @Test
     void rejectsADuplicateProvinceCode() {
         when(provinceRepository.existsByCodeIgnoreCase("KIN")).thenReturn(true);
 

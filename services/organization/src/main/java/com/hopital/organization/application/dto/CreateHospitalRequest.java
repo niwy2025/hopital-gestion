@@ -10,7 +10,7 @@ public record CreateHospitalRequest(
         @NotBlank @Size(max = 200) String name,
         @NotNull HospitalType type,
         @NotBlank @Size(max = 30) String healthZoneCode,
-        @NotBlank @Size(max = 30) String healthAreaCode,
+        @Size(max = 30) String healthAreaCode,
         @Size(max = 255) String address,
         @Size(max = 30) String phoneNumber) {
 }

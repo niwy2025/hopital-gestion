@@ -2,6 +2,7 @@ package com.hopital.organization.application.service;
 
 import com.hopital.organization.application.dto.CreateHealthZoneRequest;
 import com.hopital.organization.application.dto.CreateHealthAreaRequest;
+import com.hopital.organization.application.domain.HospitalType;
 import com.hopital.organization.application.dto.CreateHospitalRequest;
 import com.hopital.organization.application.dto.CreateHospitalLaboratoryRequest;
 import com.hopital.organization.application.dto.CreateLaboratoryStructureRequest;
@@ -196,10 +197,16 @@ public class OrganizationApplicationService {
         }
         HealthZoneEntity healthZone = healthZoneRepository.findByCodeIgnoreCase(normalizeCode(request.healthZoneCode()))
                 .orElseThrow(() -> new OrganizationNotFoundException("La zone de santé", request.healthZoneCode()));
-        HealthAreaEntity healthArea = healthAreaRepository.findByCodeIgnoreCase(normalizeCode(request.healthAreaCode()))
-                .orElseThrow(() -> new OrganizationNotFoundException("L'aire de santé", request.healthAreaCode()));
-        if (!healthArea.getHealthZone().getCode().equalsIgnoreCase(healthZone.getCode())) {
-            throw new IllegalArgumentException("L'aire de santé doit appartenir à la zone de santé sélectionnée.");
+        HealthAreaEntity healthArea = null;
+        String healthAreaCode = trimToNull(request.healthAreaCode());
+        if (healthAreaCode != null) {
+            healthArea = healthAreaRepository.findByCodeIgnoreCase(normalizeCode(healthAreaCode))
+                    .orElseThrow(() -> new OrganizationNotFoundException("L'aire de santé", healthAreaCode));
+            if (!healthArea.getHealthZone().getCode().equalsIgnoreCase(healthZone.getCode())) {
+                throw new IllegalArgumentException("L'aire de santé doit appartenir à la zone de santé sélectionnée.");
+            }
+        } else if (request.type() == HospitalType.HEALTH_CENTER) {
+            throw new IllegalArgumentException("Une aire de santé est obligatoire pour un centre de santé.");
         }
         HospitalEntity hospital = new HospitalEntity(
                 UUID.randomUUID(),

@@ -38,8 +38,10 @@ Gateway avec la base locale `http://localhost:8888`.
 ## Hôpitaux et centres
 
 - `GET /api/v1/organizations/hospitals` : liste les structures.
-- `POST /api/v1/organizations/hospitals` : crée une structure dans une aire de
-  santé existante, elle-même rattachée à la zone de santé indiquée.
+- `POST /api/v1/organizations/hospitals` : crée une structure dans une zone de
+  santé. L'aire est obligatoire pour un centre de santé et facultative pour un
+  hôpital de référence ; lorsqu'elle est indiquée, elle doit appartenir à la
+  zone sélectionnée.
 
 ```json
 {
@@ -54,7 +56,8 @@ Gateway avec la base locale `http://localhost:8888`.
 ```
 
 Les valeurs possibles pour `type` sont `PROVINCIAL`, `GENERAL_REFERENCE`,
-`SPECIALIZED` et `HEALTH_CENTER`.
+`SPECIALIZED` et `HEALTH_CENTER`. Le champ `healthAreaCode` est obligatoire
+pour le type `HEALTH_CENTER`.
 
 ## Aires de santé
 

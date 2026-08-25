@@ -39,6 +39,25 @@ cp .env.example .env
 docker compose up -d
 ```
 
+## Builds Docker incrémentaux
+
+Les Dockerfiles Java séparent les `pom.xml` du code source et utilisent un
+cache Maven BuildKit partagé. Une modification dans `src/` recompile seulement
+le service concerné ; les dépendances ne sont résolues à nouveau que lorsqu'un
+`pom.xml` change (ou lors du premier build sur une machine).
+
+Pour reconstruire et redémarrer un seul service après une modification :
+
+```bash
+docker compose build auth-service
+docker compose up -d --no-deps --force-recreate auth-service
+```
+
+Remplacez `auth-service` par `account-service`, `notification-service`,
+`organization-service` ou `api-gateway` selon le service modifié. Évitez
+`--no-cache` pour le développement courant : cette option force volontairement
+le téléchargement et la reconstruction de toutes les couches.
+
 Ports utiles :
 
 | Service | URL / port | Usage |

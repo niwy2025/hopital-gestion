@@ -35,9 +35,9 @@ public class PatientController {
 
     @GetMapping("/search")
     public ResponseEntity<PageResponse<PatientResponse>> searchPatients(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query) {
         return ResponseEntity.ok(patientApplicationService.searchPatients(page, size, query));
     }
 

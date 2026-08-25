@@ -39,9 +39,9 @@ public class LaboratoryController {
 
     @GetMapping("/analysis-requests/search")
     public ResponseEntity<PageResponse<AnalysisRequestResponse>> searchAnalysisRequests(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query) {
         return ResponseEntity.ok(laboratoryApplicationService.searchAnalysisRequests(page, size, query));
     }
 
@@ -58,9 +58,9 @@ public class LaboratoryController {
 
     @GetMapping("/specimens/search")
     public ResponseEntity<PageResponse<SpecimenResponse>> searchSpecimens(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query) {
         return ResponseEntity.ok(laboratoryApplicationService.searchSpecimens(page, size, query));
     }
 
@@ -76,9 +76,9 @@ public class LaboratoryController {
 
     @GetMapping("/analysis-results/search")
     public ResponseEntity<PageResponse<AnalysisResultResponse>> searchAnalysisResults(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query) {
         return ResponseEntity.ok(laboratoryApplicationService.searchAnalysisResults(page, size, query));
     }
 

@@ -47,9 +47,9 @@ public class OrganizationController {
 
     @GetMapping("/provinces/search")
     public ResponseEntity<PageResponse<ProvinceResponse>> searchProvinces(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query) {
         return ResponseEntity.ok(organizationApplicationService.searchProvinces(page, size, query));
     }
 
@@ -72,10 +72,10 @@ public class OrganizationController {
 
     @GetMapping("/health-zones/search")
     public ResponseEntity<PageResponse<HealthZoneResponse>> searchHealthZones(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query,
-            @RequestParam(required = false) String provinceCode) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "provinceCode", required = false) String provinceCode) {
         return ResponseEntity.ok(organizationApplicationService.searchHealthZones(page, size, query, provinceCode));
     }
 
@@ -98,10 +98,10 @@ public class OrganizationController {
 
     @GetMapping("/health-areas/search")
     public ResponseEntity<PageResponse<HealthAreaResponse>> searchHealthAreas(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query,
-            @RequestParam(required = false) String provinceCode) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "provinceCode", required = false) String provinceCode) {
         return ResponseEntity.ok(organizationApplicationService.searchHealthAreas(page, size, query, provinceCode));
     }
 
@@ -124,10 +124,10 @@ public class OrganizationController {
 
     @GetMapping("/hospitals/search")
     public ResponseEntity<PageResponse<HospitalResponse>> searchHospitals(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query,
-            @RequestParam(required = false) String provinceCode) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "provinceCode", required = false) String provinceCode) {
         return ResponseEntity.ok(organizationApplicationService.searchHospitals(page, size, query, provinceCode));
     }
 
@@ -150,10 +150,10 @@ public class OrganizationController {
 
     @GetMapping("/reference-laboratories/search")
     public ResponseEntity<PageResponse<ReferenceLaboratoryResponse>> searchReferenceLaboratories(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query,
-            @RequestParam(required = false) String provinceCode) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "provinceCode", required = false) String provinceCode) {
         return ResponseEntity.ok(
                 organizationApplicationService.searchReferenceLaboratories(page, size, query, provinceCode));
     }
@@ -179,9 +179,9 @@ public class OrganizationController {
 
     @GetMapping("/hospital-laboratories/search")
     public ResponseEntity<PageResponse<HospitalLaboratoryResponse>> searchHospitalLaboratories(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query) {
         return ResponseEntity.ok(organizationApplicationService.searchHospitalLaboratories(page, size, query));
     }
 
@@ -205,9 +205,9 @@ public class OrganizationController {
 
     @GetMapping("/laboratory-structures/search")
     public ResponseEntity<PageResponse<LaboratoryStructureResponse>> searchLaboratoryStructures(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query) {
         return ResponseEntity.ok(organizationApplicationService.searchLaboratoryStructures(page, size, query));
     }
 

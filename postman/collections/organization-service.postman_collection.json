@@ -104,6 +104,51 @@
           }
         },
         {
+          "name": "List hospital laboratories",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/hospital-laboratories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "hospital-laboratories"]
+            }
+          }
+        },
+        {
+          "name": "Create hospital laboratory",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"LAB-HGR-001\",\n  \"name\": \"Laboratoire interne de l’HGR Kinsenso\",\n  \"hospitalCode\": \"HGR-KIN-001\",\n  \"location\": \"Bâtiment principal, niveau 1\",\n  \"phoneNumber\": \"+243810000002\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/hospital-laboratories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "hospital-laboratories"]
+            }
+          }
+        },
+        {
+          "name": "Update hospital laboratory status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/hospital-laboratories/LAB-HGR-001/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "hospital-laboratories", "LAB-HGR-001", "status"]
+            }
+          }
+        },
+        {
           "name": "Create reference laboratory",
           "request": {
             "method": "POST",

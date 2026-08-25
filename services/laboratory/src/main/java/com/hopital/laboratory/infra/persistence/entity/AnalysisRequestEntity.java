@@ -1,6 +1,7 @@
 package com.hopital.laboratory.infra.persistence.entity;
 
 import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
+import com.hopital.laboratory.application.domain.LaboratoryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -21,8 +22,12 @@ public class AnalysisRequestEntity {
     @Column(nullable = false, unique = true, length = 30)
     private String code;
 
-    @Column(name = "reference_laboratory_code", nullable = false, length = 30)
-    private String referenceLaboratoryCode;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "laboratory_type", nullable = false, length = 30)
+    private LaboratoryType laboratoryType;
+
+    @Column(name = "laboratory_code", nullable = false, length = 30)
+    private String laboratoryCode;
 
     @Column(name = "patient_reference", nullable = false, length = 100)
     private String patientReference;
@@ -55,7 +60,8 @@ public class AnalysisRequestEntity {
     public AnalysisRequestEntity(
             UUID id,
             String code,
-            String referenceLaboratoryCode,
+            LaboratoryType laboratoryType,
+            String laboratoryCode,
             String patientReference,
             String patientName,
             String analysisCode,
@@ -64,7 +70,8 @@ public class AnalysisRequestEntity {
             Instant createdAt) {
         this.id = id;
         this.code = code;
-        this.referenceLaboratoryCode = referenceLaboratoryCode;
+        this.laboratoryType = laboratoryType;
+        this.laboratoryCode = laboratoryCode;
         this.patientReference = patientReference;
         this.patientName = patientName;
         this.analysisCode = analysisCode;
@@ -82,8 +89,12 @@ public class AnalysisRequestEntity {
         return code;
     }
 
-    public String getReferenceLaboratoryCode() {
-        return referenceLaboratoryCode;
+    public LaboratoryType getLaboratoryType() {
+        return laboratoryType;
+    }
+
+    public String getLaboratoryCode() {
+        return laboratoryCode;
     }
 
     public String getPatientReference() {

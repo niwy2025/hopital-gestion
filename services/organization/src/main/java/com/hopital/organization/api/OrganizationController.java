@@ -2,11 +2,13 @@ package com.hopital.organization.api;
 
 import com.hopital.organization.application.dto.CreateHealthZoneRequest;
 import com.hopital.organization.application.dto.CreateHospitalRequest;
+import com.hopital.organization.application.dto.CreateHospitalLaboratoryRequest;
 import com.hopital.organization.application.dto.CreateLaboratoryStructureRequest;
 import com.hopital.organization.application.dto.CreateProvinceRequest;
 import com.hopital.organization.application.dto.CreateReferenceLaboratoryRequest;
 import com.hopital.organization.application.dto.HealthZoneResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
+import com.hopital.organization.application.dto.HospitalLaboratoryResponse;
 import com.hopital.organization.application.dto.LaboratoryStructureResponse;
 import com.hopital.organization.application.dto.ProvinceResponse;
 import com.hopital.organization.application.dto.ReferenceLaboratoryResponse;
@@ -102,6 +104,24 @@ public class OrganizationController {
             @Valid @RequestBody UpdateOrganizationStatusRequest request) {
         return ResponseEntity.ok(
                 organizationApplicationService.updateReferenceLaboratoryStatus(referenceLaboratoryCode, request));
+    }
+
+    @GetMapping("/hospital-laboratories")
+    public ResponseEntity<List<HospitalLaboratoryResponse>> listHospitalLaboratories() {
+        return ResponseEntity.ok(organizationApplicationService.listHospitalLaboratories());
+    }
+
+    @PostMapping("/hospital-laboratories")
+    public ResponseEntity<HospitalLaboratoryResponse> createHospitalLaboratory(
+            @Valid @RequestBody CreateHospitalLaboratoryRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(organizationApplicationService.createHospitalLaboratory(request));
+    }
+
+    @PatchMapping("/hospital-laboratories/{hospitalLaboratoryCode}/status")
+    public ResponseEntity<HospitalLaboratoryResponse> updateHospitalLaboratoryStatus(
+            @PathVariable("hospitalLaboratoryCode") String hospitalLaboratoryCode,
+            @Valid @RequestBody UpdateOrganizationStatusRequest request) {
+        return ResponseEntity.ok(organizationApplicationService.updateHospitalLaboratoryStatus(hospitalLaboratoryCode, request));
     }
 
     @GetMapping("/laboratory-structures")

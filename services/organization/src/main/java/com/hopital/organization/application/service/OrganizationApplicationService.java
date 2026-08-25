@@ -2,11 +2,13 @@ package com.hopital.organization.application.service;
 
 import com.hopital.organization.application.dto.CreateHealthZoneRequest;
 import com.hopital.organization.application.dto.CreateHospitalRequest;
+import com.hopital.organization.application.dto.CreateHospitalLaboratoryRequest;
 import com.hopital.organization.application.dto.CreateLaboratoryStructureRequest;
 import com.hopital.organization.application.dto.CreateProvinceRequest;
 import com.hopital.organization.application.dto.CreateReferenceLaboratoryRequest;
 import com.hopital.organization.application.dto.HealthZoneResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
+import com.hopital.organization.application.dto.HospitalLaboratoryResponse;
 import com.hopital.organization.application.dto.LaboratoryStructureResponse;
 import com.hopital.organization.application.dto.ProvinceResponse;
 import com.hopital.organization.application.dto.ReferenceLaboratoryResponse;
@@ -15,11 +17,13 @@ import com.hopital.organization.application.exception.DuplicateOrganizationExcep
 import com.hopital.organization.application.exception.OrganizationNotFoundException;
 import com.hopital.organization.infra.persistence.entity.HealthZoneEntity;
 import com.hopital.organization.infra.persistence.entity.HospitalEntity;
+import com.hopital.organization.infra.persistence.entity.HospitalLaboratoryEntity;
 import com.hopital.organization.infra.persistence.entity.LaboratoryStructureEntity;
 import com.hopital.organization.infra.persistence.entity.ProvinceEntity;
 import com.hopital.organization.infra.persistence.entity.ReferenceLaboratoryEntity;
 import com.hopital.organization.infra.persistence.repository.HealthZoneRepository;
 import com.hopital.organization.infra.persistence.repository.HospitalRepository;
+import com.hopital.organization.infra.persistence.repository.HospitalLaboratoryRepository;
 import com.hopital.organization.infra.persistence.repository.LaboratoryStructureRepository;
 import com.hopital.organization.infra.persistence.repository.ProvinceRepository;
 import com.hopital.organization.infra.persistence.repository.ReferenceLaboratoryRepository;
@@ -36,6 +40,7 @@ public class OrganizationApplicationService {
     private final ProvinceRepository provinceRepository;
     private final HealthZoneRepository healthZoneRepository;
     private final HospitalRepository hospitalRepository;
+    private final HospitalLaboratoryRepository hospitalLaboratoryRepository;
     private final ReferenceLaboratoryRepository referenceLaboratoryRepository;
     private final LaboratoryStructureRepository laboratoryStructureRepository;
 
@@ -43,11 +48,13 @@ public class OrganizationApplicationService {
             ProvinceRepository provinceRepository,
             HealthZoneRepository healthZoneRepository,
             HospitalRepository hospitalRepository,
+            HospitalLaboratoryRepository hospitalLaboratoryRepository,
             ReferenceLaboratoryRepository referenceLaboratoryRepository,
             LaboratoryStructureRepository laboratoryStructureRepository) {
         this.provinceRepository = provinceRepository;
         this.healthZoneRepository = healthZoneRepository;
         this.hospitalRepository = hospitalRepository;
+        this.hospitalLaboratoryRepository = hospitalLaboratoryRepository;
         this.referenceLaboratoryRepository = referenceLaboratoryRepository;
         this.laboratoryStructureRepository = laboratoryStructureRepository;
     }
@@ -66,6 +73,10 @@ public class OrganizationApplicationService {
 
     public List<ReferenceLaboratoryResponse> listReferenceLaboratories() {
         return referenceLaboratoryRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
+    }
+
+    public List<HospitalLaboratoryResponse> listHospitalLaboratories() {
+        return hospitalLaboratoryRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
     public List<LaboratoryStructureResponse> listLaboratoryStructures() {
@@ -113,6 +124,16 @@ public class OrganizationApplicationService {
                 .orElseThrow(() -> new OrganizationNotFoundException("Le laboratoire de référence", referenceLaboratoryCode));
         referenceLaboratory.setActive(request.active());
         return toResponse(referenceLaboratory);
+    }
+
+    @Transactional
+    public HospitalLaboratoryResponse updateHospitalLaboratoryStatus(
+            String hospitalLaboratoryCode, UpdateOrganizationStatusRequest request) {
+        HospitalLaboratoryEntity hospitalLaboratory = hospitalLaboratoryRepository
+                .findByCodeIgnoreCase(normalizeCode(hospitalLaboratoryCode))
+                .orElseThrow(() -> new OrganizationNotFoundException("Le laboratoire interne", hospitalLaboratoryCode));
+        hospitalLaboratory.setActive(request.active());
+        return toResponse(hospitalLaboratory);
     }
 
     @Transactional
@@ -175,6 +196,24 @@ public class OrganizationApplicationService {
     }
 
     @Transactional
+    public HospitalLaboratoryResponse createHospitalLaboratory(CreateHospitalLaboratoryRequest request) {
+        String code = normalizeCode(request.code());
+        if (hospitalLaboratoryRepository.existsByCodeIgnoreCase(code)) {
+            throw new DuplicateOrganizationException("Le laboratoire interne", code);
+        }
+        HospitalEntity hospital = hospitalRepository.findByCodeIgnoreCase(normalizeCode(request.hospitalCode()))
+                .orElseThrow(() -> new OrganizationNotFoundException("L'établissement", request.hospitalCode()));
+        HospitalLaboratoryEntity hospitalLaboratory = new HospitalLaboratoryEntity(
+                UUID.randomUUID(),
+                code,
+                request.name().trim(),
+                hospital,
+                trimToNull(request.location()),
+                trimToNull(request.phoneNumber()));
+        return toResponse(hospitalLaboratoryRepository.save(hospitalLaboratory));
+    }
+
+    @Transactional
     public LaboratoryStructureResponse createLaboratoryStructure(CreateLaboratoryStructureRequest request) {
         String code = normalizeCode(request.code());
         if (laboratoryStructureRepository.existsByCodeIgnoreCase(code)) {
@@ -221,6 +260,19 @@ public class OrganizationApplicationService {
                 referenceLaboratory.getAddress(),
                 referenceLaboratory.getPhoneNumber(),
                 referenceLaboratory.isActive());
+    }
+
+    private HospitalLaboratoryResponse toResponse(HospitalLaboratoryEntity hospitalLaboratory) {
+        HospitalEntity hospital = hospitalLaboratory.getHospital();
+        return new HospitalLaboratoryResponse(
+                hospitalLaboratory.getId(),
+                hospitalLaboratory.getCode(),
+                hospitalLaboratory.getName(),
+                hospital.getCode(),
+                hospital.getName(),
+                hospitalLaboratory.getLocation(),
+                hospitalLaboratory.getPhoneNumber(),
+                hospitalLaboratory.isActive());
     }
 
     private LaboratoryStructureResponse toResponse(LaboratoryStructureEntity laboratoryStructure) {

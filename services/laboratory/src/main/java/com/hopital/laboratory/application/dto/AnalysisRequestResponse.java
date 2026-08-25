@@ -1,13 +1,15 @@
 package com.hopital.laboratory.application.dto;
 
 import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
+import com.hopital.laboratory.application.domain.LaboratoryType;
 import java.time.Instant;
 import java.util.UUID;
 
 public record AnalysisRequestResponse(
         UUID id,
         String code,
-        String referenceLaboratoryCode,
+        LaboratoryType laboratoryType,
+        String laboratoryCode,
         String patientReference,
         String patientName,
         String analysisCode,

@@ -2,6 +2,7 @@ package com.hopital.laboratory.application.service;
 
 import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
 import com.hopital.laboratory.application.domain.AnalysisResultStatus;
+import com.hopital.laboratory.application.domain.LaboratoryType;
 import com.hopital.laboratory.application.dto.AnalysisRequestResponse;
 import com.hopital.laboratory.application.dto.AnalysisResultResponse;
 import com.hopital.laboratory.application.dto.CreateAnalysisRequestRequest;
@@ -63,7 +64,8 @@ public class LaboratoryApplicationService {
         AnalysisRequestEntity analysisRequest = new AnalysisRequestEntity(
                 UUID.randomUUID(),
                 code,
-                normalizeCode(request.referenceLaboratoryCode()),
+                request.laboratoryType(),
+                normalizeCode(request.laboratoryCode()),
                 request.patientReference().trim(),
                 request.patientName().trim(),
                 normalizeCode(request.analysisCode()),
@@ -139,7 +141,8 @@ public class LaboratoryApplicationService {
         return new AnalysisRequestResponse(
                 analysisRequest.getId(),
                 analysisRequest.getCode(),
-                analysisRequest.getReferenceLaboratoryCode(),
+                analysisRequest.getLaboratoryType(),
+                analysisRequest.getLaboratoryCode(),
                 analysisRequest.getPatientReference(),
                 analysisRequest.getPatientName(),
                 analysisRequest.getAnalysisCode(),

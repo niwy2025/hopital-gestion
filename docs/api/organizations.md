@@ -55,6 +55,29 @@ la base locale `http://localhost:8000`.
 Les valeurs possibles pour `type` sont `PROVINCIAL`, `GENERAL_REFERENCE`,
 `SPECIALIZED` et `HEALTH_CENTER`.
 
+## Laboratoires internes
+
+Un laboratoire interne appartient obligatoirement à un hôpital. Il est utilisé
+pour les analyses réalisées directement pendant le parcours du patient dans cet
+hôpital, contrairement à un laboratoire provincial de référence.
+
+- `GET /api/v1/organizations/hospital-laboratories` : liste les laboratoires
+  internes.
+- `POST /api/v1/organizations/hospital-laboratories` : crée un laboratoire
+  interne dans un hôpital existant.
+- `PATCH /api/v1/organizations/hospital-laboratories/{code}/status` : active
+  ou désactive le laboratoire.
+
+```json
+{
+  "code": "LAB-HGR-001",
+  "name": "Laboratoire interne de l’HGR Kinsenso",
+  "hospitalCode": "HGR-KIN-001",
+  "location": "Bâtiment principal, niveau 1",
+  "phoneNumber": "+243810000002"
+}
+```
+
 Les erreurs métiers respectent le format commun suivant :
 
 ```json

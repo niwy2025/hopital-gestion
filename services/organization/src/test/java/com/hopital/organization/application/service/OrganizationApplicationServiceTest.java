@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.hopital.organization.application.domain.HospitalType;
 import com.hopital.organization.application.domain.LaboratoryStructureType;
 import com.hopital.organization.application.dto.CreateHospitalRequest;
+import com.hopital.organization.application.dto.CreateHospitalLaboratoryRequest;
 import com.hopital.organization.application.dto.CreateLaboratoryStructureRequest;
 import com.hopital.organization.application.dto.CreateProvinceRequest;
 import com.hopital.organization.application.dto.CreateReferenceLaboratoryRequest;
@@ -19,6 +20,7 @@ import com.hopital.organization.infra.persistence.entity.ProvinceEntity;
 import com.hopital.organization.infra.persistence.entity.ReferenceLaboratoryEntity;
 import com.hopital.organization.infra.persistence.repository.HealthZoneRepository;
 import com.hopital.organization.infra.persistence.repository.HospitalRepository;
+import com.hopital.organization.infra.persistence.repository.HospitalLaboratoryRepository;
 import com.hopital.organization.infra.persistence.repository.LaboratoryStructureRepository;
 import com.hopital.organization.infra.persistence.repository.ProvinceRepository;
 import com.hopital.organization.infra.persistence.repository.ReferenceLaboratoryRepository;
@@ -41,6 +43,9 @@ class OrganizationApplicationServiceTest {
 
     @Mock
     private HospitalRepository hospitalRepository;
+
+    @Mock
+    private HospitalLaboratoryRepository hospitalLaboratoryRepository;
 
     @Mock
     private ReferenceLaboratoryRepository referenceLaboratoryRepository;
@@ -151,6 +156,31 @@ class OrganizationApplicationServiceTest {
 
         assertThat(response.code()).isEqualTo("LRP-KIN");
         assertThat(response.provinceCode()).isEqualTo("KIN");
+        assertThat(response.active()).isTrue();
+    }
+
+    @Test
+    void createsAnInternalLaboratoryInsideItsHospital() {
+        ProvinceEntity province = new ProvinceEntity("KIN", "Kinshasa");
+        HealthZoneEntity healthZone = new HealthZoneEntity("KINSENSO", "Kinsenso", province);
+        HospitalEntity hospital = new HospitalEntity(
+                UUID.randomUUID(),
+                "HGR-KIN-001",
+                "Hôpital général de référence de Kinsenso",
+                HospitalType.GENERAL_REFERENCE,
+                healthZone,
+                null,
+                null);
+        when(hospitalLaboratoryRepository.existsByCodeIgnoreCase("LAB-HGR-001")).thenReturn(false);
+        when(hospitalRepository.findByCodeIgnoreCase("HGR-KIN-001")).thenReturn(Optional.of(hospital));
+        when(hospitalLaboratoryRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = organizationApplicationService.createHospitalLaboratory(new CreateHospitalLaboratoryRequest(
+                "lab-hgr-001", "Laboratoire interne", "hgr-kin-001", "Bâtiment principal", "+243810000002"));
+
+        assertThat(response.code()).isEqualTo("LAB-HGR-001");
+        assertThat(response.hospitalCode()).isEqualTo("HGR-KIN-001");
+        assertThat(response.hospitalName()).isEqualTo("Hôpital général de référence de Kinsenso");
         assertThat(response.active()).isTrue();
     }
 

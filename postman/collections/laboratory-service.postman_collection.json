@@ -26,7 +26,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"code\": \"REQ-001\",\n  \"referenceLaboratoryCode\": \"LRP-KIN\",\n  \"patientReference\": \"PAT-001\",\n  \"patientName\": \"Patient de démonstration\",\n  \"analysisCode\": \"NFS\",\n  \"analysisName\": \"Numération formule sanguine\",\n  \"requesterName\": \"Dr. Mbala\"\n}",
+              "raw": "{\n  \"code\": \"REQ-001\",\n  \"laboratoryType\": \"HOSPITAL\",\n  \"laboratoryCode\": \"LAB-HGR-001\",\n  \"patientReference\": \"PAT-001\",\n  \"patientName\": \"Patient de démonstration\",\n  \"analysisCode\": \"NFS\",\n  \"analysisName\": \"Numération formule sanguine\",\n  \"requesterName\": \"Dr. Mbala\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {

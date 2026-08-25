@@ -1,8 +1,8 @@
 # Référentiel provincial
 
 `organization-service` porte le référentiel institutionnel du système : une
-province contient des zones de santé et une zone de santé contient des
-hôpitaux ou centres de soins. Toutes les routes sont accessibles via l'API
+province contient des zones de santé, une zone de santé contient des aires de
+santé et une aire de santé contient des hôpitaux ou centres de soins. Toutes les routes sont accessibles via l'API
 Gateway avec la base locale `http://localhost:8888`.
 
 > La restriction aux administrateurs provinciaux et centraux sera appliquée
@@ -38,8 +38,8 @@ Gateway avec la base locale `http://localhost:8888`.
 ## Hôpitaux et centres
 
 - `GET /api/v1/organizations/hospitals` : liste les structures.
-- `POST /api/v1/organizations/hospitals` : crée une structure dans une zone de
-  santé existante.
+- `POST /api/v1/organizations/hospitals` : crée une structure dans une aire de
+  santé existante, elle-même rattachée à la zone de santé indiquée.
 
 ```json
 {
@@ -47,6 +47,7 @@ Gateway avec la base locale `http://localhost:8888`.
   "name": "Hôpital général de référence de Kinsenso",
   "type": "GENERAL_REFERENCE",
   "healthZoneCode": "KINSENSO",
+  "healthAreaCode": "KINSENSO-CENTRE",
   "address": "Avenue de la Santé",
   "phoneNumber": "+243810000000"
 }
@@ -54,6 +55,20 @@ Gateway avec la base locale `http://localhost:8888`.
 
 Les valeurs possibles pour `type` sont `PROVINCIAL`, `GENERAL_REFERENCE`,
 `SPECIALIZED` et `HEALTH_CENTER`.
+
+## Aires de santé
+
+- `GET /api/v1/organizations/health-areas` : liste les aires de santé.
+- `POST /api/v1/organizations/health-areas` : crée une aire dans une zone de
+  santé existante.
+
+```json
+{
+  "code": "KINSENSO-CENTRE",
+  "name": "Kinsenso Centre",
+  "healthZoneCode": "KINSENSO"
+}
+```
 
 ## Laboratoires internes
 

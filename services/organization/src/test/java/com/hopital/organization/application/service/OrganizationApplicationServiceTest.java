@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.hopital.organization.application.domain.HospitalType;
 import com.hopital.organization.application.domain.LaboratoryStructureType;
 import com.hopital.organization.application.dto.CreateHospitalRequest;
+import com.hopital.organization.application.dto.CreateHealthAreaRequest;
 import com.hopital.organization.application.dto.CreateHospitalLaboratoryRequest;
 import com.hopital.organization.application.dto.CreateLaboratoryStructureRequest;
 import com.hopital.organization.application.dto.CreateProvinceRequest;
@@ -15,10 +16,12 @@ import com.hopital.organization.application.dto.CreateReferenceLaboratoryRequest
 import com.hopital.organization.application.dto.UpdateOrganizationStatusRequest;
 import com.hopital.organization.application.exception.DuplicateOrganizationException;
 import com.hopital.organization.infra.persistence.entity.HealthZoneEntity;
+import com.hopital.organization.infra.persistence.entity.HealthAreaEntity;
 import com.hopital.organization.infra.persistence.entity.HospitalEntity;
 import com.hopital.organization.infra.persistence.entity.ProvinceEntity;
 import com.hopital.organization.infra.persistence.entity.ReferenceLaboratoryEntity;
 import com.hopital.organization.infra.persistence.repository.HealthZoneRepository;
+import com.hopital.organization.infra.persistence.repository.HealthAreaRepository;
 import com.hopital.organization.infra.persistence.repository.HospitalRepository;
 import com.hopital.organization.infra.persistence.repository.HospitalLaboratoryRepository;
 import com.hopital.organization.infra.persistence.repository.LaboratoryStructureRepository;
@@ -40,6 +43,9 @@ class OrganizationApplicationServiceTest {
 
     @Mock
     private HealthZoneRepository healthZoneRepository;
+
+    @Mock
+    private HealthAreaRepository healthAreaRepository;
 
     @Mock
     private HospitalRepository hospitalRepository;
@@ -72,8 +78,10 @@ class OrganizationApplicationServiceTest {
     void createsAHospitalInsideItsHealthZone() {
         ProvinceEntity province = new ProvinceEntity("KIN", "Kinshasa");
         HealthZoneEntity healthZone = new HealthZoneEntity("KINSENSO", "Kinsenso", province);
+        HealthAreaEntity healthArea = new HealthAreaEntity("KINSENSO-CENTRE", "Kinsenso Centre", healthZone);
         when(hospitalRepository.existsByCodeIgnoreCase("HGR-KIN-001")).thenReturn(false);
         when(healthZoneRepository.findByCodeIgnoreCase("KINSENSO")).thenReturn(Optional.of(healthZone));
+        when(healthAreaRepository.findByCodeIgnoreCase("KINSENSO-CENTRE")).thenReturn(Optional.of(healthArea));
         when(hospitalRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = organizationApplicationService.createHospital(new CreateHospitalRequest(
@@ -81,12 +89,30 @@ class OrganizationApplicationServiceTest {
                 "Hôpital général de référence de Kinsenso",
                 HospitalType.GENERAL_REFERENCE,
                 "kinsenso",
+                "kinsenso-centre",
                 "Avenue de la Santé",
                 "+243810000000"));
 
         assertThat(response.code()).isEqualTo("HGR-KIN-001");
         assertThat(response.provinceCode()).isEqualTo("KIN");
         assertThat(response.healthZoneCode()).isEqualTo("KINSENSO");
+        assertThat(response.healthAreaCode()).isEqualTo("KINSENSO-CENTRE");
+    }
+
+    @Test
+    void createsAHealthAreaInsideItsHealthZone() {
+        ProvinceEntity province = new ProvinceEntity("KIN", "Kinshasa");
+        HealthZoneEntity healthZone = new HealthZoneEntity("KINSENSO", "Kinsenso", province);
+        when(healthAreaRepository.existsByCodeIgnoreCase("KINSENSO-CENTRE")).thenReturn(false);
+        when(healthZoneRepository.findByCodeIgnoreCase("KINSENSO")).thenReturn(Optional.of(healthZone));
+        when(healthAreaRepository.save(any(HealthAreaEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = organizationApplicationService.createHealthArea(
+                new CreateHealthAreaRequest("kinsenso-centre", "Kinsenso Centre", "kinsenso"));
+
+        assertThat(response.code()).isEqualTo("KINSENSO-CENTRE");
+        assertThat(response.healthZoneCode()).isEqualTo("KINSENSO");
+        assertThat(response.provinceCode()).isEqualTo("KIN");
     }
 
     @Test
@@ -131,6 +157,7 @@ class OrganizationApplicationServiceTest {
                 HospitalType.GENERAL_REFERENCE,
                 healthZone,
                 null,
+                null,
                 null);
         when(hospitalRepository.findByCodeIgnoreCase("HGR-KIN-001")).thenReturn(Optional.of(hospital));
 
@@ -169,6 +196,7 @@ class OrganizationApplicationServiceTest {
                 "Hôpital général de référence de Kinsenso",
                 HospitalType.GENERAL_REFERENCE,
                 healthZone,
+                null,
                 null,
                 null);
         when(hospitalLaboratoryRepository.existsByCodeIgnoreCase("LAB-HGR-001")).thenReturn(false);

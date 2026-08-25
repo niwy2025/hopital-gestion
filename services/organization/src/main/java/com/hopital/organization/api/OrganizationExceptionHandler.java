@@ -33,6 +33,11 @@ public class OrganizationExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", message, request);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException exception, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", exception.getMessage(), request);
+    }
+
     private ResponseEntity<ApiError> error(
             HttpStatus status, String code, String message, HttpServletRequest request) {
         return ResponseEntity.status(status)

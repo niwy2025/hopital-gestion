@@ -1,12 +1,14 @@
 package com.hopital.organization.application.service;
 
 import com.hopital.organization.application.dto.CreateHealthZoneRequest;
+import com.hopital.organization.application.dto.CreateHealthAreaRequest;
 import com.hopital.organization.application.dto.CreateHospitalRequest;
 import com.hopital.organization.application.dto.CreateHospitalLaboratoryRequest;
 import com.hopital.organization.application.dto.CreateLaboratoryStructureRequest;
 import com.hopital.organization.application.dto.CreateProvinceRequest;
 import com.hopital.organization.application.dto.CreateReferenceLaboratoryRequest;
 import com.hopital.organization.application.dto.HealthZoneResponse;
+import com.hopital.organization.application.dto.HealthAreaResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
 import com.hopital.organization.application.dto.HospitalLaboratoryResponse;
 import com.hopital.organization.application.dto.LaboratoryStructureResponse;
@@ -16,12 +18,14 @@ import com.hopital.organization.application.dto.UpdateOrganizationStatusRequest;
 import com.hopital.organization.application.exception.DuplicateOrganizationException;
 import com.hopital.organization.application.exception.OrganizationNotFoundException;
 import com.hopital.organization.infra.persistence.entity.HealthZoneEntity;
+import com.hopital.organization.infra.persistence.entity.HealthAreaEntity;
 import com.hopital.organization.infra.persistence.entity.HospitalEntity;
 import com.hopital.organization.infra.persistence.entity.HospitalLaboratoryEntity;
 import com.hopital.organization.infra.persistence.entity.LaboratoryStructureEntity;
 import com.hopital.organization.infra.persistence.entity.ProvinceEntity;
 import com.hopital.organization.infra.persistence.entity.ReferenceLaboratoryEntity;
 import com.hopital.organization.infra.persistence.repository.HealthZoneRepository;
+import com.hopital.organization.infra.persistence.repository.HealthAreaRepository;
 import com.hopital.organization.infra.persistence.repository.HospitalRepository;
 import com.hopital.organization.infra.persistence.repository.HospitalLaboratoryRepository;
 import com.hopital.organization.infra.persistence.repository.LaboratoryStructureRepository;
@@ -39,6 +43,7 @@ public class OrganizationApplicationService {
 
     private final ProvinceRepository provinceRepository;
     private final HealthZoneRepository healthZoneRepository;
+    private final HealthAreaRepository healthAreaRepository;
     private final HospitalRepository hospitalRepository;
     private final HospitalLaboratoryRepository hospitalLaboratoryRepository;
     private final ReferenceLaboratoryRepository referenceLaboratoryRepository;
@@ -47,12 +52,14 @@ public class OrganizationApplicationService {
     public OrganizationApplicationService(
             ProvinceRepository provinceRepository,
             HealthZoneRepository healthZoneRepository,
+            HealthAreaRepository healthAreaRepository,
             HospitalRepository hospitalRepository,
             HospitalLaboratoryRepository hospitalLaboratoryRepository,
             ReferenceLaboratoryRepository referenceLaboratoryRepository,
             LaboratoryStructureRepository laboratoryStructureRepository) {
         this.provinceRepository = provinceRepository;
         this.healthZoneRepository = healthZoneRepository;
+        this.healthAreaRepository = healthAreaRepository;
         this.hospitalRepository = hospitalRepository;
         this.hospitalLaboratoryRepository = hospitalLaboratoryRepository;
         this.referenceLaboratoryRepository = referenceLaboratoryRepository;
@@ -65,6 +72,10 @@ public class OrganizationApplicationService {
 
     public List<HealthZoneResponse> listHealthZones() {
         return healthZoneRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
+    }
+
+    public List<HealthAreaResponse> listHealthAreas() {
+        return healthAreaRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
     }
 
     public List<HospitalResponse> listHospitals() {
@@ -106,6 +117,14 @@ public class OrganizationApplicationService {
                 .orElseThrow(() -> new OrganizationNotFoundException("La zone de santé", healthZoneCode));
         healthZone.setActive(request.active());
         return toResponse(healthZone);
+    }
+
+    @Transactional
+    public HealthAreaResponse updateHealthAreaStatus(String healthAreaCode, UpdateOrganizationStatusRequest request) {
+        HealthAreaEntity healthArea = healthAreaRepository.findByCodeIgnoreCase(normalizeCode(healthAreaCode))
+                .orElseThrow(() -> new OrganizationNotFoundException("L'aire de santé", healthAreaCode));
+        healthArea.setActive(request.active());
+        return toResponse(healthArea);
     }
 
     @Transactional
@@ -159,6 +178,17 @@ public class OrganizationApplicationService {
     }
 
     @Transactional
+    public HealthAreaResponse createHealthArea(CreateHealthAreaRequest request) {
+        String code = normalizeCode(request.code());
+        if (healthAreaRepository.existsByCodeIgnoreCase(code)) {
+            throw new DuplicateOrganizationException("L'aire de santé", code);
+        }
+        HealthZoneEntity healthZone = healthZoneRepository.findByCodeIgnoreCase(normalizeCode(request.healthZoneCode()))
+                .orElseThrow(() -> new OrganizationNotFoundException("La zone de santé", request.healthZoneCode()));
+        return toResponse(healthAreaRepository.save(new HealthAreaEntity(code, request.name().trim(), healthZone)));
+    }
+
+    @Transactional
     public HospitalResponse createHospital(CreateHospitalRequest request) {
         String code = normalizeCode(request.code());
         if (hospitalRepository.existsByCodeIgnoreCase(code)) {
@@ -166,12 +196,18 @@ public class OrganizationApplicationService {
         }
         HealthZoneEntity healthZone = healthZoneRepository.findByCodeIgnoreCase(normalizeCode(request.healthZoneCode()))
                 .orElseThrow(() -> new OrganizationNotFoundException("La zone de santé", request.healthZoneCode()));
+        HealthAreaEntity healthArea = healthAreaRepository.findByCodeIgnoreCase(normalizeCode(request.healthAreaCode()))
+                .orElseThrow(() -> new OrganizationNotFoundException("L'aire de santé", request.healthAreaCode()));
+        if (!healthArea.getHealthZone().getCode().equalsIgnoreCase(healthZone.getCode())) {
+            throw new IllegalArgumentException("L'aire de santé doit appartenir à la zone de santé sélectionnée.");
+        }
         HospitalEntity hospital = new HospitalEntity(
                 UUID.randomUUID(),
                 code,
                 request.name().trim(),
                 request.type(),
                 healthZone,
+                healthArea,
                 trimToNull(request.address()),
                 trimToNull(request.phoneNumber()));
         return toResponse(hospitalRepository.save(hospital));
@@ -237,8 +273,19 @@ public class OrganizationApplicationService {
                 healthZone.getCode(), healthZone.getName(), healthZone.getProvince().getCode(), healthZone.isActive());
     }
 
+    private HealthAreaResponse toResponse(HealthAreaEntity healthArea) {
+        HealthZoneEntity healthZone = healthArea.getHealthZone();
+        return new HealthAreaResponse(
+                healthArea.getCode(),
+                healthArea.getName(),
+                healthZone.getProvince().getCode(),
+                healthZone.getCode(),
+                healthArea.isActive());
+    }
+
     private HospitalResponse toResponse(HospitalEntity hospital) {
         HealthZoneEntity healthZone = hospital.getHealthZone();
+        HealthAreaEntity healthArea = hospital.getHealthArea();
         return new HospitalResponse(
                 hospital.getId(),
                 hospital.getCode(),
@@ -246,6 +293,7 @@ public class OrganizationApplicationService {
                 hospital.getType(),
                 healthZone.getProvince().getCode(),
                 healthZone.getCode(),
+                healthArea == null ? null : healthArea.getCode(),
                 hospital.getAddress(),
                 hospital.getPhoneNumber(),
                 hospital.isActive());

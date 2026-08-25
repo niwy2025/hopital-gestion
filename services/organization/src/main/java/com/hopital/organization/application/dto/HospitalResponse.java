@@ -10,6 +10,7 @@ public record HospitalResponse(
         HospitalType type,
         String provinceCode,
         String healthZoneCode,
+        String healthAreaCode,
         String address,
         String phoneNumber,
         boolean active) {

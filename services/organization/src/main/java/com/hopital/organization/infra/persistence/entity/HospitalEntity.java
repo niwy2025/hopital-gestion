@@ -35,6 +35,10 @@ public class HospitalEntity {
     @JoinColumn(name = "health_zone_id", nullable = false)
     private HealthZoneEntity healthZone;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "health_area_id")
+    private HealthAreaEntity healthArea;
+
     @Nationalized
     @Column(length = 255)
     private String address;
@@ -54,6 +58,7 @@ public class HospitalEntity {
             String name,
             HospitalType type,
             HealthZoneEntity healthZone,
+            HealthAreaEntity healthArea,
             String address,
             String phoneNumber) {
         this.id = id;
@@ -61,6 +66,7 @@ public class HospitalEntity {
         this.name = name;
         this.type = type;
         this.healthZone = healthZone;
+        this.healthArea = healthArea;
         this.address = address;
         this.phoneNumber = phoneNumber;
         this.active = true;
@@ -84,6 +90,10 @@ public class HospitalEntity {
 
     public HealthZoneEntity getHealthZone() {
         return healthZone;
+    }
+
+    public HealthAreaEntity getHealthArea() {
+        return healthArea;
     }
 
     public String getAddress() {

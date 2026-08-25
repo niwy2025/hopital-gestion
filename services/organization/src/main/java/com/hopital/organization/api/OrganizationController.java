@@ -1,12 +1,14 @@
 package com.hopital.organization.api;
 
 import com.hopital.organization.application.dto.CreateHealthZoneRequest;
+import com.hopital.organization.application.dto.CreateHealthAreaRequest;
 import com.hopital.organization.application.dto.CreateHospitalRequest;
 import com.hopital.organization.application.dto.CreateHospitalLaboratoryRequest;
 import com.hopital.organization.application.dto.CreateLaboratoryStructureRequest;
 import com.hopital.organization.application.dto.CreateProvinceRequest;
 import com.hopital.organization.application.dto.CreateReferenceLaboratoryRequest;
 import com.hopital.organization.application.dto.HealthZoneResponse;
+import com.hopital.organization.application.dto.HealthAreaResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
 import com.hopital.organization.application.dto.HospitalLaboratoryResponse;
 import com.hopital.organization.application.dto.LaboratoryStructureResponse;
@@ -68,6 +70,23 @@ public class OrganizationController {
             @PathVariable("healthZoneCode") String healthZoneCode,
             @Valid @RequestBody UpdateOrganizationStatusRequest request) {
         return ResponseEntity.ok(organizationApplicationService.updateHealthZoneStatus(healthZoneCode, request));
+    }
+
+    @GetMapping("/health-areas")
+    public ResponseEntity<List<HealthAreaResponse>> listHealthAreas() {
+        return ResponseEntity.ok(organizationApplicationService.listHealthAreas());
+    }
+
+    @PostMapping("/health-areas")
+    public ResponseEntity<HealthAreaResponse> createHealthArea(@Valid @RequestBody CreateHealthAreaRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(organizationApplicationService.createHealthArea(request));
+    }
+
+    @PatchMapping("/health-areas/{healthAreaCode}/status")
+    public ResponseEntity<HealthAreaResponse> updateHealthAreaStatus(
+            @PathVariable("healthAreaCode") String healthAreaCode,
+            @Valid @RequestBody UpdateOrganizationStatusRequest request) {
+        return ResponseEntity.ok(organizationApplicationService.updateHealthAreaStatus(healthAreaCode, request));
     }
 
     @GetMapping("/hospitals")

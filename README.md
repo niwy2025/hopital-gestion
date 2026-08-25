@@ -77,7 +77,7 @@ Ports utiles :
 | Keycloak | `http://localhost:8080` | Console IAM et endpoints OIDC |
 | SQL Server | `localhost:1433` | Base de données applicative |
 | Kafka | `localhost:9092` | Broker accessible depuis l'hôte |
-| Redis | `localhost:6379` | Cache accessible depuis l'hôte |
+| Redis | réseau Docker interne | Cache et rate limiting des services |
 | Prometheus | `http://localhost:9090` | Métriques |
 | Grafana | `http://localhost:3000` | Dashboards |
 

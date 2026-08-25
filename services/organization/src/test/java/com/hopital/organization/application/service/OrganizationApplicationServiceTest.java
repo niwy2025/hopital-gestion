@@ -11,11 +11,13 @@ import com.hopital.organization.application.dto.CreateProvinceRequest;
 import com.hopital.organization.application.dto.UpdateOrganizationStatusRequest;
 import com.hopital.organization.application.exception.DuplicateOrganizationException;
 import com.hopital.organization.infra.persistence.entity.HealthZoneEntity;
+import com.hopital.organization.infra.persistence.entity.HospitalEntity;
 import com.hopital.organization.infra.persistence.entity.ProvinceEntity;
 import com.hopital.organization.infra.persistence.repository.HealthZoneRepository;
 import com.hopital.organization.infra.persistence.repository.HospitalRepository;
 import com.hopital.organization.infra.persistence.repository.ProvinceRepository;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -97,6 +99,26 @@ class OrganizationApplicationServiceTest {
 
         var response = organizationApplicationService.updateHealthZoneStatus(
                 "kinsenso", new UpdateOrganizationStatusRequest(false));
+
+        assertThat(response.active()).isFalse();
+    }
+
+    @Test
+    void deactivatesAHospital() {
+        ProvinceEntity province = new ProvinceEntity("KIN", "Kinshasa");
+        HealthZoneEntity healthZone = new HealthZoneEntity("KINSENSO", "Kinsenso", province);
+        HospitalEntity hospital = new HospitalEntity(
+                UUID.randomUUID(),
+                "HGR-KIN-001",
+                "Hôpital général de référence de Kinsenso",
+                HospitalType.GENERAL_REFERENCE,
+                healthZone,
+                null,
+                null);
+        when(hospitalRepository.findByCodeIgnoreCase("HGR-KIN-001")).thenReturn(Optional.of(hospital));
+
+        var response = organizationApplicationService.updateHospitalStatus(
+                "hgr-kin-001", new UpdateOrganizationStatusRequest(false));
 
         assertThat(response.active()).isFalse();
     }

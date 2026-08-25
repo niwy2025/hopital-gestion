@@ -73,4 +73,11 @@ public class OrganizationController {
     public ResponseEntity<HospitalResponse> createHospital(@Valid @RequestBody CreateHospitalRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(organizationApplicationService.createHospital(request));
     }
+
+    @PatchMapping("/hospitals/{hospitalCode}/status")
+    public ResponseEntity<HospitalResponse> updateHospitalStatus(
+            @PathVariable("hospitalCode") String hospitalCode,
+            @Valid @RequestBody UpdateOrganizationStatusRequest request) {
+        return ResponseEntity.ok(organizationApplicationService.updateHospitalStatus(hospitalCode, request));
+    }
 }

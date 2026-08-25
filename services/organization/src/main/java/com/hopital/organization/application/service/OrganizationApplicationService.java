@@ -76,6 +76,14 @@ public class OrganizationApplicationService {
     }
 
     @Transactional
+    public HospitalResponse updateHospitalStatus(String hospitalCode, UpdateOrganizationStatusRequest request) {
+        HospitalEntity hospital = hospitalRepository.findByCodeIgnoreCase(normalizeCode(hospitalCode))
+                .orElseThrow(() -> new OrganizationNotFoundException("L'établissement", hospitalCode));
+        hospital.setActive(request.active());
+        return toResponse(hospital);
+    }
+
+    @Transactional
     public HealthZoneResponse createHealthZone(CreateHealthZoneRequest request) {
         String code = normalizeCode(request.code());
         if (healthZoneRepository.existsByCodeIgnoreCase(code)) {

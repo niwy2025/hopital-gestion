@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.util.UUID;
 import org.hibernate.annotations.Nationalized;
 
 @Entity
@@ -13,8 +14,8 @@ import org.hibernate.annotations.Nationalized;
 public class PermissionEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(nullable = false, length = 100)
     @Nationalized
@@ -27,13 +28,13 @@ public class PermissionEntity {
     protected PermissionEntity() {
     }
 
-    public PermissionEntity(Long id, String code, String description) {
+    public PermissionEntity(UUID id, String code, String description) {
         this.id = id;
         this.code = code;
         this.description = description;
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 

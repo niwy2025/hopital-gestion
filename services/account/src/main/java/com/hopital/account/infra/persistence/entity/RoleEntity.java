@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import org.hibernate.annotations.Nationalized;
 
 @Entity
@@ -19,8 +20,8 @@ import org.hibernate.annotations.Nationalized;
 public class RoleEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(nullable = false, length = 50)
     @Nationalized
@@ -40,14 +41,14 @@ public class RoleEntity {
     protected RoleEntity() {
     }
 
-    public RoleEntity(Long id, String code, String label, Set<PermissionEntity> permissions) {
+    public RoleEntity(UUID id, String code, String label, Set<PermissionEntity> permissions) {
         this.id = id;
         this.code = code;
         this.label = label;
         this.permissions = new HashSet<>(permissions);
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 

@@ -54,10 +54,10 @@ class AccountApplicationServiceTest {
     @Test
     void createsAnAccountWithAHashedPassword() {
         RoleEntity patientRole = new RoleEntity(
-                1L,
+                UUID.randomUUID(),
                 "PATIENT",
                 "Patient",
-                Set.of(new PermissionEntity(1L, "PROFILE_READ", "Consulter son profil")));
+                Set.of(new PermissionEntity(UUID.randomUUID(), "PROFILE_READ", "Consulter son profil")));
         when(rolePermissionService.resolveRoles(Set.of("PATIENT"))).thenReturn(Set.of(patientRole));
         when(rolePermissionService.toResponse(patientRole))
                 .thenReturn(new RoleResponse("PATIENT", "Patient", Set.of()));

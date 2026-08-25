@@ -112,6 +112,25 @@ Ports utiles :
 | Prometheus | `http://localhost:9090` | Métriques |
 | Grafana | `http://localhost:3000` | Dashboards |
 
+### Accès SQL Server avec DBeaver
+
+SQL Server est lié à `127.0.0.1:${MSSQL_HOST_PORT:-14330}` : il est accessible
+depuis le VPS mais pas depuis Internet. Dans DBeaver, créez une connexion
+**SQL Server** avec `127.0.0.1`, le port `14330`, l'utilisateur `sa` et le mot
+de passe `MSSQL_SA_PASSWORD`. Dans l'onglet **SSH**, activez le tunnel et
+indiquez l'adresse, le port SSH et l'utilisateur du VPS. Vous pouvez alors
+choisir l'une des bases : `hospital_account`, `hospital_auth`,
+`hospital_organization`, `hospital_laboratory` ou `hospital_patient`.
+
+L'alternative équivalente en ligne de commande est :
+
+```bash
+ssh -N -L 14330:127.0.0.1:14330 utilisateur@votre-vps
+```
+
+Puis connectez DBeaver à `127.0.0.1:14330`. Ne créez pas de règle de pare-feu
+pour ce port et ne remplacez pas l'adresse de liaison par `0.0.0.0`.
+
 ## Convention de structure des services
 
 Chaque microservice Java doit reprendre cette structure :

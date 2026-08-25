@@ -21,7 +21,7 @@ public interface ProvinceRepository extends JpaRepository<ProvinceEntity, UUID> 
     @Query("""
             SELECT province
             FROM ProvinceEntity province
-            WHERE :query IS NULL
+            WHERE :query = ''
                OR LOWER(province.code) LIKE LOWER(CONCAT('%', :query, '%'))
                OR LOWER(province.name) LIKE LOWER(CONCAT('%', :query, '%'))
             """)

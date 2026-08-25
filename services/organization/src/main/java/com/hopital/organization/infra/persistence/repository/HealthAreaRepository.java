@@ -23,10 +23,10 @@ public interface HealthAreaRepository extends JpaRepository<HealthAreaEntity, UU
             FROM HealthAreaEntity healthArea
             JOIN healthArea.healthZone healthZone
             JOIN healthZone.province province
-            WHERE (:query IS NULL
+            WHERE (:query = ''
                     OR LOWER(healthArea.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(healthArea.name) LIKE LOWER(CONCAT('%', :query, '%')))
-              AND (:provinceCode IS NULL OR LOWER(province.code) = LOWER(:provinceCode))
+              AND (:provinceCode = '' OR LOWER(province.code) = LOWER(:provinceCode))
             """)
     Page<HealthAreaEntity> search(
             @Param("query") String query,

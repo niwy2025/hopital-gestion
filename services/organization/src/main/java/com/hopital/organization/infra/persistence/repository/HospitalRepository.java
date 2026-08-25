@@ -23,10 +23,10 @@ public interface HospitalRepository extends JpaRepository<HospitalEntity, UUID> 
             FROM HospitalEntity hospital
             JOIN hospital.healthZone healthZone
             JOIN healthZone.province province
-            WHERE (:query IS NULL
+            WHERE (:query = ''
                     OR LOWER(hospital.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(hospital.name) LIKE LOWER(CONCAT('%', :query, '%')))
-              AND (:provinceCode IS NULL OR LOWER(province.code) = LOWER(:provinceCode))
+              AND (:provinceCode = '' OR LOWER(province.code) = LOWER(:provinceCode))
             """)
     Page<HospitalEntity> search(
             @Param("query") String query,

@@ -19,7 +19,7 @@ public interface SpecimenRepository extends JpaRepository<SpecimenEntity, UUID> 
             SELECT specimen
             FROM SpecimenEntity specimen
             JOIN specimen.analysisRequest analysisRequest
-            WHERE (:query IS NULL
+            WHERE (:query = ''
                     OR LOWER(specimen.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(analysisRequest.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(analysisRequest.patientReference) LIKE LOWER(CONCAT('%', :query, '%'))

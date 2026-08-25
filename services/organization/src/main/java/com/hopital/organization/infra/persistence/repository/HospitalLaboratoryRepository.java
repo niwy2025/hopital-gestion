@@ -22,7 +22,7 @@ public interface HospitalLaboratoryRepository extends JpaRepository<HospitalLabo
             SELECT hospitalLaboratory
             FROM HospitalLaboratoryEntity hospitalLaboratory
             JOIN hospitalLaboratory.hospital hospital
-            WHERE (:query IS NULL
+            WHERE (:query = ''
                     OR LOWER(hospitalLaboratory.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(hospitalLaboratory.name) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(hospital.code) LIKE LOWER(CONCAT('%', :query, '%'))

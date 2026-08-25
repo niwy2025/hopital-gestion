@@ -22,10 +22,10 @@ public interface ReferenceLaboratoryRepository extends JpaRepository<ReferenceLa
             SELECT referenceLaboratory
             FROM ReferenceLaboratoryEntity referenceLaboratory
             JOIN referenceLaboratory.province province
-            WHERE (:query IS NULL
+            WHERE (:query = ''
                     OR LOWER(referenceLaboratory.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(referenceLaboratory.name) LIKE LOWER(CONCAT('%', :query, '%')))
-              AND (:provinceCode IS NULL OR LOWER(province.code) = LOWER(:provinceCode))
+              AND (:provinceCode = '' OR LOWER(province.code) = LOWER(:provinceCode))
             """)
     Page<ReferenceLaboratoryEntity> search(
             @Param("query") String query,

@@ -415,7 +415,7 @@ public class OrganizationApplicationService {
     }
 
     private String normalizeFilter(String value) {
-        return trimToNull(value);
+        return value == null ? "" : value.trim();
     }
 
     private String trimToNull(String value) {

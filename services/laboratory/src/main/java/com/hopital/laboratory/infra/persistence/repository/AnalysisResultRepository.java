@@ -24,7 +24,7 @@ public interface AnalysisResultRepository extends JpaRepository<AnalysisResultEn
             SELECT analysisResult
             FROM AnalysisResultEntity analysisResult
             JOIN analysisResult.analysisRequest analysisRequest
-            WHERE (:query IS NULL
+            WHERE (:query = ''
                     OR LOWER(analysisResult.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(analysisRequest.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(analysisRequest.patientReference) LIKE LOWER(CONCAT('%', :query, '%'))

@@ -54,7 +54,7 @@ public class LaboratoryApplicationService {
 
     public PageResponse<AnalysisRequestResponse> searchAnalysisRequests(int page, int size, String query) {
         return toPageResponse(
-                analysisRequestRepository.search(trimToNull(query), pageRequest(page, size, "createdAt")), this::toResponse);
+                analysisRequestRepository.search(normalizeSearchFilter(query), pageRequest(page, size, "createdAt")), this::toResponse);
     }
 
     public List<SpecimenResponse> listSpecimens() {
@@ -62,7 +62,7 @@ public class LaboratoryApplicationService {
     }
 
     public PageResponse<SpecimenResponse> searchSpecimens(int page, int size, String query) {
-        return toPageResponse(specimenRepository.search(trimToNull(query), pageRequest(page, size, "receivedAt")), this::toResponse);
+        return toPageResponse(specimenRepository.search(normalizeSearchFilter(query), pageRequest(page, size, "receivedAt")), this::toResponse);
     }
 
     public List<AnalysisResultResponse> listAnalysisResults() {
@@ -71,7 +71,7 @@ public class LaboratoryApplicationService {
 
     public PageResponse<AnalysisResultResponse> searchAnalysisResults(int page, int size, String query) {
         return toPageResponse(
-                analysisResultRepository.search(trimToNull(query), pageRequest(page, size, "enteredAt")), this::toResponse);
+                analysisResultRepository.search(normalizeSearchFilter(query), pageRequest(page, size, "enteredAt")), this::toResponse);
     }
 
     @Transactional
@@ -204,6 +204,10 @@ public class LaboratoryApplicationService {
 
     private String normalizeCode(String code) {
         return code.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeSearchFilter(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private PageRequest pageRequest(int page, int size, String sortField) {

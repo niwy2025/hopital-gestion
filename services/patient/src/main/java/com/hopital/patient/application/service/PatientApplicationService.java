@@ -33,7 +33,7 @@ public class PatientApplicationService {
 
     public PageResponse<PatientResponse> searchPatients(int page, int size, String query) {
         var patients = patientRepository.search(
-                trimToNull(query),
+                normalizeSearchFilter(query),
                 PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by("lastName").ascending().and(Sort.by("firstName").ascending())));
         return new PageResponse<>(
                 patients.getContent().stream().map(this::toResponse).toList(),
@@ -96,5 +96,9 @@ public class PatientApplicationService {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeSearchFilter(String value) {
+        return value == null ? "" : value.trim();
     }
 }

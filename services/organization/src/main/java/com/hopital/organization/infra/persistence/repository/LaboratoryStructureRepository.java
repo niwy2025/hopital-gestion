@@ -22,7 +22,7 @@ public interface LaboratoryStructureRepository extends JpaRepository<LaboratoryS
             SELECT laboratoryStructure
             FROM LaboratoryStructureEntity laboratoryStructure
             JOIN laboratoryStructure.referenceLaboratory referenceLaboratory
-            WHERE (:query IS NULL
+            WHERE (:query = ''
                     OR LOWER(laboratoryStructure.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(laboratoryStructure.name) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(referenceLaboratory.code) LIKE LOWER(CONCAT('%', :query, '%'))

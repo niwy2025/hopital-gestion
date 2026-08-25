@@ -7,15 +7,18 @@ ALTER TABLE role_permissions DROP CONSTRAINT FK_role_permissions_permission;
 ALTER TABLE account_roles DROP CONSTRAINT FK_account_roles_role;
 
 ALTER TABLE roles ADD uuid_id UNIQUEIDENTIFIER NULL;
+GO
 UPDATE roles SET uuid_id = NEWID();
 ALTER TABLE roles ALTER COLUMN uuid_id UNIQUEIDENTIFIER NOT NULL;
 
 ALTER TABLE permissions ADD uuid_id UNIQUEIDENTIFIER NULL;
+GO
 UPDATE permissions SET uuid_id = NEWID();
 ALTER TABLE permissions ALTER COLUMN uuid_id UNIQUEIDENTIFIER NOT NULL;
 
 ALTER TABLE role_permissions ADD role_uuid_id UNIQUEIDENTIFIER NULL;
 ALTER TABLE role_permissions ADD permission_uuid_id UNIQUEIDENTIFIER NULL;
+GO
 UPDATE role_permission
 SET role_uuid_id = role.uuid_id,
     permission_uuid_id = permission.uuid_id
@@ -26,6 +29,7 @@ ALTER TABLE role_permissions ALTER COLUMN role_uuid_id UNIQUEIDENTIFIER NOT NULL
 ALTER TABLE role_permissions ALTER COLUMN permission_uuid_id UNIQUEIDENTIFIER NOT NULL;
 
 ALTER TABLE account_roles ADD role_uuid_id UNIQUEIDENTIFIER NULL;
+GO
 UPDATE account_role
 SET role_uuid_id = role.uuid_id
 FROM account_roles account_role
@@ -48,6 +52,7 @@ EXEC sp_rename N'dbo.permissions.uuid_id', N'id', N'COLUMN';
 EXEC sp_rename N'dbo.role_permissions.role_uuid_id', N'role_id', N'COLUMN';
 EXEC sp_rename N'dbo.role_permissions.permission_uuid_id', N'permission_id', N'COLUMN';
 EXEC sp_rename N'dbo.account_roles.role_uuid_id', N'role_id', N'COLUMN';
+GO
 
 ALTER TABLE roles ADD CONSTRAINT PK_roles PRIMARY KEY (id);
 ALTER TABLE permissions ADD CONSTRAINT PK_permissions PRIMARY KEY (id);

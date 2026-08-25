@@ -2,8 +2,8 @@
 
 `organization-service` porte le référentiel institutionnel du système : une
 province contient des zones de santé et une zone de santé contient des
-hôpitaux ou centres de soins. Toutes les routes sont accessibles via Kong avec
-la base locale `http://localhost:8000`.
+hôpitaux ou centres de soins. Toutes les routes sont accessibles via l'API
+Gateway avec la base locale `http://localhost:8888`.
 
 > La restriction aux administrateurs provinciaux et centraux sera appliquée
 > avec les rôles Keycloak lors du lot sécurité. Les routes actuelles ne doivent

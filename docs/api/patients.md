@@ -5,8 +5,8 @@ patient est rattaché à l'hôpital qui a enregistré son dossier. Les demandes
 d'analyse conservent ensuite une copie de son code et de son nom pour préserver
 l'historique médical.
 
-Toutes les routes sont exposées par Kong sous `{{baseUrl}}`, soit par défaut
-`http://localhost:8000`.
+Toutes les routes sont exposées par l'API Gateway sous `{{baseUrl}}`, soit par
+défaut `http://localhost:8888`.
 
 | Méthode | Endpoint | Description |
 | --- | --- | --- |

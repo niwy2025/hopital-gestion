@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Hopital Gestion - API publique",
-    "description": "Collection globale des endpoints publics. Toutes les requêtes passent par Kong et l'API Gateway via {{baseUrl}}.",
+    "description": "Collection globale des endpoints publics. Toutes les requêtes passent par l'API Gateway via {{baseUrl}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

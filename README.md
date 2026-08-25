@@ -26,7 +26,7 @@ services/patient/                 Registre provincial des dossiers patients
 
 - **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`, `organization-service`, `laboratory-service`, `patient-service`).
 - **Docker Compose** pour orchestrer les dépendances et services locaux.
-- **Kong** comme API Gateway publique.
+- **Kong** comme gateway interne, conservée pour les intégrations qui l'utilisent.
 - **Keycloak** pour OAuth2/OpenID Connect et l'émission des JWT.
 - **SQL Server** comme persistance principale des services.
 - **Kafka** pour les échanges asynchrones.
@@ -64,10 +64,12 @@ le téléchargement et la reconstruction de toutes les couches.
 ## Déploiement de production
 
 Le fichier `docker-compose.prod.yml` complète la configuration locale. Il ferme
-tous les ports techniques et publie uniquement Caddy sur `80` et `443` :
+tous les ports techniques : seuls l'API Gateway (`127.0.0.1:8888`) et le
+portail (`127.0.0.1:3140`) sont accessibles depuis l'hôte, pour Nginx.
 
 ```text
-Internet → Caddy (HTTPS) → portail Next.js / Kong → services internes
+api-hopital.exemple.cd → Nginx → API Gateway → services internes
+gestion.exemple.cd     → Nginx → portail Next.js
 ```
 
 Avant le premier déploiement, créez un enregistrement DNS pour le domaine vers
@@ -77,31 +79,35 @@ les interpréter comme des variables.
 
 ```bash
 cp .env.production.example .env
-# Éditez .env : HOSPITAL_DOMAIN, ACME_EMAIL et tous les mots de passe.
+# Éditez .env : tous les mots de passe.
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-Caddy demande et renouvelle automatiquement le certificat TLS. Les ports
-`80` et `443` doivent donc être accessibles depuis Internet. Le portail
-frontend se déploie ensuite sur le réseau Docker partagé ; consultez son
-README pour la commande dédiée.
+Installez ensuite le fichier
+`infrastructure/proxy/nginx/hopital-gestion.conf` dans Nginx, en y remplaçant
+les deux domaines d'exemple. Nginx garde les ports publics `80` et `443` ainsi
+que la gestion des certificats TLS. Grafana et Prometheus sont privés par
+défaut ; leurs ports peuvent être publiés explicitement via les variables
+`GRAFANA_BIND_ADDRESS`, `GRAFANA_HOST_PORT`, `PROMETHEUS_BIND_ADDRESS` et
+`PROMETHEUS_HOST_PORT`. Par exemple, `GRAFANA_BIND_ADDRESS=0.0.0.0` et
+`GRAFANA_HOST_PORT=13000` publient Grafana sur le port VPS `13000`.
+
+Sur un serveur Ubuntu équipé de Nginx, activez le virtual host après avoir
+remplacé les domaines :
+
+```bash
+cp infrastructure/proxy/nginx/hopital-gestion.conf /etc/nginx/sites-available/hopital-gestion
+ln -s /etc/nginx/sites-available/hopital-gestion /etc/nginx/sites-enabled/hopital-gestion
+nginx -t && systemctl reload nginx
+certbot --nginx -d gestion.exemple.cd -d api-hopital.exemple.cd
+```
 
 Ports utiles :
 
 | Service | URL / port | Usage |
 | --- | --- | --- |
-| Kong proxy | `http://localhost:8000` | Point d'entrée API public |
-| Kong Admin API | `http://localhost:8001` | Administration de Kong |
-| API Gateway Spring | `http://localhost:8088` | Gateway applicatif interne |
-| Auth Service | `http://localhost:8081` | Service d'authentification |
-| Account Service | `http://localhost:8082` | Gestion des comptes, rôles et permissions |
-| Notification Service | `http://localhost:8083` | Traitement asynchrone des e-mails et SMS |
-| Organization Service | `http://localhost:8084` | Référentiel des provinces, zones de santé et hôpitaux |
-| Laboratory Service | `http://localhost:8085` | Demandes d'analyse, échantillons, résultats et validations |
-| Patient Service | `http://localhost:8086` | Registre provincial des dossiers patients |
-| Keycloak | `http://localhost:8080` | Console IAM et endpoints OIDC |
-| SQL Server | `localhost:1433` | Base de données applicative |
-| Kafka | `localhost:9092` | Broker accessible depuis l'hôte |
+| API Gateway Spring | `http://localhost:8888` | Point d'entrée API unique |
+| Kong, Keycloak, SQL Server, Kafka et microservices | réseau Docker interne | Services techniques et métier non exposés |
 | Redis | réseau Docker interne | Cache et rate limiting des services |
 | Prometheus | `http://localhost:9090` | Métriques |
 | Grafana | `http://localhost:3000` | Dashboards |
@@ -189,7 +195,7 @@ même flux Kafka.
 Le premier lot métier du système provincial est `organization-service`. Il
 structure les référentiels **province → zone de santé → hôpital public →
 laboratoire interne** et **province → laboratoire de référence → service, unité
-ou département**, puis expose ses opérations via Kong sous
+ou département**, puis expose ses opérations via l'API Gateway sous
 `/api/v1/organizations`. Une demande d’analyse indique le laboratoire exécutant
 (interne ou de référence) et son statut permet au futur dossier patient de
 signaler qu’il est en attente de résultat au laboratoire. Le registre des

@@ -1,7 +1,7 @@
 # Kong gateway configuration
 
 This project starts Kong with a PostgreSQL-backed configuration so routes can be
-managed through the Kong Admin API on `http://localhost:8001`.
+managed through the Kong Admin API from the Docker network.
 
 When hospital microservices are created, register each service with commands like:
 
@@ -16,5 +16,7 @@ curl -i -X POST http://localhost:8001/services/patient-service/routes \
   --data strip_path=false
 ```
 
-Keep public access through Kong on `http://localhost:8000`; avoid exposing
-business services directly outside Docker Compose unless needed for debugging.
+Kong remains internal. Public API access is published by the system Nginx,
+which forwards the API domain to `api-gateway:8088` through the host port
+`127.0.0.1:8888`. Do not expose business services directly outside Docker
+Compose.

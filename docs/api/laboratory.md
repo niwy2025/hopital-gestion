@@ -2,7 +2,8 @@
 
 `laboratory-service` trace le parcours d’une analyse : demande, réception de
 l’échantillon, saisie du résultat et validation par le biologiste. Toutes les
-routes sont accessibles via Kong avec la base locale `http://localhost:8000`.
+routes sont accessibles via l'API Gateway avec la base locale
+`http://localhost:8888`.
 
 ## Demandes d’analyse
 

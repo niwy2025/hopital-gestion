@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -23,6 +25,8 @@ import org.springframework.web.client.RestClientException;
 
 @Component
 public class KeycloakAuthClient {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(KeycloakAuthClient.class);
 
     private static final Set<String> MANAGED_ROLE_CODES = Set.of(
             "ADMIN", "DOCTOR", "NURSE", "RECEPTIONIST", "PATIENT");
@@ -48,6 +52,7 @@ public class KeycloakAuthClient {
             synchronizeRoles(serviceAccessToken, keycloakUserId, account.roles());
             return passwordGrant(account.username(), password);
         } catch (RestClientException exception) {
+            LOGGER.warn("Échec de l'échange avec Keycloak pendant la connexion : {}", exception.getMessage());
             throw new AuthException("La connexion est momentanément indisponible.");
         }
     }
@@ -59,6 +64,7 @@ public class KeycloakAuthClient {
             form.add("refresh_token", refreshToken);
             return toToken(requestToken(form));
         } catch (RestClientException exception) {
+            LOGGER.warn("Échec du renouvellement de session auprès de Keycloak : {}", exception.getMessage());
             throw new AuthException("La session est invalide ou expirée.");
         }
     }

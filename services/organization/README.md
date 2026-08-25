@@ -18,6 +18,7 @@ utiliseront le code de l'hôpital comme périmètre de travail et d'autorisation
 
 - `GET` / `POST /api/v1/organizations/provinces`
 - `GET` / `POST /api/v1/organizations/health-zones`
+- `GET /api/v1/organizations/health-zones/search?page=0&size=20&query=&provinceCode=`
 - `GET` / `POST /api/v1/organizations/health-areas`
 - `GET` / `POST /api/v1/organizations/hospitals`
 - `GET` / `POST /api/v1/organizations/hospital-laboratories`

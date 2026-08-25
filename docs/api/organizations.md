@@ -24,8 +24,16 @@ Gateway avec la base locale `http://localhost:8888`.
 ## Zones de santé
 
 - `GET /api/v1/organizations/health-zones` : liste les zones de santé.
+- `GET /api/v1/organizations/health-zones/search` : liste paginée, avec
+  recherche par code ou nom et filtre de province.
 - `POST /api/v1/organizations/health-zones` : crée une zone rattachée à une
   province existante.
+
+Exemple :
+
+`GET /api/v1/organizations/health-zones/search?page=0&size=20&query=BOKO&provinceCode=KONGO-CENTRAL`
+
+La réponse contient `items`, `page`, `size`, `totalElements` et `totalPages`.
 
 ```json
 {

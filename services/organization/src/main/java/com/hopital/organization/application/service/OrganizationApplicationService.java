@@ -13,6 +13,7 @@ import com.hopital.organization.application.dto.HealthAreaResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
 import com.hopital.organization.application.dto.HospitalLaboratoryResponse;
 import com.hopital.organization.application.dto.LaboratoryStructureResponse;
+import com.hopital.organization.application.dto.PageResponse;
 import com.hopital.organization.application.dto.ProvinceResponse;
 import com.hopital.organization.application.dto.ReferenceLaboratoryResponse;
 import com.hopital.organization.application.dto.UpdateOrganizationStatusRequest;
@@ -35,6 +36,8 @@ import com.hopital.organization.infra.persistence.repository.ReferenceLaboratory
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,6 +76,20 @@ public class OrganizationApplicationService {
 
     public List<HealthZoneResponse> listHealthZones() {
         return healthZoneRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
+    }
+
+    public PageResponse<HealthZoneResponse> searchHealthZones(
+            int page, int size, String query, String provinceCode) {
+        var healthZones = healthZoneRepository.search(
+                normalizeFilter(query),
+                normalizeFilter(provinceCode),
+                PageRequest.of(normalizePage(page), normalizePageSize(size), Sort.by("name").ascending()));
+        return new PageResponse<>(
+                healthZones.getContent().stream().map(this::toResponse).toList(),
+                healthZones.getNumber(),
+                healthZones.getSize(),
+                healthZones.getTotalElements(),
+                healthZones.getTotalPages());
     }
 
     public List<HealthAreaResponse> listHealthAreas() {
@@ -342,6 +359,18 @@ public class OrganizationApplicationService {
 
     private String normalizeCode(String code) {
         return code.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(page, 0);
+    }
+
+    private int normalizePageSize(int size) {
+        return Math.min(Math.max(size, 1), 100);
+    }
+
+    private String normalizeFilter(String value) {
+        return trimToNull(value);
     }
 
     private String trimToNull(String value) {

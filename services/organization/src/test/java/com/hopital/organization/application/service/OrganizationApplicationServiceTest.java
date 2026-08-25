@@ -27,8 +27,11 @@ import com.hopital.organization.infra.persistence.repository.HospitalLaboratoryR
 import com.hopital.organization.infra.persistence.repository.LaboratoryStructureRepository;
 import com.hopital.organization.infra.persistence.repository.ProvinceRepository;
 import com.hopital.organization.infra.persistence.repository.ReferenceLaboratoryRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -113,6 +116,23 @@ class OrganizationApplicationServiceTest {
         assertThat(response.code()).isEqualTo("KINSENSO-CENTRE");
         assertThat(response.healthZoneCode()).isEqualTo("KINSENSO");
         assertThat(response.provinceCode()).isEqualTo("KIN");
+    }
+
+    @Test
+    void searchesHealthZonesByTextAndProvince() {
+        ProvinceEntity province = new ProvinceEntity("KONGO-CENTRAL", "Kongo Central");
+        HealthZoneEntity healthZone = new HealthZoneEntity("BOKO-KIVULU", "Boko-Kivulu", province);
+        when(healthZoneRepository.search(
+                        org.mockito.ArgumentMatchers.eq("BOKO"),
+                        org.mockito.ArgumentMatchers.eq("KONGO-CENTRAL"),
+                        org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PageImpl<>(List.of(healthZone), PageRequest.of(0, 20), 1));
+
+        var response = organizationApplicationService.searchHealthZones(0, 20, " BOKO ", " KONGO-CENTRAL ");
+
+        assertThat(response.items()).extracting("code").containsExactly("BOKO-KIVULU");
+        assertThat(response.totalElements()).isOne();
+        assertThat(response.totalPages()).isOne();
     }
 
     @Test

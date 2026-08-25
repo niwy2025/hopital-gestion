@@ -41,3 +41,24 @@ Exemple de création :
 
 Pour une mise à jour, le champ `password` est facultatif. Lorsqu'il est absent,
 le mot de passe actuel est conservé.
+
+## Photo de profil
+
+La fiche `GET /api/v1/accounts/{accountId}` retourne la photo uniquement pour
+un compte précis, sous la forme de `profilePhotoBase64` et
+`profilePhotoContentType`. Les listes ne renvoient pas ces champs afin de ne
+pas transporter les images de tous les utilisateurs.
+
+À la création ou à la modification, une photo peut être envoyée avec les deux
+champs suivants :
+
+```json
+{
+  "profilePhotoBase64": "<base64 sans préfixe data:>",
+  "profilePhotoContentType": "image/jpeg"
+}
+```
+
+Les formats JPEG, PNG et WebP sont acceptés, dans une limite de **512 Ko une
+fois décodée**. Pour supprimer une photo existante à la modification, envoyez
+`"removeProfilePhoto": true` sans les champs de photo.

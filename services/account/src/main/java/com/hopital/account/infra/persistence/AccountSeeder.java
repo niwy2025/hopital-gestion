@@ -44,6 +44,8 @@ public class AccountSeeder implements ApplicationRunner {
                 "Administrateur Hopital",
                 passwordEncoder.encode(seed.adminPassword()),
                 null,
+                null,
+                null,
                 rolePermissionService.resolveRoles(Set.of("ADMIN"))));
     }
 }

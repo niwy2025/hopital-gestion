@@ -1,6 +1,7 @@
 package com.hopital.account.api;
 
 import com.hopital.account.application.dto.AccountResponse;
+import com.hopital.account.application.dto.AccountDetailsResponse;
 import com.hopital.account.application.dto.CreateAccountRequest;
 import com.hopital.account.application.dto.PageResponse;
 import com.hopital.account.application.dto.RoleResponse;
@@ -50,12 +51,12 @@ public class AccountController {
     }
 
     @GetMapping("/{accountId}")
-    public ResponseEntity<AccountResponse> findById(@PathVariable("accountId") UUID accountId) {
+    public ResponseEntity<AccountDetailsResponse> findById(@PathVariable("accountId") UUID accountId) {
         return ResponseEntity.ok(accountApplicationService.findById(accountId));
     }
 
     @PutMapping("/{accountId}")
-    public ResponseEntity<AccountResponse> updateAccount(
+    public ResponseEntity<AccountDetailsResponse> updateAccount(
             @PathVariable("accountId") UUID accountId,
             @Valid @RequestBody UpdateAccountRequest request) {
         return ResponseEntity.ok(accountApplicationService.updateAccount(accountId, request));

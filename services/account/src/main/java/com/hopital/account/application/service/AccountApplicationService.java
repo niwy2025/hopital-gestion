@@ -1,6 +1,7 @@
 package com.hopital.account.application.service;
 
 import com.hopital.account.application.dto.AccountResponse;
+import com.hopital.account.application.dto.AccountDetailsResponse;
 import com.hopital.account.application.dto.AuthenticatedAccountResponse;
 import com.hopital.account.application.dto.CreateAccountRequest;
 import com.hopital.account.application.dto.CredentialsValidationRequest;
@@ -10,10 +11,13 @@ import com.hopital.account.application.dto.UpdateAccountRequest;
 import com.hopital.account.application.domain.AccountCreatedEvent;
 import com.hopital.account.application.exception.DuplicateAccountException;
 import com.hopital.account.application.exception.InvalidHospitalAssignmentException;
+import com.hopital.account.application.exception.InvalidProfilePhotoException;
 import com.hopital.account.application.exception.AccountNotFoundException;
 import com.hopital.account.infra.persistence.entity.AccountEntity;
 import com.hopital.account.infra.persistence.repository.AccountRepository;
 import java.util.List;
+import java.util.Base64;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -68,6 +72,7 @@ public class AccountApplicationService {
             throw new DuplicateAccountException("cet identifiant ou cette adresse e-mail", username + " / " + email);
         }
         Set<String> requestedRoles = request.roles() == null || request.roles().isEmpty() ? Set.of("PATIENT") : request.roles();
+        ProfilePhoto profilePhoto = parseProfilePhoto(request.profilePhotoBase64(), request.profilePhotoContentType());
         AccountEntity account = new AccountEntity(
                 UUID.randomUUID(),
                 username,
@@ -75,20 +80,22 @@ public class AccountApplicationService {
                 request.displayName().trim(),
                 passwordEncoder.encode(request.password()),
                 parseOptionalUuid(request.hospitalId()),
+                profilePhoto == null ? null : profilePhoto.base64(),
+                profilePhoto == null ? null : profilePhoto.contentType(),
                 rolePermissionService.resolveRoles(requestedRoles));
         AccountResponse response = toResponse(accountRepository.save(account));
         applicationEventPublisher.publishEvent(new AccountCreatedEvent(response));
         return response;
     }
 
-    public AccountResponse findById(UUID accountId) {
+    public AccountDetailsResponse findById(UUID accountId) {
         return accountRepository.findById(accountId)
-                .map(this::toResponse)
+                .map(this::toDetailsResponse)
                 .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
     }
 
     @Transactional
-    public AccountResponse updateAccount(UUID accountId, UpdateAccountRequest request) {
+    public AccountDetailsResponse updateAccount(UUID accountId, UpdateAccountRequest request) {
         AccountEntity account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
         String username = request.username().trim();
@@ -109,7 +116,15 @@ public class AccountApplicationService {
         if (request.password() != null && !request.password().isBlank()) {
             account.changePassword(passwordEncoder.encode(request.password()));
         }
-        return toResponse(account);
+        if (request.removeProfilePhoto()) {
+            account.removeProfilePhoto();
+        } else {
+            ProfilePhoto profilePhoto = parseProfilePhoto(request.profilePhotoBase64(), request.profilePhotoContentType());
+            if (profilePhoto != null) {
+                account.changeProfilePhoto(profilePhoto.base64(), profilePhoto.contentType());
+            }
+        }
+        return toDetailsResponse(account);
     }
 
     public AccountResponse findByIdentifier(String identifier) {
@@ -143,6 +158,19 @@ public class AccountApplicationService {
                         .collect(java.util.stream.Collectors.toUnmodifiableSet()));
     }
 
+    private AccountDetailsResponse toDetailsResponse(AccountEntity account) {
+        AccountResponse accountResponse = toResponse(account);
+        return new AccountDetailsResponse(
+                accountResponse.id(),
+                accountResponse.username(),
+                accountResponse.email(),
+                accountResponse.displayName(),
+                accountResponse.hospitalId(),
+                accountResponse.roles(),
+                account.getProfilePhotoBase64(),
+                account.getProfilePhotoContentType());
+    }
+
     private boolean isAllowedToSignIn(AccountEntity account) {
         return account.getHospitalId() != null
                 || account.getRoles().stream().anyMatch(role -> "ADMIN".equals(role.getCode()));
@@ -169,5 +197,32 @@ public class AccountApplicationService {
         } catch (IllegalArgumentException exception) {
             throw new InvalidHospitalAssignmentException(value);
         }
+    }
+
+    private ProfilePhoto parseProfilePhoto(String base64, String contentType) {
+        if (base64 == null && contentType == null) {
+            return null;
+        }
+        if (base64 == null || base64.isBlank() || contentType == null || contentType.isBlank()) {
+            throw new InvalidProfilePhotoException("La photo de profil est incomplète.");
+        }
+
+        String normalizedContentType = contentType.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("image/jpeg", "image/png", "image/webp").contains(normalizedContentType)) {
+            throw new InvalidProfilePhotoException("Le format de la photo doit être JPEG, PNG ou WebP.");
+        }
+
+        try {
+            byte[] photoBytes = Base64.getDecoder().decode(base64);
+            if (photoBytes.length == 0 || photoBytes.length > 512 * 1024) {
+                throw new InvalidProfilePhotoException("La photo de profil ne doit pas dépasser 512 Ko.");
+            }
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidProfilePhotoException("Le contenu de la photo de profil est invalide.");
+        }
+        return new ProfilePhoto(base64, normalizedContentType);
+    }
+
+    private record ProfilePhoto(String base64, String contentType) {
     }
 }

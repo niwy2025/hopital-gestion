@@ -70,11 +70,15 @@ class AccountApplicationServiceTest {
                 "Alice",
                 "plain-password",
                 UUID.randomUUID().toString(),
+                "cHJvZmlsZS1waG90bw==",
+                "image/jpeg",
                 Set.of("PATIENT")));
 
         verify(accountRepository).save(accountCaptor.capture());
         verify(applicationEventPublisher).publishEvent(accountCreatedEventCaptor.capture());
         assertThat(accountCaptor.getValue().getPasswordHash()).isEqualTo("hashed-password");
+        assertThat(accountCaptor.getValue().getProfilePhotoBase64()).isEqualTo("cHJvZmlsZS1waG90bw==");
+        assertThat(accountCaptor.getValue().getProfilePhotoContentType()).isEqualTo("image/jpeg");
         assertThat(response.username()).isEqualTo("alice");
         assertThat(accountCreatedEventCaptor.getValue().account().email()).isEqualTo("alice@hopital.local");
         assertThat(response.roles()).singleElement().satisfies(role -> assertThat(role.code()).isEqualTo("PATIENT"));
@@ -89,6 +93,8 @@ class AccountApplicationServiceTest {
                 "Alice",
                 "hashed-password",
                 UUID.randomUUID(),
+                null,
+                null,
                 Set.of());
         when(accountRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("alice", "alice"))
                 .thenReturn(Optional.of(account));
@@ -111,6 +117,8 @@ class AccountApplicationServiceTest {
                 "Alice",
                 "hashed-password",
                 null,
+                null,
+                null,
                 Set.of());
         when(accountRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("alice", "alice"))
                 .thenReturn(Optional.of(account));
@@ -132,6 +140,8 @@ class AccountApplicationServiceTest {
                 "admin@hopital.local",
                 "Administrateur",
                 "hashed-password",
+                null,
+                null,
                 null,
                 Set.of(administratorRole));
         when(accountRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("admin", "admin"))

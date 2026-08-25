@@ -12,5 +12,7 @@ public record CreateAccountRequest(
         @NotBlank @Size(max = 255) String displayName,
         @NotBlank @Size(min = 8, max = 255) String password,
         String hospitalId,
+        @Size(max = 700000) String profilePhotoBase64,
+        @Size(max = 100) String profilePhotoContentType,
         @NotEmpty Set<String> roles) {
 }

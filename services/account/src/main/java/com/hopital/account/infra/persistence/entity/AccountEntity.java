@@ -43,6 +43,14 @@ public class AccountEntity {
     @Column(name = "hospital_id")
     private UUID hospitalId;
 
+    @Column(name = "profile_photo_base64", columnDefinition = "NVARCHAR(MAX)")
+    @Nationalized
+    private String profilePhotoBase64;
+
+    @Column(name = "profile_photo_content_type", length = 100)
+    @Nationalized
+    private String profilePhotoContentType;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "account_roles",
@@ -60,6 +68,8 @@ public class AccountEntity {
             String displayName,
             String passwordHash,
             UUID hospitalId,
+            String profilePhotoBase64,
+            String profilePhotoContentType,
             Set<RoleEntity> roles) {
         this.id = id;
         this.username = username;
@@ -67,6 +77,8 @@ public class AccountEntity {
         this.displayName = displayName;
         this.passwordHash = passwordHash;
         this.hospitalId = hospitalId;
+        this.profilePhotoBase64 = profilePhotoBase64;
+        this.profilePhotoContentType = profilePhotoContentType;
         this.roles = new HashSet<>(roles);
     }
 
@@ -94,6 +106,14 @@ public class AccountEntity {
         return hospitalId;
     }
 
+    public String getProfilePhotoBase64() {
+        return profilePhotoBase64;
+    }
+
+    public String getProfilePhotoContentType() {
+        return profilePhotoContentType;
+    }
+
     public Set<RoleEntity> getRoles() {
         return Set.copyOf(roles);
     }
@@ -113,5 +133,15 @@ public class AccountEntity {
 
     public void changePassword(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public void changeProfilePhoto(String profilePhotoBase64, String profilePhotoContentType) {
+        this.profilePhotoBase64 = profilePhotoBase64;
+        this.profilePhotoContentType = profilePhotoContentType;
+    }
+
+    public void removeProfilePhoto() {
+        this.profilePhotoBase64 = null;
+        this.profilePhotoContentType = null;
     }
 }

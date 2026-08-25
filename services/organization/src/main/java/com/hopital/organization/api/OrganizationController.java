@@ -6,6 +6,7 @@ import com.hopital.organization.application.dto.CreateProvinceRequest;
 import com.hopital.organization.application.dto.HealthZoneResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
 import com.hopital.organization.application.dto.ProvinceResponse;
+import com.hopital.organization.application.dto.UpdateProvinceStatusRequest;
 import com.hopital.organization.application.service.OrganizationApplicationService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -13,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,6 +38,13 @@ public class OrganizationController {
     @PostMapping("/provinces")
     public ResponseEntity<ProvinceResponse> createProvince(@Valid @RequestBody CreateProvinceRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(organizationApplicationService.createProvince(request));
+    }
+
+    @PatchMapping("/provinces/{provinceCode}/status")
+    public ResponseEntity<ProvinceResponse> updateProvinceStatus(
+            @PathVariable("provinceCode") String provinceCode,
+            @Valid @RequestBody UpdateProvinceStatusRequest request) {
+        return ResponseEntity.ok(organizationApplicationService.updateProvinceStatus(provinceCode, request));
     }
 
     @GetMapping("/health-zones")

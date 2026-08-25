@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.hopital.organization.application.domain.HospitalType;
 import com.hopital.organization.application.dto.CreateHospitalRequest;
 import com.hopital.organization.application.dto.CreateProvinceRequest;
+import com.hopital.organization.application.dto.UpdateProvinceStatusRequest;
 import com.hopital.organization.application.exception.DuplicateOrganizationException;
 import com.hopital.organization.infra.persistence.entity.HealthZoneEntity;
 import com.hopital.organization.infra.persistence.entity.ProvinceEntity;
@@ -76,5 +77,15 @@ class OrganizationApplicationServiceTest {
         assertThatThrownBy(() -> organizationApplicationService.createProvince(new CreateProvinceRequest("kin", "Kinshasa")))
                 .isInstanceOf(DuplicateOrganizationException.class)
                 .hasMessageContaining("KIN");
+    }
+
+    @Test
+    void deactivatesAProvince() {
+        ProvinceEntity province = new ProvinceEntity("KIN", "Kinshasa");
+        when(provinceRepository.findByCodeIgnoreCase("KIN")).thenReturn(Optional.of(province));
+
+        var response = organizationApplicationService.updateProvinceStatus("kin", new UpdateProvinceStatusRequest(false));
+
+        assertThat(response.active()).isFalse();
     }
 }

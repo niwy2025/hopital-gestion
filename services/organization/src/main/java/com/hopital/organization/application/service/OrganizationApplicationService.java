@@ -6,6 +6,7 @@ import com.hopital.organization.application.dto.CreateProvinceRequest;
 import com.hopital.organization.application.dto.HealthZoneResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
 import com.hopital.organization.application.dto.ProvinceResponse;
+import com.hopital.organization.application.dto.UpdateProvinceStatusRequest;
 import com.hopital.organization.application.exception.DuplicateOrganizationException;
 import com.hopital.organization.application.exception.OrganizationNotFoundException;
 import com.hopital.organization.infra.persistence.entity.HealthZoneEntity;
@@ -56,6 +57,14 @@ public class OrganizationApplicationService {
             throw new DuplicateOrganizationException("La province", code);
         }
         return toResponse(provinceRepository.save(new ProvinceEntity(code, request.name().trim())));
+    }
+
+    @Transactional
+    public ProvinceResponse updateProvinceStatus(String provinceCode, UpdateProvinceStatusRequest request) {
+        ProvinceEntity province = provinceRepository.findByCodeIgnoreCase(normalizeCode(provinceCode))
+                .orElseThrow(() -> new OrganizationNotFoundException("La province", provinceCode));
+        province.setActive(request.active());
+        return toResponse(province);
     }
 
     @Transactional

@@ -17,8 +17,8 @@ ne constitue donc pas une interface de connexion exposée aux utilisateurs.
 ```json
 POST /api/v1/auth/login
 {
-  "username": "admin",
-  "password": "admin123"
+  "username": "<HOSPITAL_ADMIN_USERNAME>",
+  "password": "<HOSPITAL_ADMIN_PASSWORD>"
 }
 ```
 
@@ -39,6 +39,18 @@ Réponse `200 OK` :
 
 La durée de vie de l'access token est de **15 minutes**. Le refresh token est
 valide **8 heures** et il est renouvelé à chaque appel de rafraîchissement.
+
+## Premier administrateur
+
+Au premier démarrage, `account-service` crée le compte défini par
+`HOSPITAL_ADMIN_USERNAME`, `HOSPITAL_ADMIN_EMAIL` et
+`HOSPITAL_ADMIN_PASSWORD` dans le fichier `.env`. En production, ces trois
+variables sont obligatoires. Leur modification ne change jamais un compte déjà
+créé : le mot de passe doit ensuite être modifié depuis l'administration des
+utilisateurs.
+
+Après connexion, la page `/utilisateurs` permet à un administrateur de créer
+d'autres comptes et de leur attribuer le rôle `ADMIN`.
 
 Le header HTTP `User-Agent` est automatiquement conservé dans le journal
 `hospital_auth.dbo.auth_login_audits`, avec le statut de la connexion et la

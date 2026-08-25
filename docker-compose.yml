@@ -124,13 +124,16 @@ services:
           -s ssoSessionIdleTimeout=28800 \
           -s ssoSessionMaxLifespan=86400
         client_id=$$(/opt/keycloak/bin/kcadm.sh get clients -r hospital -q clientId=hospital-services --fields id --format csv | tr -d '\"\r\n')
-        /opt/keycloak/bin/kcadm.sh update clients/$$client_id -r hospital -s directAccessGrantsEnabled=true
+        /opt/keycloak/bin/kcadm.sh update clients/$$client_id -r hospital \
+          -s directAccessGrantsEnabled=true \
+          -s "secret=$${KEYCLOAK_CLIENT_SECRET}"
         service_account_id=$$(/opt/keycloak/bin/kcadm.sh get clients/$$client_id/service-account-user -r hospital --fields id --format csv | tr -d '\"\r\n')
         /opt/keycloak/bin/kcadm.sh add-roles -r hospital --uid $$service_account_id --cclientid realm-management \
           --rolename manage-users --rolename query-users --rolename view-users --rolename view-realm
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-change-me-in-production}
     networks: [hospital-network]
     restart: on-failure
 
@@ -269,11 +272,18 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      HOSPITAL_ADMIN_USERNAME: ${HOSPITAL_ADMIN_USERNAME:-admin}
+      HOSPITAL_ADMIN_EMAIL: ${HOSPITAL_ADMIN_EMAIL:-admin@hopital.local}
+      HOSPITAL_ADMIN_PASSWORD: ${HOSPITAL_ADMIN_PASSWORD:-admin123}
     depends_on:
-      - sqlserver
-      - sqlserver-init
-      - redis
-      - kafka
+      sqlserver:
+        condition: service_started
+      sqlserver-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
     networks: [hospital-network]
 
   notification-service:

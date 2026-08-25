@@ -30,6 +30,10 @@ services:
     restart: unless-stopped
 
   account-service:
+    environment:
+      HOSPITAL_ADMIN_USERNAME: ${HOSPITAL_ADMIN_USERNAME:?Définissez HOSPITAL_ADMIN_USERNAME dans le fichier .env}
+      HOSPITAL_ADMIN_EMAIL: ${HOSPITAL_ADMIN_EMAIL:?Définissez HOSPITAL_ADMIN_EMAIL dans le fichier .env}
+      HOSPITAL_ADMIN_PASSWORD: ${HOSPITAL_ADMIN_PASSWORD:?Définissez HOSPITAL_ADMIN_PASSWORD dans le fichier .env}
     ports: !reset []
     restart: unless-stopped
 

@@ -1,5 +1,5 @@
 CREATE TABLE analysis_requests (
-    id UNIQUEIDENTIFIER NOT NULL,
+    id UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_analysis_requests_id DEFAULT NEWID(),
     code NVARCHAR(30) NOT NULL,
     reference_laboratory_code NVARCHAR(30) NOT NULL,
     patient_reference NVARCHAR(100) NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE analysis_requests (
 );
 
 CREATE TABLE specimens (
-    id UNIQUEIDENTIFIER NOT NULL,
+    id UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_specimens_id DEFAULT NEWID(),
     code NVARCHAR(30) NOT NULL,
     analysis_request_id UNIQUEIDENTIFIER NOT NULL,
     specimen_type NVARCHAR(30) NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE specimens (
 );
 
 CREATE TABLE analysis_results (
-    id UNIQUEIDENTIFIER NOT NULL,
+    id UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_analysis_results_id DEFAULT NEWID(),
     code NVARCHAR(30) NOT NULL,
     analysis_request_id UNIQUEIDENTIFIER NOT NULL,
     result_value NVARCHAR(1000) NOT NULL,

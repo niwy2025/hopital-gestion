@@ -1,5 +1,5 @@
 CREATE TABLE roles (
-    id BIGINT IDENTITY(1, 1) NOT NULL,
+    id UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_roles_id DEFAULT NEWID(),
     code NVARCHAR(50) NOT NULL,
     label NVARCHAR(100) NOT NULL,
     CONSTRAINT PK_roles PRIMARY KEY (id),
@@ -7,7 +7,7 @@ CREATE TABLE roles (
 );
 
 CREATE TABLE permissions (
-    id BIGINT IDENTITY(1, 1) NOT NULL,
+    id UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_permissions_id DEFAULT NEWID(),
     code NVARCHAR(100) NOT NULL,
     description NVARCHAR(255) NOT NULL,
     CONSTRAINT PK_permissions PRIMARY KEY (id),
@@ -15,7 +15,7 @@ CREATE TABLE permissions (
 );
 
 CREATE TABLE accounts (
-    id UNIQUEIDENTIFIER NOT NULL,
+    id UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_accounts_id DEFAULT NEWID(),
     username NVARCHAR(100) NOT NULL,
     email NVARCHAR(255) NOT NULL,
     display_name NVARCHAR(255) NOT NULL,
@@ -27,8 +27,8 @@ CREATE TABLE accounts (
 );
 
 CREATE TABLE role_permissions (
-    role_id BIGINT NOT NULL,
-    permission_id BIGINT NOT NULL,
+    role_id UNIQUEIDENTIFIER NOT NULL,
+    permission_id UNIQUEIDENTIFIER NOT NULL,
     CONSTRAINT PK_role_permissions PRIMARY KEY (role_id, permission_id),
     CONSTRAINT FK_role_permissions_role FOREIGN KEY (role_id) REFERENCES roles (id),
     CONSTRAINT FK_role_permissions_permission FOREIGN KEY (permission_id) REFERENCES permissions (id)
@@ -36,7 +36,7 @@ CREATE TABLE role_permissions (
 
 CREATE TABLE account_roles (
     account_id UNIQUEIDENTIFIER NOT NULL,
-    role_id BIGINT NOT NULL,
+    role_id UNIQUEIDENTIFIER NOT NULL,
     CONSTRAINT PK_account_roles PRIMARY KEY (account_id, role_id),
     CONSTRAINT FK_account_roles_account FOREIGN KEY (account_id) REFERENCES accounts (id),
     CONSTRAINT FK_account_roles_role FOREIGN KEY (role_id) REFERENCES roles (id)

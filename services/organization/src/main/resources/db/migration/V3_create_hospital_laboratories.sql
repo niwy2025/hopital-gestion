@@ -1,5 +1,5 @@
 CREATE TABLE hospital_laboratories (
-    id UNIQUEIDENTIFIER NOT NULL,
+    id UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_hospital_laboratories_id DEFAULT NEWID(),
     code NVARCHAR(30) NOT NULL,
     name NVARCHAR(200) NOT NULL,
     hospital_id UNIQUEIDENTIFIER NOT NULL,

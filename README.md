@@ -162,6 +162,11 @@ Chaque service qui possède une base de données conserve ses migrations SQL dan
 Flyway. Les versions sont strictement croissantes et une
 migration déjà appliquée ne doit jamais être modifiée.
 
+Toutes les clés primaires et étrangères applicatives utilisent des UUID :
+`UNIQUEIDENTIFIER` avec `DEFAULT NEWID()` dans SQL Server et `UUID` dans les
+services Java. `flyway_schema_history.installed_rank` reste numérique, car il
+est le compteur technique de Flyway et non une donnée métier.
+
 Les services `services/account`, `services/auth`, `services/organization`,
 `services/laboratory` et `services/patient` appliquent déjà cette convention et servent de modèles
 pour les futurs services hospitaliers comme `patient-service`,

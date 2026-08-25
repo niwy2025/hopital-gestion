@@ -1,8 +1,8 @@
 CREATE TABLE reference_laboratories (
-    id UNIQUEIDENTIFIER NOT NULL,
+    id UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_reference_laboratories_id DEFAULT NEWID(),
     code NVARCHAR(30) NOT NULL,
     name NVARCHAR(200) NOT NULL,
-    province_id BIGINT NOT NULL,
+    province_id UNIQUEIDENTIFIER NOT NULL,
     address NVARCHAR(255) NULL,
     phone_number NVARCHAR(30) NULL,
     active BIT NOT NULL CONSTRAINT DF_reference_laboratories_active DEFAULT 1,
@@ -12,7 +12,7 @@ CREATE TABLE reference_laboratories (
 );
 
 CREATE TABLE laboratory_structures (
-    id UNIQUEIDENTIFIER NOT NULL,
+    id UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_laboratory_structures_id DEFAULT NEWID(),
     code NVARCHAR(30) NOT NULL,
     name NVARCHAR(200) NOT NULL,
     type NVARCHAR(20) NOT NULL,

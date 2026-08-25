@@ -6,7 +6,7 @@ import com.hopital.organization.application.dto.CreateProvinceRequest;
 import com.hopital.organization.application.dto.HealthZoneResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
 import com.hopital.organization.application.dto.ProvinceResponse;
-import com.hopital.organization.application.dto.UpdateProvinceStatusRequest;
+import com.hopital.organization.application.dto.UpdateOrganizationStatusRequest;
 import com.hopital.organization.application.service.OrganizationApplicationService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -43,7 +43,7 @@ public class OrganizationController {
     @PatchMapping("/provinces/{provinceCode}/status")
     public ResponseEntity<ProvinceResponse> updateProvinceStatus(
             @PathVariable("provinceCode") String provinceCode,
-            @Valid @RequestBody UpdateProvinceStatusRequest request) {
+            @Valid @RequestBody UpdateOrganizationStatusRequest request) {
         return ResponseEntity.ok(organizationApplicationService.updateProvinceStatus(provinceCode, request));
     }
 
@@ -55,6 +55,13 @@ public class OrganizationController {
     @PostMapping("/health-zones")
     public ResponseEntity<HealthZoneResponse> createHealthZone(@Valid @RequestBody CreateHealthZoneRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(organizationApplicationService.createHealthZone(request));
+    }
+
+    @PatchMapping("/health-zones/{healthZoneCode}/status")
+    public ResponseEntity<HealthZoneResponse> updateHealthZoneStatus(
+            @PathVariable("healthZoneCode") String healthZoneCode,
+            @Valid @RequestBody UpdateOrganizationStatusRequest request) {
+        return ResponseEntity.ok(organizationApplicationService.updateHealthZoneStatus(healthZoneCode, request));
     }
 
     @GetMapping("/hospitals")

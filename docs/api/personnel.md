@@ -35,10 +35,35 @@ Catégories actuellement prévues : `DOCTOR`, `NURSE`, `MIDWIFE`,
 
 - `GET /api/v1/personnel/search?page=0&size=20&query=&hospitalId=&active=true`
   fournit une liste paginée, recherchable et filtrable.
-- `GET /api/v1/personnel/{personnelId}` retourne une fiche.
+- `GET /api/v1/personnel/{personnelId}` retourne la fiche complète, y compris
+  les pièces de son dossier documentaire. Les listes de recherche ne chargent
+  jamais ces fichiers.
 - `GET /api/v1/personnel/account/{accountId}` retourne la fiche associée à un
   compte utilisateur, ou `404` lorsque le compte n’est rattaché à aucun agent.
 - `PUT /api/v1/personnel/{personnelId}` met à jour la fiche et l’association
   optionnelle avec un compte.
 - `PATCH /api/v1/personnel/{personnelId}/status` avec `{ "active": false }`
   désactive un agent sans effacer son historique.
+
+## Dossier documentaire
+
+Chaque agent peut conserver ses pièces administratives directement dans la
+base de données : photo de profil, signature, CV, pièce d’identité, diplôme,
+licence professionnelle, contrat et autres documents.
+
+`POST /api/v1/personnel/{personnelId}/documents` accepte le contenu Base64
+sans préfixe `data:` :
+
+```json
+{
+  "documentType": "CV",
+  "fileName": "cv-amina-kasongo.pdf",
+  "contentType": "application/pdf",
+  "contentBase64": "<contenu-base64>"
+}
+```
+
+Les formats acceptés sont PDF, Word, JPEG, PNG et WebP, avec une limite de
+2 Mo par fichier. La photo, la signature et le CV remplacent la version
+précédente ; les autres types peuvent avoir plusieurs pièces. Un document est
+supprimé par `DELETE /api/v1/personnel/{personnelId}/documents/{documentId}`.

@@ -1,7 +1,10 @@
 package com.hopital.personnel.api;
 
+import com.hopital.personnel.application.dto.CreatePersonnelDocumentRequest;
 import com.hopital.personnel.application.dto.CreatePersonnelRequest;
 import com.hopital.personnel.application.dto.PageResponse;
+import com.hopital.personnel.application.dto.PersonnelDetailsResponse;
+import com.hopital.personnel.application.dto.PersonnelDocumentResponse;
 import com.hopital.personnel.application.dto.PersonnelResponse;
 import com.hopital.personnel.application.dto.UpdatePersonnelRequest;
 import com.hopital.personnel.application.dto.UpdatePersonnelStatusRequest;
@@ -11,6 +14,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,7 +45,7 @@ public class PersonnelController {
     }
 
     @GetMapping("/{personnelId}")
-    public ResponseEntity<PersonnelResponse> findById(@PathVariable("personnelId") UUID personnelId) {
+    public ResponseEntity<PersonnelDetailsResponse> findById(@PathVariable("personnelId") UUID personnelId) {
         return ResponseEntity.ok(personnelApplicationService.findById(personnelId));
     }
 
@@ -67,5 +71,20 @@ public class PersonnelController {
             @PathVariable("personnelId") UUID personnelId,
             @Valid @RequestBody UpdatePersonnelStatusRequest request) {
         return ResponseEntity.ok(personnelApplicationService.updateStatus(personnelId, request.active()));
+    }
+
+    @PostMapping("/{personnelId}/documents")
+    public ResponseEntity<PersonnelDocumentResponse> addDocument(
+            @PathVariable("personnelId") UUID personnelId,
+            @Valid @RequestBody CreatePersonnelDocumentRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(personnelApplicationService.addDocument(personnelId, request));
+    }
+
+    @DeleteMapping("/{personnelId}/documents/{documentId}")
+    public ResponseEntity<Void> deleteDocument(
+            @PathVariable("personnelId") UUID personnelId,
+            @PathVariable("documentId") UUID documentId) {
+        personnelApplicationService.deleteDocument(personnelId, documentId);
+        return ResponseEntity.noContent().build();
     }
 }

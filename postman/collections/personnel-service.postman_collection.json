@@ -59,6 +59,45 @@
           }
         },
         {
+          "name": "Get personnel dossier",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel/{{personnel_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel", "{{personnel_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Add personnel document",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentType\": \"CV\",\n  \"fileName\": \"cv-amina-kasongo.pdf\",\n  \"contentType\": \"application/pdf\",\n  \"contentBase64\": \"{{personnel_document_base64}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel/{{personnel_id}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel", "{{personnel_id}}", "documents"]
+            }
+          }
+        },
+        {
+          "name": "Delete personnel document",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel/{{personnel_id}}/documents/{{personnel_document_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel", "{{personnel_id}}", "documents", "{{personnel_document_id}}"]
+            }
+          }
+        },
+        {
           "name": "Deactivate personnel member",
           "request": {
             "method": "PATCH",

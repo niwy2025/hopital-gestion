@@ -8,12 +8,18 @@ import static org.mockito.Mockito.when;
 
 import com.hopital.personnel.application.domain.Gender;
 import com.hopital.personnel.application.domain.PersonnelCategory;
+import com.hopital.personnel.application.domain.PersonnelDocumentType;
+import com.hopital.personnel.application.dto.CreatePersonnelDocumentRequest;
 import com.hopital.personnel.application.dto.CreatePersonnelRequest;
+import com.hopital.personnel.application.dto.PersonnelDocumentResponse;
 import com.hopital.personnel.application.dto.PersonnelResponse;
 import com.hopital.personnel.infra.integration.account.AccountReferenceClient;
+import com.hopital.personnel.infra.persistence.entity.PersonnelDocumentEntity;
 import com.hopital.personnel.infra.persistence.entity.PersonnelEntity;
+import com.hopital.personnel.infra.persistence.repository.PersonnelDocumentRepository;
 import com.hopital.personnel.infra.persistence.repository.PersonnelRepository;
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +36,9 @@ class PersonnelApplicationServiceTest {
 
     @Mock
     private AccountReferenceClient accountReferenceClient;
+
+    @Mock
+    private PersonnelDocumentRepository personnelDocumentRepository;
 
     @InjectMocks
     private PersonnelApplicationService personnelApplicationService;
@@ -65,5 +74,42 @@ class PersonnelApplicationServiceTest {
         assertThat(response.hospitalId()).isEqualTo(hospitalId);
         assertThat(response.accountId()).isEqualTo(accountId);
         assertThat(response.active()).isTrue();
+    }
+
+    @Test
+    void addsProfilePhotoAndReplacesPreviousVersion() {
+        UUID personnelId = UUID.randomUUID();
+        PersonnelEntity personnel = new PersonnelEntity(
+                personnelId,
+                "MED-001",
+                "Amina",
+                "Kasongo",
+                null,
+                null,
+                Gender.FEMALE,
+                PersonnelCategory.DOCTOR,
+                "Médecin chef",
+                null,
+                null,
+                null,
+                null,
+                null,
+                java.time.Instant.now());
+        when(personnelRepository.findById(personnelId)).thenReturn(Optional.of(personnel));
+        when(personnelDocumentRepository.save(any(PersonnelDocumentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PersonnelDocumentResponse response = personnelApplicationService.addDocument(personnelId, new CreatePersonnelDocumentRequest(
+                PersonnelDocumentType.PROFILE_PHOTO,
+                "amina.png",
+                "image/png",
+                "aGVsbG8="));
+
+        ArgumentCaptor<PersonnelDocumentEntity> documentCaptor = ArgumentCaptor.forClass(PersonnelDocumentEntity.class);
+        verify(personnelDocumentRepository).deleteByPersonnelIdAndDocumentType(personnelId, PersonnelDocumentType.PROFILE_PHOTO);
+        verify(personnelDocumentRepository).save(documentCaptor.capture());
+        assertThat(documentCaptor.getValue().getPersonnelId()).isEqualTo(personnelId);
+        assertThat(documentCaptor.getValue().getSizeBytes()).isEqualTo(5);
+        assertThat(response.fileName()).isEqualTo("amina.png");
+        assertThat(response.contentBase64()).isEqualTo("aGVsbG8=");
     }
 }

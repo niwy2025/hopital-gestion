@@ -53,6 +53,12 @@ public class PersonnelApplicationService {
                 .orElseThrow(() -> new PersonnelNotFoundException(personnelId.toString()));
     }
 
+    public PersonnelResponse findByAccountId(UUID accountId) {
+        return personnelRepository.findByAccountId(accountId)
+                .map(this::toResponse)
+                .orElseThrow(() -> new PersonnelNotFoundException("associé au compte " + accountId));
+    }
+
     @Transactional
     public PersonnelResponse createPersonnel(CreatePersonnelRequest request) {
         String employeeNumber = normalizeEmployeeNumber(request.employeeNumber());

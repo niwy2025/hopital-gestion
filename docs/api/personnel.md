@@ -36,6 +36,8 @@ Catégories actuellement prévues : `DOCTOR`, `NURSE`, `MIDWIFE`,
 - `GET /api/v1/personnel/search?page=0&size=20&query=&hospitalId=&active=true`
   fournit une liste paginée, recherchable et filtrable.
 - `GET /api/v1/personnel/{personnelId}` retourne une fiche.
+- `GET /api/v1/personnel/account/{accountId}` retourne la fiche associée à un
+  compte utilisateur, ou `404` lorsque le compte n’est rattaché à aucun agent.
 - `PUT /api/v1/personnel/{personnelId}` met à jour la fiche et l’association
   optionnelle avec un compte.
 - `PATCH /api/v1/personnel/{personnelId}/status` avec `{ "active": false }`

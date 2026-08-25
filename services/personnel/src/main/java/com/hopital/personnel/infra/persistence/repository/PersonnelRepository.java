@@ -19,6 +19,8 @@ public interface PersonnelRepository extends JpaRepository<PersonnelEntity, UUID
 
     boolean existsByAccountIdAndIdNot(UUID accountId, UUID id);
 
+    Optional<PersonnelEntity> findByAccountId(UUID accountId);
+
     @Query("""
             SELECT personnel
             FROM PersonnelEntity personnel

@@ -45,6 +45,11 @@ public class PersonnelController {
         return ResponseEntity.ok(personnelApplicationService.findById(personnelId));
     }
 
+    @GetMapping("/account/{accountId}")
+    public ResponseEntity<PersonnelResponse> findByAccountId(@PathVariable("accountId") UUID accountId) {
+        return ResponseEntity.ok(personnelApplicationService.findByAccountId(accountId));
+    }
+
     @PostMapping
     public ResponseEntity<PersonnelResponse> createPersonnel(@Valid @RequestBody CreatePersonnelRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(personnelApplicationService.createPersonnel(request));

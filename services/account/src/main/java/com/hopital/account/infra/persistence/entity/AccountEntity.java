@@ -36,6 +36,13 @@ public class AccountEntity {
     @Nationalized
     private String passwordHash;
 
+    /**
+     * Reference to the hospital owned by organization-service. There is intentionally no SQL
+     * foreign key here: each microservice owns its own database.
+     */
+    @Column(name = "hospital_id")
+    private UUID hospitalId;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "account_roles",
@@ -46,12 +53,20 @@ public class AccountEntity {
     protected AccountEntity() {
     }
 
-    public AccountEntity(UUID id, String username, String email, String displayName, String passwordHash, Set<RoleEntity> roles) {
+    public AccountEntity(
+            UUID id,
+            String username,
+            String email,
+            String displayName,
+            String passwordHash,
+            UUID hospitalId,
+            Set<RoleEntity> roles) {
         this.id = id;
         this.username = username;
         this.email = email;
         this.displayName = displayName;
         this.passwordHash = passwordHash;
+        this.hospitalId = hospitalId;
         this.roles = new HashSet<>(roles);
     }
 
@@ -75,7 +90,28 @@ public class AccountEntity {
         return passwordHash;
     }
 
+    public UUID getHospitalId() {
+        return hospitalId;
+    }
+
     public Set<RoleEntity> getRoles() {
         return Set.copyOf(roles);
+    }
+
+    public void updateProfile(
+            String username,
+            String email,
+            String displayName,
+            UUID hospitalId,
+            Set<RoleEntity> roles) {
+        this.username = username;
+        this.email = email;
+        this.displayName = displayName;
+        this.hospitalId = hospitalId;
+        this.roles = new HashSet<>(roles);
+    }
+
+    public void changePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 }

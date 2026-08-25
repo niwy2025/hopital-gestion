@@ -52,6 +52,11 @@ utilisateurs.
 Après connexion, la page `/utilisateurs` permet à un administrateur de créer
 d'autres comptes et de leur attribuer le rôle `ADMIN`.
 
+Les comptes non administrateurs doivent être rattachés à un hôpital avant de
+pouvoir ouvrir une session. Cette règle est appliquée par `account-service`
+avant tout échange avec Keycloak ; un administrateur provincial reste autorisé
+sans rattachement.
+
 Le header HTTP `User-Agent` est automatiquement conservé dans le journal
 `hospital_auth.dbo.auth_login_audits`, avec le statut de la connexion et la
 date d'expiration de l'access token. Il s'agit d'une donnée de traçabilité :

@@ -4,8 +4,12 @@ import com.hopital.account.application.dto.AccountResponse;
 import com.hopital.account.application.dto.AuthenticatedAccountResponse;
 import com.hopital.account.application.dto.CreateAccountRequest;
 import com.hopital.account.application.dto.CredentialsValidationRequest;
+import com.hopital.account.application.dto.PageResponse;
 import com.hopital.account.application.dto.RoleResponse;
+import com.hopital.account.application.dto.UpdateAccountRequest;
 import com.hopital.account.application.domain.AccountCreatedEvent;
+import com.hopital.account.application.exception.DuplicateAccountException;
+import com.hopital.account.application.exception.InvalidHospitalAssignmentException;
 import com.hopital.account.application.exception.AccountNotFoundException;
 import com.hopital.account.infra.persistence.entity.AccountEntity;
 import com.hopital.account.infra.persistence.repository.AccountRepository;
@@ -14,6 +18,8 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,22 +44,72 @@ public class AccountApplicationService {
     }
 
     public List<AccountResponse> listAccounts() {
-        return accountRepository.findAll().stream().map(this::toResponse).toList();
+        return accountRepository.findAllByOrderByDisplayNameAsc().stream().map(this::toResponse).toList();
+    }
+
+    public PageResponse<AccountResponse> searchAccounts(int page, int size, String query, String hospitalId) {
+        var accounts = accountRepository.search(
+                normalizeSearchFilter(query),
+                parseOptionalUuid(hospitalId),
+                PageRequest.of(normalizePage(page), normalizePageSize(size), Sort.by("displayName").ascending()));
+        return new PageResponse<>(
+                accounts.getContent().stream().map(this::toResponse).toList(),
+                accounts.getNumber(),
+                accounts.getSize(),
+                accounts.getTotalElements(),
+                accounts.getTotalPages());
     }
 
     @Transactional
     public AccountResponse createAccount(CreateAccountRequest request) {
+        String username = request.username().trim();
+        String email = request.email().trim();
+        if (accountRepository.existsByUsernameIgnoreCaseOrEmailIgnoreCase(username, email)) {
+            throw new DuplicateAccountException("cet identifiant ou cette adresse e-mail", username + " / " + email);
+        }
         Set<String> requestedRoles = request.roles() == null || request.roles().isEmpty() ? Set.of("PATIENT") : request.roles();
         AccountEntity account = new AccountEntity(
                 UUID.randomUUID(),
-                request.username(),
-                request.email(),
-                request.displayName(),
+                username,
+                email,
+                request.displayName().trim(),
                 passwordEncoder.encode(request.password()),
+                parseOptionalUuid(request.hospitalId()),
                 rolePermissionService.resolveRoles(requestedRoles));
         AccountResponse response = toResponse(accountRepository.save(account));
         applicationEventPublisher.publishEvent(new AccountCreatedEvent(response));
         return response;
+    }
+
+    public AccountResponse findById(UUID accountId) {
+        return accountRepository.findById(accountId)
+                .map(this::toResponse)
+                .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
+    }
+
+    @Transactional
+    public AccountResponse updateAccount(UUID accountId, UpdateAccountRequest request) {
+        AccountEntity account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
+        String username = request.username().trim();
+        String email = request.email().trim();
+        if (accountRepository.existsByUsernameIgnoreCaseAndIdNot(username, accountId)) {
+            throw new DuplicateAccountException("l’identifiant", username);
+        }
+        if (accountRepository.existsByEmailIgnoreCaseAndIdNot(email, accountId)) {
+            throw new DuplicateAccountException("l’adresse e-mail", email);
+        }
+
+        account.updateProfile(
+                username,
+                email,
+                request.displayName().trim(),
+                parseOptionalUuid(request.hospitalId()),
+                rolePermissionService.resolveRoles(request.roles()));
+        if (request.password() != null && !request.password().isBlank()) {
+            account.changePassword(passwordEncoder.encode(request.password()));
+        }
+        return toResponse(account);
     }
 
     public AccountResponse findByIdentifier(String identifier) {
@@ -66,6 +122,7 @@ public class AccountApplicationService {
         AccountEntity account = accountRepository
                 .findByUsernameIgnoreCaseOrEmailIgnoreCase(request.identifier(), request.identifier())
                 .filter(candidate -> passwordEncoder.matches(request.password(), candidate.getPasswordHash()))
+                .filter(this::isAllowedToSignIn)
                 .orElse(null);
         return new AuthenticatedAccountResponse(account != null, account == null ? null : toResponse(account));
     }
@@ -80,8 +137,37 @@ public class AccountApplicationService {
                 account.getUsername(),
                 account.getEmail(),
                 account.getDisplayName(),
+                account.getHospitalId() == null ? null : account.getHospitalId().toString(),
                 account.getRoles().stream()
                         .map(rolePermissionService::toResponse)
                         .collect(java.util.stream.Collectors.toUnmodifiableSet()));
+    }
+
+    private boolean isAllowedToSignIn(AccountEntity account) {
+        return account.getHospitalId() != null
+                || account.getRoles().stream().anyMatch(role -> "ADMIN".equals(role.getCode()));
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(page, 0);
+    }
+
+    private int normalizePageSize(int size) {
+        return Math.min(Math.max(size, 1), 100);
+    }
+
+    private String normalizeSearchFilter(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private UUID parseOptionalUuid(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(value.trim());
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidHospitalAssignmentException(value);
+        }
     }
 }

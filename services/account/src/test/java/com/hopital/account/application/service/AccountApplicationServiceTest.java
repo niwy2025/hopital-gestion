@@ -69,6 +69,7 @@ class AccountApplicationServiceTest {
                 "alice@hopital.local",
                 "Alice",
                 "plain-password",
+                UUID.randomUUID().toString(),
                 Set.of("PATIENT")));
 
         verify(accountRepository).save(accountCaptor.capture());
@@ -87,6 +88,7 @@ class AccountApplicationServiceTest {
                 "alice@hopital.local",
                 "Alice",
                 "hashed-password",
+                UUID.randomUUID(),
                 Set.of());
         when(accountRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("alice", "alice"))
                 .thenReturn(Optional.of(account));
@@ -98,5 +100,50 @@ class AccountApplicationServiceTest {
         verify(passwordEncoder).matches(eq("plain-password"), eq("hashed-password"));
         assertThat(response.authenticated()).isTrue();
         assertThat(response.account().username()).isEqualTo("alice");
+    }
+
+    @Test
+    void refusesSignInForANonAdministratorWithoutAHospitalAssignment() {
+        AccountEntity account = new AccountEntity(
+                UUID.randomUUID(),
+                "alice",
+                "alice@hopital.local",
+                "Alice",
+                "hashed-password",
+                null,
+                Set.of());
+        when(accountRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("alice", "alice"))
+                .thenReturn(Optional.of(account));
+        when(passwordEncoder.matches("plain-password", "hashed-password")).thenReturn(true);
+
+        var response = accountApplicationService.validateCredentials(
+                new CredentialsValidationRequest("alice", "plain-password"));
+
+        assertThat(response.authenticated()).isFalse();
+        assertThat(response.account()).isNull();
+    }
+
+    @Test
+    void allowsAnAdministratorToSignInWithoutAHospitalAssignment() {
+        RoleEntity administratorRole = new RoleEntity(UUID.randomUUID(), "ADMIN", "Administrateur", Set.of());
+        AccountEntity account = new AccountEntity(
+                UUID.randomUUID(),
+                "admin",
+                "admin@hopital.local",
+                "Administrateur",
+                "hashed-password",
+                null,
+                Set.of(administratorRole));
+        when(accountRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("admin", "admin"))
+                .thenReturn(Optional.of(account));
+        when(passwordEncoder.matches("plain-password", "hashed-password")).thenReturn(true);
+        when(rolePermissionService.toResponse(administratorRole))
+                .thenReturn(new RoleResponse("ADMIN", "Administrateur", Set.of()));
+
+        var response = accountApplicationService.validateCredentials(
+                new CredentialsValidationRequest("admin", "plain-password"));
+
+        assertThat(response.authenticated()).isTrue();
+        assertThat(response.account().hospitalId()).isNull();
     }
 }

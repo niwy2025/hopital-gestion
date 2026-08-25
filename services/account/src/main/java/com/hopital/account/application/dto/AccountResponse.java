@@ -2,5 +2,11 @@ package com.hopital.account.application.dto;
 
 import java.util.Set;
 
-public record AccountResponse(String id, String username, String email, String displayName, Set<RoleResponse> roles) {
+public record AccountResponse(
+        String id,
+        String username,
+        String email,
+        String displayName,
+        String hospitalId,
+        Set<RoleResponse> roles) {
 }

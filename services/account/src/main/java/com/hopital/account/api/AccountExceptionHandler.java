@@ -1,6 +1,8 @@
 package com.hopital.account.api;
 
 import com.hopital.account.application.exception.AccountNotFoundException;
+import com.hopital.account.application.exception.DuplicateAccountException;
+import com.hopital.account.application.exception.InvalidHospitalAssignmentException;
 import com.hopital.account.application.exception.RoleNotFoundException;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -18,6 +20,16 @@ public class AccountExceptionHandler {
 
     @ExceptionHandler(RoleNotFoundException.class)
     ResponseEntity<Map<String, String>> handleRoleNotFound(RoleNotFoundException exception) {
+        return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
+    }
+
+    @ExceptionHandler(DuplicateAccountException.class)
+    ResponseEntity<Map<String, String>> handleDuplicateAccount(DuplicateAccountException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", exception.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidHospitalAssignmentException.class)
+    ResponseEntity<Map<String, String>> handleInvalidHospitalAssignment(InvalidHospitalAssignmentException exception) {
         return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
     }
 }

@@ -43,6 +43,7 @@ public class AccountSeeder implements ApplicationRunner {
                 seed.adminEmail(),
                 "Administrateur Hopital",
                 passwordEncoder.encode(seed.adminPassword()),
+                null,
                 rolePermissionService.resolveRoles(Set.of("ADMIN"))));
     }
 }

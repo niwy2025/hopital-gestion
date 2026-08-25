@@ -374,7 +374,45 @@
       ]
     },
     {
-      "name": "06 - Laboratoire",
+      "name": "06 - Personnel",
+      "item": [
+        {
+          "name": "Search personnel",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel/search?page=0&size=20&active=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel", "search"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "active", "value": "true" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create personnel member",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeNumber\": \"MED-001\",\n  \"firstName\": \"Amina\",\n  \"lastName\": \"Kasongo\",\n  \"gender\": \"FEMALE\",\n  \"category\": \"DOCTOR\",\n  \"jobTitle\": \"Médecin chef\",\n  \"hospitalId\": null,\n  \"accountId\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Laboratoire",
       "item": [
         {
           "name": "List analysis requests",

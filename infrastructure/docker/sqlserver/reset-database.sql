@@ -33,3 +33,9 @@ BEGIN
     CREATE DATABASE hospital_patient;
 END;
 GO
+
+IF DB_ID('hospital_personnel') IS NULL
+BEGIN
+    CREATE DATABASE hospital_personnel;
+END;
+GO

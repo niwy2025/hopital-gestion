@@ -9,6 +9,7 @@ COPY services/notification/pom.xml services/notification/pom.xml
 COPY services/organization/pom.xml services/organization/pom.xml
 COPY services/laboratory/pom.xml services/laboratory/pom.xml
 COPY services/patient/pom.xml services/patient/pom.xml
+COPY services/personnel/pom.xml services/personnel/pom.xml
 
 RUN --mount=type=cache,id=hopital-maven-repository,target=/root/.m2,sharing=locked \
     mvn --batch-mode --no-transfer-progress -pl services/laboratory -am dependency:go-offline

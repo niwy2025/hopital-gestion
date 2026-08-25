@@ -39,6 +39,10 @@ spring:
           uri: ${PATIENT_SERVICE_URI:http://patient-service:8086}
           predicates:
             - Path=/api/v1/patients/**
+        - id: personnel-service
+          uri: ${PERSONNEL_SERVICE_URI:http://personnel-service:8087}
+          predicates:
+            - Path=/api/v1/personnel/**
 
 management:
   metrics:

@@ -55,6 +55,10 @@ services:
     ports: !reset []
     restart: unless-stopped
 
+  personnel-service:
+    ports: !reset []
+    restart: unless-stopped
+
   prometheus:
     ports: !override ["${PROMETHEUS_BIND_ADDRESS:-127.0.0.1}:${PROMETHEUS_HOST_PORT:-9090}:9090"]
     restart: unless-stopped

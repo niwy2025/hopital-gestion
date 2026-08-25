@@ -1,0 +1,38 @@
+server:
+  port: ${SERVER_PORT:8087}
+
+spring:
+  application:
+    name: personnel-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:sqlserver://sqlserver:1433;databaseName=hospital_personnel;encrypt=false;trustServerCertificate=true}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:Your_strong_Password123!}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    sql-migration-separator: _
+    validate-migration-naming: true
+
+personnel:
+  account-service-url: ${ACCOUNT_SERVICE_URI:http://account-service:8082}
+
+management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true

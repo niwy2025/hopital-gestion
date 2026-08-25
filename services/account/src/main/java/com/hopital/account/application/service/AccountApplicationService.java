@@ -94,6 +94,12 @@ public class AccountApplicationService {
                 .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
     }
 
+    public AccountResponse findSummaryById(UUID accountId) {
+        return accountRepository.findById(accountId)
+                .map(this::toResponse)
+                .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
+    }
+
     @Transactional
     public AccountDetailsResponse updateAccount(UUID accountId, UpdateAccountRequest request) {
         AccountEntity account = accountRepository.findById(accountId)

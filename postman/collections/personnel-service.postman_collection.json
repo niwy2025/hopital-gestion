@@ -1,0 +1,81 @@
+{
+  "info": {
+    "name": "Hopital Gestion - Personnel Service",
+    "description": "Registre du personnel, affectations initiales et associations aux comptes utilisateurs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Personnel",
+      "item": [
+        {
+          "name": "Search personnel",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel/search?page=0&size=20&active=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel", "search"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "active", "value": "true" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create personnel member",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeNumber\": \"MED-001\",\n  \"firstName\": \"Amina\",\n  \"lastName\": \"Kasongo\",\n  \"middleName\": \"Mbuyi\",\n  \"dateOfBirth\": \"1988-04-15\",\n  \"gender\": \"FEMALE\",\n  \"category\": \"DOCTOR\",\n  \"jobTitle\": \"Médecin chef\",\n  \"phoneNumber\": \"+243900000000\",\n  \"email\": \"amina.kasongo@hopital.cd\",\n  \"hospitalId\": null,\n  \"accountId\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel"]
+            }
+          }
+        },
+        {
+          "name": "Update personnel member",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeNumber\": \"MED-001\",\n  \"firstName\": \"Amina\",\n  \"lastName\": \"Kasongo\",\n  \"gender\": \"FEMALE\",\n  \"category\": \"DOCTOR\",\n  \"jobTitle\": \"Médecin chef\",\n  \"hospitalId\": null,\n  \"accountId\": \"{{account_id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel/{{personnel_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel", "{{personnel_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Deactivate personnel member",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel/{{personnel_id}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel", "{{personnel_id}}", "status"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

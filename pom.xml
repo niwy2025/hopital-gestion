@@ -16,6 +16,7 @@
         <module>services/organization</module>
         <module>services/laboratory</module>
         <module>services/patient</module>
+        <module>services/personnel</module>
     </modules>
 
     <properties>

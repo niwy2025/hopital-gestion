@@ -4,6 +4,7 @@ import com.hopital.account.application.dto.AuthenticatedAccountResponse;
 import com.hopital.account.application.dto.AccountResponse;
 import com.hopital.account.application.dto.CredentialsValidationRequest;
 import com.hopital.account.application.service.AccountApplicationService;
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,5 +31,10 @@ public class InternalAccountController {
     @GetMapping("/identifier/{identifier}")
     public ResponseEntity<AccountResponse> findByIdentifier(@PathVariable("identifier") String identifier) {
         return ResponseEntity.ok(accountApplicationService.findByIdentifier(identifier));
+    }
+
+    @GetMapping("/{accountId}")
+    public ResponseEntity<AccountResponse> findById(@PathVariable("accountId") UUID accountId) {
+        return ResponseEntity.ok(accountApplicationService.findSummaryById(accountId));
     }
 }

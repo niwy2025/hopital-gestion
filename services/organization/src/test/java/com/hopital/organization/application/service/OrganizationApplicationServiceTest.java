@@ -6,16 +6,22 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.hopital.organization.application.domain.HospitalType;
+import com.hopital.organization.application.domain.LaboratoryStructureType;
 import com.hopital.organization.application.dto.CreateHospitalRequest;
+import com.hopital.organization.application.dto.CreateLaboratoryStructureRequest;
 import com.hopital.organization.application.dto.CreateProvinceRequest;
+import com.hopital.organization.application.dto.CreateReferenceLaboratoryRequest;
 import com.hopital.organization.application.dto.UpdateOrganizationStatusRequest;
 import com.hopital.organization.application.exception.DuplicateOrganizationException;
 import com.hopital.organization.infra.persistence.entity.HealthZoneEntity;
 import com.hopital.organization.infra.persistence.entity.HospitalEntity;
 import com.hopital.organization.infra.persistence.entity.ProvinceEntity;
+import com.hopital.organization.infra.persistence.entity.ReferenceLaboratoryEntity;
 import com.hopital.organization.infra.persistence.repository.HealthZoneRepository;
 import com.hopital.organization.infra.persistence.repository.HospitalRepository;
+import com.hopital.organization.infra.persistence.repository.LaboratoryStructureRepository;
 import com.hopital.organization.infra.persistence.repository.ProvinceRepository;
+import com.hopital.organization.infra.persistence.repository.ReferenceLaboratoryRepository;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -35,6 +41,12 @@ class OrganizationApplicationServiceTest {
 
     @Mock
     private HospitalRepository hospitalRepository;
+
+    @Mock
+    private ReferenceLaboratoryRepository referenceLaboratoryRepository;
+
+    @Mock
+    private LaboratoryStructureRepository laboratoryStructureRepository;
 
     @InjectMocks
     private OrganizationApplicationService organizationApplicationService;
@@ -119,6 +131,62 @@ class OrganizationApplicationServiceTest {
 
         var response = organizationApplicationService.updateHospitalStatus(
                 "hgr-kin-001", new UpdateOrganizationStatusRequest(false));
+
+        assertThat(response.active()).isFalse();
+    }
+
+    @Test
+    void createsAReferenceLaboratoryInsideItsProvince() {
+        ProvinceEntity province = new ProvinceEntity("KIN", "Kinshasa");
+        when(referenceLaboratoryRepository.existsByCodeIgnoreCase("LRP-KIN")).thenReturn(false);
+        when(provinceRepository.findByCodeIgnoreCase("KIN")).thenReturn(Optional.of(province));
+        when(referenceLaboratoryRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = organizationApplicationService.createReferenceLaboratory(new CreateReferenceLaboratoryRequest(
+                "lrp-kin",
+                "Laboratoire provincial de référence de Kinshasa",
+                "kin",
+                "Avenue de la Recherche",
+                "+243810000001"));
+
+        assertThat(response.code()).isEqualTo("LRP-KIN");
+        assertThat(response.provinceCode()).isEqualTo("KIN");
+        assertThat(response.active()).isTrue();
+    }
+
+    @Test
+    void createsALaboratoryStructureInsideItsReferenceLaboratory() {
+        ProvinceEntity province = new ProvinceEntity("KIN", "Kinshasa");
+        ReferenceLaboratoryEntity referenceLaboratory = new ReferenceLaboratoryEntity(
+                UUID.randomUUID(),
+                "LRP-KIN",
+                "Laboratoire provincial de référence de Kinshasa",
+                province,
+                null,
+                null);
+        when(laboratoryStructureRepository.existsByCodeIgnoreCase("HEMATO")).thenReturn(false);
+        when(referenceLaboratoryRepository.findByCodeIgnoreCase("LRP-KIN"))
+                .thenReturn(Optional.of(referenceLaboratory));
+        when(laboratoryStructureRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = organizationApplicationService.createLaboratoryStructure(new CreateLaboratoryStructureRequest(
+                "hemato", "Hématologie", LaboratoryStructureType.DEPARTMENT, "lrp-kin"));
+
+        assertThat(response.code()).isEqualTo("HEMATO");
+        assertThat(response.referenceLaboratoryCode()).isEqualTo("LRP-KIN");
+        assertThat(response.type()).isEqualTo(LaboratoryStructureType.DEPARTMENT);
+    }
+
+    @Test
+    void deactivatesAReferenceLaboratory() {
+        ProvinceEntity province = new ProvinceEntity("KIN", "Kinshasa");
+        ReferenceLaboratoryEntity referenceLaboratory = new ReferenceLaboratoryEntity(
+                UUID.randomUUID(), "LRP-KIN", "Laboratoire provincial de référence", province, null, null);
+        when(referenceLaboratoryRepository.findByCodeIgnoreCase("LRP-KIN"))
+                .thenReturn(Optional.of(referenceLaboratory));
+
+        var response = organizationApplicationService.updateReferenceLaboratoryStatus(
+                "lrp-kin", new UpdateOrganizationStatusRequest(false));
 
         assertThat(response.active()).isFalse();
     }

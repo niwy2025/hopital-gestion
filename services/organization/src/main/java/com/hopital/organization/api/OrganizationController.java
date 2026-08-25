@@ -2,10 +2,14 @@ package com.hopital.organization.api;
 
 import com.hopital.organization.application.dto.CreateHealthZoneRequest;
 import com.hopital.organization.application.dto.CreateHospitalRequest;
+import com.hopital.organization.application.dto.CreateLaboratoryStructureRequest;
 import com.hopital.organization.application.dto.CreateProvinceRequest;
+import com.hopital.organization.application.dto.CreateReferenceLaboratoryRequest;
 import com.hopital.organization.application.dto.HealthZoneResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
+import com.hopital.organization.application.dto.LaboratoryStructureResponse;
 import com.hopital.organization.application.dto.ProvinceResponse;
+import com.hopital.organization.application.dto.ReferenceLaboratoryResponse;
 import com.hopital.organization.application.dto.UpdateOrganizationStatusRequest;
 import com.hopital.organization.application.service.OrganizationApplicationService;
 import jakarta.validation.Valid;
@@ -79,5 +83,43 @@ public class OrganizationController {
             @PathVariable("hospitalCode") String hospitalCode,
             @Valid @RequestBody UpdateOrganizationStatusRequest request) {
         return ResponseEntity.ok(organizationApplicationService.updateHospitalStatus(hospitalCode, request));
+    }
+
+    @GetMapping("/reference-laboratories")
+    public ResponseEntity<List<ReferenceLaboratoryResponse>> listReferenceLaboratories() {
+        return ResponseEntity.ok(organizationApplicationService.listReferenceLaboratories());
+    }
+
+    @PostMapping("/reference-laboratories")
+    public ResponseEntity<ReferenceLaboratoryResponse> createReferenceLaboratory(
+            @Valid @RequestBody CreateReferenceLaboratoryRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(organizationApplicationService.createReferenceLaboratory(request));
+    }
+
+    @PatchMapping("/reference-laboratories/{referenceLaboratoryCode}/status")
+    public ResponseEntity<ReferenceLaboratoryResponse> updateReferenceLaboratoryStatus(
+            @PathVariable("referenceLaboratoryCode") String referenceLaboratoryCode,
+            @Valid @RequestBody UpdateOrganizationStatusRequest request) {
+        return ResponseEntity.ok(
+                organizationApplicationService.updateReferenceLaboratoryStatus(referenceLaboratoryCode, request));
+    }
+
+    @GetMapping("/laboratory-structures")
+    public ResponseEntity<List<LaboratoryStructureResponse>> listLaboratoryStructures() {
+        return ResponseEntity.ok(organizationApplicationService.listLaboratoryStructures());
+    }
+
+    @PostMapping("/laboratory-structures")
+    public ResponseEntity<LaboratoryStructureResponse> createLaboratoryStructure(
+            @Valid @RequestBody CreateLaboratoryStructureRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(organizationApplicationService.createLaboratoryStructure(request));
+    }
+
+    @PatchMapping("/laboratory-structures/{laboratoryStructureCode}/status")
+    public ResponseEntity<LaboratoryStructureResponse> updateLaboratoryStructureStatus(
+            @PathVariable("laboratoryStructureCode") String laboratoryStructureCode,
+            @Valid @RequestBody UpdateOrganizationStatusRequest request) {
+        return ResponseEntity.ok(
+                organizationApplicationService.updateLaboratoryStructureStatus(laboratoryStructureCode, request));
     }
 }

@@ -17,7 +17,7 @@ postman/                          Collections Postman
 services/account/                 Microservice de gestion des comptes
 services/auth/                    Microservice d'authentification
 services/notification/            Microservice asynchrone e-mail et SMS
-services/organization/            Référentiel provincial, zones de santé et hôpitaux
+services/organization/            Référentiel territorial, hôpitaux et laboratoires de référence
 ```
 
 ## Briques incluses
@@ -154,9 +154,10 @@ même flux Kafka.
 ## Référentiel provincial
 
 Le premier lot métier du système provincial est `organization-service`. Il
-structure la hiérarchie **province → zone de santé → hôpital public** et expose
-ses opérations via Kong sous `/api/v1/organizations`. Les affectations des
-médecins et du personnel viendront dans le prochain lot, avec un service dédié
-au personnel. La protection de ces opérations par les rôles administratifs
+structure les référentiels **province → zone de santé → hôpital public** et
+**province → laboratoire de référence → service, unité ou département**, puis
+expose ses opérations via Kong sous `/api/v1/organizations`. Les affectations
+des médecins et du personnel viendront dans le prochain lot, avec un service
+dédié au personnel. La protection de ces opérations par les rôles administratifs
 Keycloak reste à activer : les endpoints ne doivent pas encore être considérés
 comme sécurisés en production.

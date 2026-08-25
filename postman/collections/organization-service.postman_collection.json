@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Hopital Gestion - Organization Service",
-    "description": "Référentiel provincial : provinces, zones de santé et hôpitaux.",
+    "description": "Référentiel provincial : provinces, zones de santé, hôpitaux, laboratoires de référence et leurs structures.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -89,6 +89,96 @@
               "raw": "{{baseUrl}}/api/v1/organizations/hospitals",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "organizations", "hospitals"]
+            }
+          }
+        },
+        {
+          "name": "List reference laboratories",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/reference-laboratories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "reference-laboratories"]
+            }
+          }
+        },
+        {
+          "name": "Create reference laboratory",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"LRP-KIN\",\n  \"name\": \"Laboratoire provincial de référence de Kinshasa\",\n  \"provinceCode\": \"KIN\",\n  \"address\": \"Avenue de la Recherche\",\n  \"phoneNumber\": \"+243810000001\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/reference-laboratories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "reference-laboratories"]
+            }
+          }
+        },
+        {
+          "name": "Update reference laboratory status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/reference-laboratories/LRP-KIN/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "reference-laboratories", "LRP-KIN", "status"]
+            }
+          }
+        },
+        {
+          "name": "List laboratory structures",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/laboratory-structures",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "laboratory-structures"]
+            }
+          }
+        },
+        {
+          "name": "Create laboratory structure",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"HEMATO\",\n  \"name\": \"Hématologie\",\n  \"type\": \"DEPARTMENT\",\n  \"referenceLaboratoryCode\": \"LRP-KIN\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/laboratory-structures",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "laboratory-structures"]
+            }
+          }
+        },
+        {
+          "name": "Update laboratory structure status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/organizations/laboratory-structures/HEMATO/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "organizations", "laboratory-structures", "HEMATO", "status"]
             }
           }
         }

@@ -98,7 +98,16 @@ services:
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
+      # `auto` crée un worker par cœur CPU. Un seul worker suffit ici et évite
+      # que Kong dépasse sa limite mémoire lors des démarrages locaux.
+      KONG_NGINX_WORKER_PROCESSES: "1"
     networks: [hospital-network]
+    healthcheck:
+      test: ["CMD-SHELL", "kong health >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
 
   kong-init:
     <<: *container-logging
@@ -143,7 +152,7 @@ services:
       KC_HEALTH_ENABLED: true
       KC_METRICS_ENABLED: true
       # Keycloak utilise sinon jusqu'à 70 % de la mémoire Docker disponible.
-      JAVA_OPTS_KC_HEAP: ${KEYCLOAK_JAVA_OPTS_KC_HEAP:--XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=55 -XX:MaxHeapFreeRatio=30}
+      JAVA_OPTS_KC_HEAP: ${KEYCLOAK_JAVA_OPTS_KC_HEAP:--XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=55 -XX:MaxHeapFreeRatio=50}
     volumes:
       - ./infrastructure/keycloak/hospital-realm.json:/opt/keycloak/data/import/hospital-realm.json:ro
     networks: [hospital-network]
@@ -208,10 +217,13 @@ services:
       KAFKA_HEAP_OPTS: ${ZOOKEEPER_HEAP_OPTS:--Xms128m -Xmx192m}
     networks: [hospital-network]
     healthcheck:
-      test: ["CMD-SHELL", "cub zk-ready localhost:2181 20"]
-      interval: 10s
-      timeout: 10s
-      retries: 12
+      # Une sonde TCP évite de démarrer un client Java supplémentaire à chaque
+      # vérification, ce qui surcharge inutilement une petite machine.
+      test: ["CMD-SHELL", "nc -z localhost 2181"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
 
   kafka:
     <<: *container-logging
@@ -236,10 +248,10 @@ services:
       KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xms256m -Xmx384m}
     networks: [hospital-network]
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
-      interval: 15s
-      timeout: 10s
-      retries: 12
+      test: ["CMD-SHELL", "nc -z localhost 9092"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
       start_period: 30s
 
   redis:

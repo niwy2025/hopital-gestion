@@ -225,8 +225,9 @@ ou département**, puis expose ses opérations via l'API Gateway sous
 signaler qu’il est en attente de résultat au laboratoire. Le registre des
 patients est désormais porté par `patient-service` : il rattache chaque dossier
 à son hôpital d'enregistrement et fournit les patients sélectionnables lors
-d'une demande d'analyse. Les affectations des
-médecins et du personnel viendront dans le prochain lot, avec un service dédié
-au personnel. La protection de ces opérations par les rôles administratifs
-Keycloak reste à activer : les endpoints ne doivent pas encore être considérés
-comme sécurisés en production.
+d'une demande d'analyse. `personnel-service` gère maintenant les fiches,
+comptes associés, documents et affectations historisées des agents. La
+prochaine brique métier sera le parcours de soins : consultations, rendez-vous,
+admissions et prescriptions. La protection de ces opérations par les rôles
+administratifs Keycloak reste à activer : les endpoints ne doivent pas encore
+être considérés comme sécurisés en production.

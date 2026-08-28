@@ -3,6 +3,7 @@ package com.hopital.personnel.api;
 import com.hopital.personnel.application.dto.ApiError;
 import com.hopital.personnel.application.exception.DuplicatePersonnelException;
 import com.hopital.personnel.application.exception.InvalidPersonnelDocumentException;
+import com.hopital.personnel.application.exception.InvalidPersonnelAssignmentException;
 import com.hopital.personnel.application.exception.InvalidPersonnelReferenceException;
 import com.hopital.personnel.application.exception.PersonnelNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,6 +35,11 @@ public class PersonnelExceptionHandler {
 
     @ExceptionHandler(InvalidPersonnelDocumentException.class)
     ResponseEntity<ApiError> handleInvalidDocument(InvalidPersonnelDocumentException exception, HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidPersonnelAssignmentException.class)
+    ResponseEntity<ApiError> handleInvalidAssignment(InvalidPersonnelAssignmentException exception, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", exception.getMessage(), request);
     }
 

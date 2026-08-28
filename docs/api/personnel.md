@@ -67,3 +67,29 @@ Les formats acceptés sont PDF, Word, JPEG, PNG et WebP, avec une limite de
 2 Mo par fichier. La photo, la signature et le CV remplacent la version
 précédente ; les autres types peuvent avoir plusieurs pièces. Un document est
 supprimé par `DELETE /api/v1/personnel/{personnelId}/documents/{documentId}`.
+
+## Affectations
+
+Les affectations sont historisées indépendamment de la fiche administrative.
+Elles peuvent être de niveau `PROVINCIAL` (sans établissement) ou `HOSPITAL`
+(avec `hospitalId`), et précisent la fonction, le service ou département, l’unité
+et la période. Une seule affectation principale peut être active pour un agent.
+
+- `GET /api/v1/personnel/{personnelId}/assignments/search?page=0&size=20&query=&status=ACTIVE`
+  fournit l’historique paginé et filtrable.
+- `POST /api/v1/personnel/{personnelId}/assignments` crée une affectation.
+- `PATCH /api/v1/personnel/{personnelId}/assignments/{assignmentId}/close`
+  clôture l’affectation avec sa date de fin.
+
+```json
+{
+  "scope": "HOSPITAL",
+  "hospitalId": "<uuid de l’hôpital>",
+  "departmentName": "Médecine interne",
+  "unitName": "Hospitalisation",
+  "positionTitle": "Médecin traitant",
+  "startsOn": "2026-08-28",
+  "primaryAssignment": true,
+  "notes": null
+}
+```

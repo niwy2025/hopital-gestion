@@ -1,23 +1,32 @@
 package com.hopital.personnel.application.service;
 
 import com.hopital.personnel.application.domain.PersonnelDocumentType;
+import com.hopital.personnel.application.domain.PersonnelAssignmentStatus;
+import com.hopital.personnel.application.domain.PersonnelAssignmentScope;
+import com.hopital.personnel.application.dto.ClosePersonnelAssignmentRequest;
+import com.hopital.personnel.application.dto.CreatePersonnelAssignmentRequest;
 import com.hopital.personnel.application.dto.CreatePersonnelDocumentRequest;
 import com.hopital.personnel.application.dto.CreatePersonnelRequest;
 import com.hopital.personnel.application.dto.PageResponse;
 import com.hopital.personnel.application.dto.PersonnelDetailsResponse;
+import com.hopital.personnel.application.dto.PersonnelAssignmentResponse;
 import com.hopital.personnel.application.dto.PersonnelDocumentResponse;
 import com.hopital.personnel.application.dto.PersonnelResponse;
 import com.hopital.personnel.application.dto.UpdatePersonnelRequest;
 import com.hopital.personnel.application.exception.DuplicatePersonnelException;
 import com.hopital.personnel.application.exception.InvalidPersonnelDocumentException;
+import com.hopital.personnel.application.exception.InvalidPersonnelAssignmentException;
 import com.hopital.personnel.application.exception.InvalidPersonnelReferenceException;
 import com.hopital.personnel.application.exception.PersonnelNotFoundException;
 import com.hopital.personnel.infra.integration.account.AccountReferenceClient;
 import com.hopital.personnel.infra.persistence.entity.PersonnelDocumentEntity;
+import com.hopital.personnel.infra.persistence.entity.PersonnelAssignmentEntity;
 import com.hopital.personnel.infra.persistence.entity.PersonnelEntity;
 import com.hopital.personnel.infra.persistence.repository.PersonnelDocumentRepository;
+import com.hopital.personnel.infra.persistence.repository.PersonnelAssignmentRepository;
 import com.hopital.personnel.infra.persistence.repository.PersonnelRepository;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Base64;
 import java.util.EnumSet;
 import java.util.List;
@@ -48,14 +57,17 @@ public class PersonnelApplicationService {
             "image/webp");
 
     private final PersonnelRepository personnelRepository;
+    private final PersonnelAssignmentRepository personnelAssignmentRepository;
     private final PersonnelDocumentRepository personnelDocumentRepository;
     private final AccountReferenceClient accountReferenceClient;
 
     public PersonnelApplicationService(
             PersonnelRepository personnelRepository,
+            PersonnelAssignmentRepository personnelAssignmentRepository,
             PersonnelDocumentRepository personnelDocumentRepository,
             AccountReferenceClient accountReferenceClient) {
         this.personnelRepository = personnelRepository;
+        this.personnelAssignmentRepository = personnelAssignmentRepository;
         this.personnelDocumentRepository = personnelDocumentRepository;
         this.accountReferenceClient = accountReferenceClient;
     }
@@ -151,6 +163,54 @@ public class PersonnelApplicationService {
         PersonnelEntity personnel = getPersonnel(personnelId);
         personnel.setActive(active);
         return toResponse(personnel);
+    }
+
+    public PageResponse<PersonnelAssignmentResponse> searchAssignments(
+            UUID personnelId, int page, int size, String query, PersonnelAssignmentStatus status) {
+        getPersonnel(personnelId);
+        var assignments = personnelAssignmentRepository.search(
+                personnelId,
+                normalizeSearchFilter(query),
+                status,
+                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
+                        Sort.by("startsOn").descending()));
+        return new PageResponse<>(
+                assignments.getContent().stream().map(this::toAssignmentResponse).toList(),
+                assignments.getNumber(), assignments.getSize(), assignments.getTotalElements(), assignments.getTotalPages());
+    }
+
+    @Transactional
+    public PersonnelAssignmentResponse createAssignment(UUID personnelId, CreatePersonnelAssignmentRequest request) {
+        PersonnelEntity personnel = getPersonnel(personnelId);
+        if (!personnel.isActive()) {
+            throw new InvalidPersonnelAssignmentException("Un agent inactif ne peut pas recevoir une nouvelle affectation.");
+        }
+        UUID hospitalId = parseOptionalUuid(request.hospitalId(), "hôpital");
+        validateAssignmentScope(request.scope(), hospitalId);
+        if (request.primaryAssignment() && personnelAssignmentRepository
+                .existsByPersonnelIdAndStatusAndPrimaryAssignmentTrue(personnelId, PersonnelAssignmentStatus.ACTIVE)) {
+            throw new InvalidPersonnelAssignmentException("Cet agent possède déjà une affectation principale active. Clôturez-la avant d'en définir une autre.");
+        }
+        PersonnelAssignmentEntity assignment = new PersonnelAssignmentEntity(
+                UUID.randomUUID(), personnelId, request.scope(), hospitalId,
+                trimToNull(request.departmentName()), trimToNull(request.unitName()), request.positionTitle().trim(),
+                request.startsOn(), request.primaryAssignment(), trimToNull(request.notes()), Instant.now());
+        return toAssignmentResponse(personnelAssignmentRepository.save(assignment));
+    }
+
+    @Transactional
+    public PersonnelAssignmentResponse closeAssignment(
+            UUID personnelId, UUID assignmentId, ClosePersonnelAssignmentRequest request) {
+        PersonnelAssignmentEntity assignment = personnelAssignmentRepository.findByIdAndPersonnelId(assignmentId, personnelId)
+                .orElseThrow(() -> new PersonnelNotFoundException("affectation " + assignmentId));
+        if (assignment.getStatus() == PersonnelAssignmentStatus.ENDED) {
+            throw new InvalidPersonnelAssignmentException("Cette affectation est déjà clôturée.");
+        }
+        if (request.endsOn().isBefore(assignment.getStartsOn())) {
+            throw new InvalidPersonnelAssignmentException("La date de fin ne peut pas être antérieure à la date de début.");
+        }
+        assignment.close(request.endsOn());
+        return toAssignmentResponse(assignment);
     }
 
     @Transactional
@@ -251,6 +311,14 @@ public class PersonnelApplicationService {
                 document.getContentBase64());
     }
 
+    private PersonnelAssignmentResponse toAssignmentResponse(PersonnelAssignmentEntity assignment) {
+        return new PersonnelAssignmentResponse(
+                assignment.getId(), assignment.getPersonnelId(), assignment.getScope(), assignment.getHospitalId(),
+                assignment.getDepartmentName(), assignment.getUnitName(), assignment.getPositionTitle(),
+                assignment.getStartsOn(), assignment.getEndsOn(), assignment.getStatus(), assignment.isPrimaryAssignment(),
+                assignment.getNotes(), assignment.getCreatedAt());
+    }
+
     private PersonnelEntity getPersonnel(UUID personnelId) {
         return personnelRepository.findById(personnelId)
                 .orElseThrow(() -> new PersonnelNotFoundException(personnelId.toString()));
@@ -281,6 +349,15 @@ public class PersonnelApplicationService {
             throw new InvalidPersonnelDocumentException("Chaque fichier ne peut pas dépasser 2 Mo.");
         }
         return new DocumentContent(contentType, decoded.length, contentBase64);
+    }
+
+    private void validateAssignmentScope(PersonnelAssignmentScope scope, UUID hospitalId) {
+        if (scope == PersonnelAssignmentScope.HOSPITAL && hospitalId == null) {
+            throw new InvalidPersonnelAssignmentException("Une affectation hospitalière doit indiquer un hôpital.");
+        }
+        if (scope == PersonnelAssignmentScope.PROVINCIAL && hospitalId != null) {
+            throw new InvalidPersonnelAssignmentException("Une affectation provinciale ne peut pas être liée à un hôpital.");
+        }
     }
 
     private record DocumentContent(String contentType, int sizeBytes, String contentBase64) {

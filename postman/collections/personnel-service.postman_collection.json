@@ -59,6 +59,35 @@
           }
         },
         {
+          "name": "Search personnel assignments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel/{{personnel_id}}/assignments/search?page=0&size=20&status=ACTIVE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel", "{{personnel_id}}", "assignments", "search"],
+              "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "status", "value": "ACTIVE" }]
+            }
+          }
+        },
+        {
+          "name": "Create personnel assignment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scope\": \"HOSPITAL\",\n  \"hospitalId\": \"{{hospital_id}}\",\n  \"departmentName\": \"Médecine interne\",\n  \"unitName\": \"Hospitalisation\",\n  \"positionTitle\": \"Médecin traitant\",\n  \"startsOn\": \"2026-08-28\",\n  \"primaryAssignment\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personnel/{{personnel_id}}/assignments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "personnel", "{{personnel_id}}", "assignments"]
+            }
+          }
+        },
+        {
           "name": "Get personnel dossier",
           "request": {
             "method": "GET",

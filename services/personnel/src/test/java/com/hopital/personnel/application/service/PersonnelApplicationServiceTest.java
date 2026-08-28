@@ -8,15 +8,20 @@ import static org.mockito.Mockito.when;
 
 import com.hopital.personnel.application.domain.Gender;
 import com.hopital.personnel.application.domain.PersonnelCategory;
+import com.hopital.personnel.application.domain.PersonnelAssignmentScope;
 import com.hopital.personnel.application.domain.PersonnelDocumentType;
 import com.hopital.personnel.application.dto.CreatePersonnelDocumentRequest;
+import com.hopital.personnel.application.dto.CreatePersonnelAssignmentRequest;
 import com.hopital.personnel.application.dto.CreatePersonnelRequest;
 import com.hopital.personnel.application.dto.PersonnelDocumentResponse;
+import com.hopital.personnel.application.dto.PersonnelAssignmentResponse;
 import com.hopital.personnel.application.dto.PersonnelResponse;
 import com.hopital.personnel.infra.integration.account.AccountReferenceClient;
 import com.hopital.personnel.infra.persistence.entity.PersonnelDocumentEntity;
+import com.hopital.personnel.infra.persistence.entity.PersonnelAssignmentEntity;
 import com.hopital.personnel.infra.persistence.entity.PersonnelEntity;
 import com.hopital.personnel.infra.persistence.repository.PersonnelDocumentRepository;
+import com.hopital.personnel.infra.persistence.repository.PersonnelAssignmentRepository;
 import com.hopital.personnel.infra.persistence.repository.PersonnelRepository;
 import java.time.LocalDate;
 import java.util.Optional;
@@ -39,6 +44,9 @@ class PersonnelApplicationServiceTest {
 
     @Mock
     private PersonnelDocumentRepository personnelDocumentRepository;
+
+    @Mock
+    private PersonnelAssignmentRepository personnelAssignmentRepository;
 
     @InjectMocks
     private PersonnelApplicationService personnelApplicationService;
@@ -111,5 +119,37 @@ class PersonnelApplicationServiceTest {
         assertThat(documentCaptor.getValue().getSizeBytes()).isEqualTo(5);
         assertThat(response.fileName()).isEqualTo("amina.png");
         assertThat(response.contentBase64()).isEqualTo("aGVsbG8=");
+    }
+
+    @Test
+    void createsHospitalAssignmentForActivePersonnel() {
+        UUID personnelId = UUID.randomUUID();
+        UUID hospitalId = UUID.randomUUID();
+        when(personnelRepository.findById(personnelId)).thenReturn(Optional.of(activePersonnel(personnelId)));
+        when(personnelAssignmentRepository.existsByPersonnelIdAndStatusAndPrimaryAssignmentTrue(any(), any())).thenReturn(false);
+        when(personnelAssignmentRepository.save(any(PersonnelAssignmentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PersonnelAssignmentResponse response = personnelApplicationService.createAssignment(personnelId,
+                new CreatePersonnelAssignmentRequest(
+                        PersonnelAssignmentScope.HOSPITAL,
+                        hospitalId.toString(),
+                        "Médecine interne",
+                        "Hospitalisation",
+                        "Médecin traitant",
+                        LocalDate.of(2026, 8, 28),
+                        true,
+                        null));
+
+        assertThat(response.personnelId()).isEqualTo(personnelId);
+        assertThat(response.hospitalId()).isEqualTo(hospitalId);
+        assertThat(response.primaryAssignment()).isTrue();
+        assertThat(response.status().name()).isEqualTo("ACTIVE");
+    }
+
+    private PersonnelEntity activePersonnel(UUID personnelId) {
+        return new PersonnelEntity(
+                personnelId, "MED-001", "Amina", "Kasongo", null, null,
+                Gender.FEMALE, PersonnelCategory.DOCTOR, "Médecin chef", null, null,
+                null, null, null, java.time.Instant.now());
     }
 }

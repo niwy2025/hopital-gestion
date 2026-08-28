@@ -18,6 +18,8 @@ public interface HospitalLaboratoryRepository extends JpaRepository<HospitalLabo
 
     List<HospitalLaboratoryEntity> findAllByOrderByNameAsc();
 
+    List<HospitalLaboratoryEntity> findAllByHospital_IdAndActiveTrueOrderByNameAsc(UUID hospitalId);
+
     @Query("""
             SELECT hospitalLaboratory
             FROM HospitalLaboratoryEntity hospitalLaboratory

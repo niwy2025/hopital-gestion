@@ -31,6 +31,12 @@ public interface AnalysisResultRepository extends JpaRepository<AnalysisResultEn
                     OR LOWER(analysisRequest.patientName) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(analysisRequest.analysisCode) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(analysisRequest.analysisName) LIKE LOWER(CONCAT('%', :query, '%')))
+              AND (:provinceWide = true OR analysisRequest.laboratoryCode IN :laboratoryCodes)
             """)
-    Page<AnalysisResultEntity> search(@Param("query") String query, Pageable pageable);
+    Page<AnalysisResultEntity> search(@Param("query") String query, @Param("provinceWide") boolean provinceWide,
+            @Param("laboratoryCodes") List<String> laboratoryCodes, Pageable pageable);
+
+    default Page<AnalysisResultEntity> search(String query, Pageable pageable) {
+        return search(query, true, List.of("_"), pageable);
+    }
 }

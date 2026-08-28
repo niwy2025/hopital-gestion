@@ -15,6 +15,7 @@ import com.hopital.personnel.application.dto.CreatePersonnelAssignmentRequest;
 import com.hopital.personnel.application.dto.CreatePersonnelRequest;
 import com.hopital.personnel.application.dto.PersonnelDocumentResponse;
 import com.hopital.personnel.application.dto.PersonnelAssignmentResponse;
+import com.hopital.personnel.application.dto.PersonnelAccessScopeResponse;
 import com.hopital.personnel.application.dto.PersonnelResponse;
 import com.hopital.personnel.infra.integration.account.AccountReferenceClient;
 import com.hopital.personnel.infra.persistence.entity.PersonnelDocumentEntity;
@@ -133,6 +134,7 @@ class PersonnelApplicationServiceTest {
                 new CreatePersonnelAssignmentRequest(
                         PersonnelAssignmentScope.HOSPITAL,
                         hospitalId.toString(),
+                        null,
                         "Médecine interne",
                         "Hospitalisation",
                         "Médecin traitant",
@@ -144,6 +146,30 @@ class PersonnelApplicationServiceTest {
         assertThat(response.hospitalId()).isEqualTo(hospitalId);
         assertThat(response.primaryAssignment()).isTrue();
         assertThat(response.status().name()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void resolvesPrimaryActiveAssignmentAsAccountAccessScope() {
+        UUID accountId = UUID.randomUUID();
+        UUID personnelId = UUID.randomUUID();
+        UUID hospitalId = UUID.randomUUID();
+        PersonnelEntity personnel = activePersonnel(personnelId);
+        personnel.update(
+                personnel.getEmployeeNumber(), personnel.getFirstName(), personnel.getLastName(), personnel.getMiddleName(),
+                personnel.getDateOfBirth(), personnel.getGender(), personnel.getCategory(), personnel.getJobTitle(),
+                personnel.getPhoneNumber(), personnel.getEmail(), personnel.getAddress(), hospitalId, accountId);
+        PersonnelAssignmentEntity assignment = new PersonnelAssignmentEntity(
+                UUID.randomUUID(), personnelId, PersonnelAssignmentScope.HOSPITAL_LABORATORY, hospitalId, "LAB-HGR-01",
+                "Laboratoire", null, "Technicien", LocalDate.of(2026, 8, 28), true, null, java.time.Instant.now());
+        when(personnelRepository.findByAccountId(accountId)).thenReturn(Optional.of(personnel));
+        when(personnelAssignmentRepository.findFirstByPersonnelIdAndStatusAndPrimaryAssignmentTrueOrderByStartsOnDesc(
+                personnelId, com.hopital.personnel.application.domain.PersonnelAssignmentStatus.ACTIVE)).thenReturn(Optional.of(assignment));
+
+        PersonnelAccessScopeResponse scope = personnelApplicationService.resolveAccessScope(accountId);
+
+        assertThat(scope.personnelId()).isEqualTo(personnelId);
+        assertThat(scope.hospitalId()).isEqualTo(hospitalId);
+        assertThat(scope.laboratoryCode()).isEqualTo("LAB-HGR-01");
     }
 
     private PersonnelEntity activePersonnel(UUID personnelId) {

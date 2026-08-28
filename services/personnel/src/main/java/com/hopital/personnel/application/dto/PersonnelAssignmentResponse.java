@@ -11,6 +11,7 @@ public record PersonnelAssignmentResponse(
         UUID personnelId,
         PersonnelAssignmentScope scope,
         UUID hospitalId,
+        String laboratoryCode,
         String departmentName,
         String unitName,
         String positionTitle,

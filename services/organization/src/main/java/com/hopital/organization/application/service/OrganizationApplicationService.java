@@ -11,6 +11,7 @@ import com.hopital.organization.application.dto.CreateReferenceLaboratoryRequest
 import com.hopital.organization.application.dto.HealthZoneResponse;
 import com.hopital.organization.application.dto.HealthAreaResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
+import com.hopital.organization.application.dto.HospitalAccessReferenceResponse;
 import com.hopital.organization.application.dto.HospitalLaboratoryResponse;
 import com.hopital.organization.application.dto.LaboratoryStructureResponse;
 import com.hopital.organization.application.dto.PageResponse;
@@ -114,6 +115,17 @@ public class OrganizationApplicationService {
                 hospitalRepository.search(
                         normalizeFilter(query), normalizeFilter(provinceCode), pageRequest(page, size)),
                 this::toResponse);
+    }
+
+    public HospitalAccessReferenceResponse resolveHospitalAccessReference(UUID hospitalId) {
+        HospitalEntity hospital = hospitalRepository.findById(hospitalId)
+                .orElseThrow(() -> new OrganizationNotFoundException("hôpital", hospitalId.toString()));
+        List<String> laboratoryCodes = hospitalLaboratoryRepository
+                .findAllByHospital_IdAndActiveTrueOrderByNameAsc(hospitalId)
+                .stream()
+                .map(HospitalLaboratoryEntity::getCode)
+                .toList();
+        return new HospitalAccessReferenceResponse(hospital.getId(), hospital.getCode(), laboratoryCodes);
     }
 
     public List<ReferenceLaboratoryResponse> listReferenceLaboratories() {

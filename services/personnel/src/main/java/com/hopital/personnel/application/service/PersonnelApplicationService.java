@@ -10,6 +10,7 @@ import com.hopital.personnel.application.dto.CreatePersonnelRequest;
 import com.hopital.personnel.application.dto.PageResponse;
 import com.hopital.personnel.application.dto.PersonnelDetailsResponse;
 import com.hopital.personnel.application.dto.PersonnelAssignmentResponse;
+import com.hopital.personnel.application.dto.PersonnelAccessScopeResponse;
 import com.hopital.personnel.application.dto.PersonnelDocumentResponse;
 import com.hopital.personnel.application.dto.PersonnelResponse;
 import com.hopital.personnel.application.dto.UpdatePersonnelRequest;
@@ -102,6 +103,21 @@ public class PersonnelApplicationService {
                 .orElseThrow(() -> new PersonnelNotFoundException("associé au compte " + accountId));
     }
 
+    /**
+     * Resolves the active primary assignment used to restrict a connected account's data access.
+     */
+    public PersonnelAccessScopeResponse resolveAccessScope(UUID accountId) {
+        PersonnelEntity personnel = personnelRepository.findByAccountId(accountId)
+                .filter(PersonnelEntity::isActive)
+                .orElseThrow(() -> new PersonnelNotFoundException("actif associé au compte " + accountId));
+        PersonnelAssignmentEntity assignment = personnelAssignmentRepository
+                .findFirstByPersonnelIdAndStatusAndPrimaryAssignmentTrueOrderByStartsOnDesc(
+                        personnel.getId(), PersonnelAssignmentStatus.ACTIVE)
+                .orElseThrow(() -> new PersonnelNotFoundException("affectation principale active du compte " + accountId));
+        return new PersonnelAccessScopeResponse(
+                accountId, personnel.getId(), assignment.getScope(), assignment.getHospitalId(), assignment.getLaboratoryCode());
+    }
+
     @Transactional
     public PersonnelResponse createPersonnel(CreatePersonnelRequest request) {
         String employeeNumber = normalizeEmployeeNumber(request.employeeNumber());
@@ -186,13 +202,14 @@ public class PersonnelApplicationService {
             throw new InvalidPersonnelAssignmentException("Un agent inactif ne peut pas recevoir une nouvelle affectation.");
         }
         UUID hospitalId = parseOptionalUuid(request.hospitalId(), "hôpital");
-        validateAssignmentScope(request.scope(), hospitalId);
+        String laboratoryCode = normalizeOptionalCode(request.laboratoryCode());
+        validateAssignmentScope(request.scope(), hospitalId, laboratoryCode);
         if (request.primaryAssignment() && personnelAssignmentRepository
                 .existsByPersonnelIdAndStatusAndPrimaryAssignmentTrue(personnelId, PersonnelAssignmentStatus.ACTIVE)) {
             throw new InvalidPersonnelAssignmentException("Cet agent possède déjà une affectation principale active. Clôturez-la avant d'en définir une autre.");
         }
         PersonnelAssignmentEntity assignment = new PersonnelAssignmentEntity(
-                UUID.randomUUID(), personnelId, request.scope(), hospitalId,
+                UUID.randomUUID(), personnelId, request.scope(), hospitalId, laboratoryCode,
                 trimToNull(request.departmentName()), trimToNull(request.unitName()), request.positionTitle().trim(),
                 request.startsOn(), request.primaryAssignment(), trimToNull(request.notes()), Instant.now());
         return toAssignmentResponse(personnelAssignmentRepository.save(assignment));
@@ -314,6 +331,7 @@ public class PersonnelApplicationService {
     private PersonnelAssignmentResponse toAssignmentResponse(PersonnelAssignmentEntity assignment) {
         return new PersonnelAssignmentResponse(
                 assignment.getId(), assignment.getPersonnelId(), assignment.getScope(), assignment.getHospitalId(),
+                assignment.getLaboratoryCode(),
                 assignment.getDepartmentName(), assignment.getUnitName(), assignment.getPositionTitle(),
                 assignment.getStartsOn(), assignment.getEndsOn(), assignment.getStatus(), assignment.isPrimaryAssignment(),
                 assignment.getNotes(), assignment.getCreatedAt());
@@ -351,11 +369,16 @@ public class PersonnelApplicationService {
         return new DocumentContent(contentType, decoded.length, contentBase64);
     }
 
-    private void validateAssignmentScope(PersonnelAssignmentScope scope, UUID hospitalId) {
-        if (scope == PersonnelAssignmentScope.HOSPITAL && hospitalId == null) {
+    private void validateAssignmentScope(PersonnelAssignmentScope scope, UUID hospitalId, String laboratoryCode) {
+        if (scope == PersonnelAssignmentScope.HOSPITAL && (hospitalId == null || laboratoryCode != null)) {
             throw new InvalidPersonnelAssignmentException("Une affectation hospitalière doit indiquer un hôpital.");
         }
-        if (scope == PersonnelAssignmentScope.PROVINCIAL && hospitalId != null) {
+        if (scope == PersonnelAssignmentScope.HOSPITAL_LABORATORY
+                && (hospitalId == null || laboratoryCode == null)) {
+            throw new InvalidPersonnelAssignmentException(
+                    "Une affectation en laboratoire doit indiquer son hôpital et son laboratoire.");
+        }
+        if (scope == PersonnelAssignmentScope.PROVINCIAL && (hospitalId != null || laboratoryCode != null)) {
             throw new InvalidPersonnelAssignmentException("Une affectation provinciale ne peut pas être liée à un hôpital.");
         }
     }
@@ -377,6 +400,11 @@ public class PersonnelApplicationService {
 
     private String normalizeEmployeeNumber(String value) {
         return value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeOptionalCode(String value) {
+        String normalized = trimToNull(value);
+        return normalized == null ? null : normalized.toUpperCase(Locale.ROOT);
     }
 
     private String normalizeSearchFilter(String value) {

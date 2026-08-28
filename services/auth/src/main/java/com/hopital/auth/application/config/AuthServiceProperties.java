@@ -8,5 +8,7 @@ public record AuthServiceProperties(
         String keycloakBaseUrl,
         String keycloakRealm,
         String keycloakClientId,
-        String keycloakClientSecret) {
+        String keycloakClientSecret,
+        String personnelServiceBaseUrl,
+        String organizationServiceBaseUrl) {
 }

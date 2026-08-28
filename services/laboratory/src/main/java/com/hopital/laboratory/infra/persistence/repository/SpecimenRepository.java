@@ -24,6 +24,12 @@ public interface SpecimenRepository extends JpaRepository<SpecimenEntity, UUID> 
                     OR LOWER(analysisRequest.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(analysisRequest.patientReference) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(analysisRequest.patientName) LIKE LOWER(CONCAT('%', :query, '%')))
+              AND (:provinceWide = true OR analysisRequest.laboratoryCode IN :laboratoryCodes)
             """)
-    Page<SpecimenEntity> search(@Param("query") String query, Pageable pageable);
+    Page<SpecimenEntity> search(@Param("query") String query, @Param("provinceWide") boolean provinceWide,
+            @Param("laboratoryCodes") List<String> laboratoryCodes, Pageable pageable);
+
+    default Page<SpecimenEntity> search(String query, Pageable pageable) {
+        return search(query, true, List.of("_"), pageable);
+    }
 }

@@ -1,6 +1,8 @@
 package com.hopital.patient.application.service;
 
 import com.hopital.patient.application.dto.CreatePatientRequest;
+import com.hopital.patient.application.domain.DataAccessScope;
+import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
@@ -27,13 +29,17 @@ public class PatientApplicationService {
         this.patientRepository = patientRepository;
     }
 
-    public List<PatientResponse> listPatients() {
-        return patientRepository.findAllByOrderByLastNameAscFirstNameAsc().stream().map(this::toResponse).toList();
+    public List<PatientResponse> listPatients(DataAccessScope accessScope) {
+        List<PatientEntity> patients = accessScope.provinceWide()
+                ? patientRepository.findAllByOrderByLastNameAscFirstNameAsc()
+                : patientRepository.findAllByRegistrationHospitalCodeIgnoreCaseOrderByLastNameAscFirstNameAsc(accessScope.hospitalCode());
+        return patients.stream().map(this::toResponse).toList();
     }
 
-    public PageResponse<PatientResponse> searchPatients(int page, int size, String query) {
+    public PageResponse<PatientResponse> searchPatients(int page, int size, String query, DataAccessScope accessScope) {
         var patients = patientRepository.search(
                 normalizeSearchFilter(query),
+                accessScope.provinceWide() ? "" : accessScope.hospitalCode(),
                 PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by("lastName").ascending().and(Sort.by("firstName").ascending())));
         return new PageResponse<>(
                 patients.getContent().stream().map(this::toResponse).toList(),
@@ -44,8 +50,10 @@ public class PatientApplicationService {
     }
 
     @Transactional
-    public PatientResponse createPatient(CreatePatientRequest request) {
+    public PatientResponse createPatient(CreatePatientRequest request, DataAccessScope accessScope) {
         String code = normalizeCode(request.code());
+        String registrationHospitalCode = normalizeCode(request.registrationHospitalCode());
+        assertAccess(accessScope, registrationHospitalCode);
         if (patientRepository.existsByCodeIgnoreCase(code)) {
             throw new DuplicatePatientException(code);
         }
@@ -59,15 +67,16 @@ public class PatientApplicationService {
                 request.gender(),
                 trimToNull(request.phoneNumber()),
                 trimToNull(request.address()),
-                normalizeCode(request.registrationHospitalCode()),
+                registrationHospitalCode,
                 Instant.now());
         return toResponse(patientRepository.save(patient));
     }
 
     @Transactional
-    public PatientResponse updateStatus(String patientCode, UpdatePatientStatusRequest request) {
+    public PatientResponse updateStatus(String patientCode, UpdatePatientStatusRequest request, DataAccessScope accessScope) {
         PatientEntity patient = patientRepository.findByCodeIgnoreCase(normalizeCode(patientCode))
                 .orElseThrow(() -> new PatientNotFoundException(patientCode));
+        assertAccess(accessScope, patient.getRegistrationHospitalCode());
         patient.setActive(request.active());
         return toResponse(patient);
     }
@@ -100,5 +109,11 @@ public class PatientApplicationService {
 
     private String normalizeSearchFilter(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private void assertAccess(DataAccessScope accessScope, String hospitalCode) {
+        if (!accessScope.canAccessHospital(hospitalCode)) {
+            throw new DataAccessDeniedException();
+        }
     }
 }

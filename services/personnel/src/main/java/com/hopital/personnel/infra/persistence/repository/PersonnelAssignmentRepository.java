@@ -14,6 +14,9 @@ public interface PersonnelAssignmentRepository extends JpaRepository<PersonnelAs
 
     boolean existsByPersonnelIdAndStatusAndPrimaryAssignmentTrue(UUID personnelId, PersonnelAssignmentStatus status);
 
+    Optional<PersonnelAssignmentEntity> findFirstByPersonnelIdAndStatusAndPrimaryAssignmentTrueOrderByStartsOnDesc(
+            UUID personnelId, PersonnelAssignmentStatus status);
+
     Optional<PersonnelAssignmentEntity> findByIdAndPersonnelId(UUID id, UUID personnelId);
 
     @Query("""

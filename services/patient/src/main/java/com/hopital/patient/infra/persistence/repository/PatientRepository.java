@@ -18,14 +18,17 @@ public interface PatientRepository extends JpaRepository<PatientEntity, UUID> {
 
     List<PatientEntity> findAllByOrderByLastNameAscFirstNameAsc();
 
+    List<PatientEntity> findAllByRegistrationHospitalCodeIgnoreCaseOrderByLastNameAscFirstNameAsc(String registrationHospitalCode);
+
     @Query("""
             SELECT patient
             FROM PatientEntity patient
-            WHERE (:query = ''
+              WHERE (:query = ''
                     OR LOWER(patient.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(patient.firstName) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(patient.lastName) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(patient.registrationHospitalCode) LIKE LOWER(CONCAT('%', :query, '%')))
+              AND (:hospitalCode = '' OR LOWER(patient.registrationHospitalCode) = LOWER(:hospitalCode))
             """)
-    Page<PatientEntity> search(@Param("query") String query, Pageable pageable);
+    Page<PatientEntity> search(@Param("query") String query, @Param("hospitalCode") String hospitalCode, Pageable pageable);
 }

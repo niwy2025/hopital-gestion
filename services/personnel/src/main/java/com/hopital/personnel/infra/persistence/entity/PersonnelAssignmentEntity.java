@@ -30,6 +30,9 @@ public class PersonnelAssignmentEntity {
     @Column(name = "hospital_id")
     private UUID hospitalId;
 
+    @Column(name = "laboratory_code", length = 30)
+    private String laboratoryCode;
+
     @Nationalized
     @Column(name = "department_name", length = 150)
     private String departmentName;
@@ -66,12 +69,14 @@ public class PersonnelAssignmentEntity {
     }
 
     public PersonnelAssignmentEntity(UUID id, UUID personnelId, PersonnelAssignmentScope scope, UUID hospitalId,
+            String laboratoryCode,
             String departmentName, String unitName, String positionTitle, LocalDate startsOn,
             boolean primaryAssignment, String notes, Instant createdAt) {
         this.id = id;
         this.personnelId = personnelId;
         this.scope = scope;
         this.hospitalId = hospitalId;
+        this.laboratoryCode = laboratoryCode;
         this.departmentName = departmentName;
         this.unitName = unitName;
         this.positionTitle = positionTitle;
@@ -86,6 +91,7 @@ public class PersonnelAssignmentEntity {
     public UUID getPersonnelId() { return personnelId; }
     public PersonnelAssignmentScope getScope() { return scope; }
     public UUID getHospitalId() { return hospitalId; }
+    public String getLaboratoryCode() { return laboratoryCode; }
     public String getDepartmentName() { return departmentName; }
     public String getUnitName() { return unitName; }
     public String getPositionTitle() { return positionTitle; }

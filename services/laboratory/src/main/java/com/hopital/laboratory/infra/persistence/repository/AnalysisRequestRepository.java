@@ -28,6 +28,12 @@ public interface AnalysisRequestRepository extends JpaRepository<AnalysisRequest
                     OR LOWER(analysisRequest.analysisCode) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(analysisRequest.analysisName) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(analysisRequest.laboratoryCode) LIKE LOWER(CONCAT('%', :query, '%')))
+              AND (:provinceWide = true OR analysisRequest.laboratoryCode IN :laboratoryCodes)
             """)
-    Page<AnalysisRequestEntity> search(@Param("query") String query, Pageable pageable);
+    Page<AnalysisRequestEntity> search(@Param("query") String query, @Param("provinceWide") boolean provinceWide,
+            @Param("laboratoryCodes") List<String> laboratoryCodes, Pageable pageable);
+
+    default Page<AnalysisRequestEntity> search(String query, Pageable pageable) {
+        return search(query, true, List.of("_"), pageable);
+    }
 }

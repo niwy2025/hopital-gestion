@@ -2,6 +2,7 @@ package com.hopital.patient.api;
 
 import com.hopital.patient.application.dto.ApiError;
 import com.hopital.patient.application.exception.DuplicatePatientException;
+import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -23,6 +24,11 @@ public class PatientExceptionHandler {
     @ExceptionHandler(PatientNotFoundException.class)
     ResponseEntity<ApiError> handleNotFound(PatientNotFoundException exception, HttpServletRequest request) {
         return error(HttpStatus.NOT_FOUND, "PATIENT_NOT_FOUND", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(DataAccessDeniedException.class)
+    ResponseEntity<ApiError> handleAccessDenied(DataAccessDeniedException exception, HttpServletRequest request) {
+        return error(HttpStatus.FORBIDDEN, "ACCESS_SCOPE_FORBIDDEN", exception.getMessage(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

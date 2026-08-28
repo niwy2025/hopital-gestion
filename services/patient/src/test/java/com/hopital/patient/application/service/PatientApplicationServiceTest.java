@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.hopital.patient.application.domain.Gender;
+import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
@@ -42,7 +43,7 @@ class PatientApplicationServiceTest {
                 Gender.FEMALE,
                 " +243 900 000 000 ",
                 "Goma",
-                " hp-goma "));
+                " hp-goma "), new DataAccessScope(true, null));
 
         assertThat(response.code()).isEqualTo("PAT-0001");
         assertThat(response.registrationHospitalCode()).isEqualTo("HP-GOMA");
@@ -66,7 +67,7 @@ class PatientApplicationServiceTest {
         when(patientRepository.findByCodeIgnoreCase("PAT-0001")).thenReturn(Optional.of(patient));
 
         PatientResponse response = patientApplicationService.updateStatus(
-                "pat-0001", new UpdatePatientStatusRequest(false));
+                "pat-0001", new UpdatePatientStatusRequest(false), new DataAccessScope(true, null));
 
         assertThat(response.active()).isFalse();
     }

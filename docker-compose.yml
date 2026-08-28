@@ -1,9 +1,37 @@
 name: ${COMPOSE_PROJECT_NAME:-hopital-gestion}
 
+x-container-logging: &container-logging
+  # Sans rotation, les logs JSON de Docker peuvent remplir le disque du VPS.
+  # Le pilote local est compressé et plus économe que le pilote json-file par défaut.
+  logging:
+    driver: local
+    options:
+      max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+      max-file: ${DOCKER_LOG_MAX_FILES:-3}
+
+x-spring-service: &spring-service
+  <<: *container-logging
+  restart: unless-stopped
+  # Une JVM sans limite voit toute la RAM de Docker et peut réserver un heap
+  # disproportionné. Ces plafonds restent modifiables dans .env.
+  mem_limit: ${SPRING_SERVICE_MEMORY_LIMIT:-512m}
+  mem_reservation: ${SPRING_SERVICE_MEMORY_RESERVATION:-256m}
+  memswap_limit: ${SPRING_SERVICE_MEMORY_LIMIT:-512m}
+  pids_limit: ${SPRING_SERVICE_PIDS_LIMIT:-160}
+
+x-spring-jvm: &spring-jvm
+  JAVA_TOOL_OPTIONS: ${SPRING_JAVA_TOOL_OPTIONS:--Xms96m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:MaxDirectMemorySize=64m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+
 services:
   kong-database:
+    <<: *container-logging
     image: postgres:16-alpine
     container_name: kong-database
+    restart: unless-stopped
+    mem_limit: ${POSTGRES_MEMORY_LIMIT:-384m}
+    mem_reservation: ${POSTGRES_MEMORY_RESERVATION:-128m}
+    memswap_limit: ${POSTGRES_MEMORY_LIMIT:-384m}
+    pids_limit: ${POSTGRES_PIDS_LIMIT:-100}
     environment:
       POSTGRES_DB: ${KONG_PG_DATABASE:-kong}
       POSTGRES_USER: ${KONG_PG_USER:-kong}
@@ -18,6 +46,7 @@ services:
     networks: [hospital-network]
 
   kong-migrations:
+    <<: *container-logging
     image: kong:3.7
     container_name: kong-migrations
     command: kong migrations bootstrap
@@ -34,8 +63,15 @@ services:
     restart: on-failure
 
   kong:
+    <<: *container-logging
     image: kong:3.7
     container_name: kong
+    restart: unless-stopped
+    mem_limit: ${KONG_MEMORY_LIMIT:-384m}
+    mem_reservation: ${KONG_MEMORY_RESERVATION:-128m}
+    memswap_limit: ${KONG_MEMORY_LIMIT:-384m}
+    pids_limit: ${KONG_PIDS_LIMIT:-120}
+    stop_grace_period: 30s
     depends_on:
       kong-migrations:
         condition: service_completed_successfully
@@ -51,6 +87,7 @@ services:
     networks: [hospital-network]
 
   kong-init:
+    <<: *container-logging
     image: curlimages/curl:8.8.0
     container_name: kong-init
     depends_on:
@@ -68,8 +105,14 @@ services:
     networks: [hospital-network]
 
   keycloak-database:
+    <<: *container-logging
     image: postgres:16-alpine
     container_name: keycloak-database
+    restart: unless-stopped
+    mem_limit: ${POSTGRES_MEMORY_LIMIT:-384m}
+    mem_reservation: ${POSTGRES_MEMORY_RESERVATION:-128m}
+    memswap_limit: ${POSTGRES_MEMORY_LIMIT:-384m}
+    pids_limit: ${POSTGRES_PIDS_LIMIT:-100}
     environment:
       POSTGRES_DB: ${KEYCLOAK_DB:-keycloak}
       POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
@@ -84,9 +127,16 @@ services:
     networks: [hospital-network]
 
   keycloak:
+    <<: *container-logging
     image: quay.io/keycloak/keycloak:25.0
     container_name: keycloak
     command: ["start-dev", "--import-realm"]
+    restart: unless-stopped
+    mem_limit: ${KEYCLOAK_MEMORY_LIMIT:-1g}
+    mem_reservation: ${KEYCLOAK_MEMORY_RESERVATION:-512m}
+    memswap_limit: ${KEYCLOAK_MEMORY_LIMIT:-1g}
+    pids_limit: ${KEYCLOAK_PIDS_LIMIT:-180}
+    stop_grace_period: 1m
     depends_on:
       keycloak-database:
         condition: service_healthy
@@ -100,15 +150,26 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_HEALTH_ENABLED: true
       KC_METRICS_ENABLED: true
+      # Keycloak utilise sinon jusqu'à 70 % de la mémoire Docker disponible.
+      JAVA_OPTS_KC_HEAP: ${KEYCLOAK_JAVA_OPTS_KC_HEAP:--XX:InitialRAMPercentage=20 -XX:MaxRAMPercentage=55 -XX:MaxHeapFreeRatio=30}
     volumes:
       - ./infrastructure/keycloak/hospital-realm.json:/opt/keycloak/data/import/hospital-realm.json:ro
     networks: [hospital-network]
+    healthcheck:
+      test:
+        ["CMD-SHELL", "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 45s
 
   keycloak-init:
+    <<: *container-logging
     image: quay.io/keycloak/keycloak:25.0
     container_name: keycloak-init
     depends_on:
-      - keycloak
+      keycloak:
+        condition: service_healthy
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
@@ -141,17 +202,28 @@ services:
     restart: on-failure
 
   sqlserver:
+    <<: *container-logging
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: sqlserver
+    restart: unless-stopped
+    # SQL Server requiert au moins 2 Go pour démarrer. Sa limite interne reste
+    # inférieure au plafond du conteneur afin de garder de la marge système.
+    mem_limit: ${SQLSERVER_CONTAINER_MEMORY_LIMIT:-2560m}
+    mem_reservation: ${SQLSERVER_CONTAINER_MEMORY_RESERVATION:-1536m}
+    memswap_limit: ${SQLSERVER_CONTAINER_MEMORY_LIMIT:-2560m}
+    pids_limit: ${SQLSERVER_PIDS_LIMIT:-384}
+    stop_grace_period: 1m
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
       MSSQL_PID: ${MSSQL_PID:-Developer}
+      MSSQL_MEMORY_LIMIT_MB: ${MSSQL_MEMORY_LIMIT_MB:-2048}
     volumes:
       - sqlserver_data:/var/opt/mssql
     networks: [hospital-network]
 
   sqlserver-init:
+    <<: *container-logging
     image: mcr.microsoft.com/mssql-tools
     container_name: sqlserver-init
     depends_on:
@@ -173,18 +245,38 @@ services:
     networks: [hospital-network]
 
   zookeeper:
+    <<: *container-logging
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: zookeeper
+    restart: unless-stopped
+    mem_limit: ${ZOOKEEPER_MEMORY_LIMIT:-384m}
+    mem_reservation: ${ZOOKEEPER_MEMORY_RESERVATION:-128m}
+    memswap_limit: ${ZOOKEEPER_MEMORY_LIMIT:-384m}
+    pids_limit: ${ZOOKEEPER_PIDS_LIMIT:-120}
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_HEAP_OPTS: ${ZOOKEEPER_HEAP_OPTS:--Xms128m -Xmx192m}
     networks: [hospital-network]
+    healthcheck:
+      test: ["CMD-SHELL", "cub zk-ready localhost:2181 20"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
 
   kafka:
+    <<: *container-logging
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
-    depends_on: [zookeeper]
-    restart: on-failure
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: ${KAFKA_MEMORY_LIMIT:-768m}
+    mem_reservation: ${KAFKA_MEMORY_RESERVATION:-256m}
+    memswap_limit: ${KAFKA_MEMORY_LIMIT:-768m}
+    pids_limit: ${KAFKA_PIDS_LIMIT:-160}
+    stop_grace_period: 45s
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -192,23 +284,38 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xms256m -Xmx384m}
     networks: [hospital-network]
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
 
   redis:
+    <<: *container-logging
     image: redis:7.2-alpine
     container_name: redis
+    restart: unless-stopped
+    mem_limit: ${REDIS_MEMORY_LIMIT:-192m}
+    mem_reservation: ${REDIS_MEMORY_RESERVATION:-64m}
+    memswap_limit: ${REDIS_MEMORY_LIMIT:-192m}
+    pids_limit: ${REDIS_PIDS_LIMIT:-80}
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
     networks: [hospital-network]
 
   api-gateway:
+    <<: *spring-service
     image: api-gateway
     build:
       context: .
       dockerfile: infrastructure/gateway/api-gateway/Dockerfile
     container_name: api-gateway
     environment:
+      <<: *spring-jvm
       AUTH_SERVICE_URI: http://auth-service:8081
       ACCOUNT_SERVICE_URI: http://account-service:8082
       NOTIFICATION_SERVICE_URI: http://notification-service:8083
@@ -231,12 +338,14 @@ services:
     networks: [hospital-network]
 
   auth-service:
+    <<: *spring-service
     image: auth-service
     build:
       context: .
       dockerfile: services/auth/Dockerfile
     container_name: auth-service
     environment:
+      <<: *spring-jvm
       SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_auth;encrypt=false;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: sa
       SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
@@ -258,7 +367,7 @@ services:
       redis:
         condition: service_started
       kafka:
-        condition: service_started
+        condition: service_healthy
       keycloak:
         condition: service_started
       keycloak-init:
@@ -266,12 +375,14 @@ services:
     networks: [hospital-network]
 
   account-service:
+    <<: *spring-service
     image: account-service
     build:
       context: .
       dockerfile: services/account/Dockerfile
     container_name: account-service
     environment:
+      <<: *spring-jvm
       SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_account;encrypt=false;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: sa
       SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
@@ -288,29 +399,34 @@ services:
       redis:
         condition: service_started
       kafka:
-        condition: service_started
+        condition: service_healthy
     networks: [hospital-network]
 
   notification-service:
+    <<: *spring-service
     image: notification-service
     build:
       context: .
       dockerfile: services/notification/Dockerfile
     container_name: notification-service
     environment:
+      <<: *spring-jvm
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       NOTIFICATION_TOPIC: hospital.notification.request.v1
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     networks: [hospital-network]
 
   organization-service:
+    <<: *spring-service
     image: organization-service
     build:
       context: .
       dockerfile: services/organization/Dockerfile
     container_name: organization-service
     environment:
+      <<: *spring-jvm
       SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_organization;encrypt=false;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: sa
       SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
@@ -320,12 +436,14 @@ services:
     networks: [hospital-network]
 
   laboratory-service:
+    <<: *spring-service
     image: laboratory-service
     build:
       context: .
       dockerfile: services/laboratory/Dockerfile
     container_name: laboratory-service
     environment:
+      <<: *spring-jvm
       SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_laboratory;encrypt=false;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: sa
       SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
@@ -335,12 +453,14 @@ services:
     networks: [hospital-network]
 
   patient-service:
+    <<: *spring-service
     image: patient-service
     build:
       context: .
       dockerfile: services/patient/Dockerfile
     container_name: patient-service
     environment:
+      <<: *spring-jvm
       SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_patient;encrypt=false;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: sa
       SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
@@ -352,12 +472,14 @@ services:
     networks: [hospital-network]
 
   personnel-service:
+    <<: *spring-service
     image: personnel-service
     build:
       context: .
       dockerfile: services/personnel/Dockerfile
     container_name: personnel-service
     environment:
+      <<: *spring-jvm
       SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_personnel;encrypt=false;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: sa
       SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
@@ -372,8 +494,14 @@ services:
     networks: [hospital-network]
 
   prometheus:
+    <<: *container-logging
     image: prom/prometheus:v2.53.0
     container_name: prometheus
+    restart: unless-stopped
+    mem_limit: ${PROMETHEUS_MEMORY_LIMIT:-384m}
+    mem_reservation: ${PROMETHEUS_MEMORY_RESERVATION:-128m}
+    memswap_limit: ${PROMETHEUS_MEMORY_LIMIT:-384m}
+    pids_limit: ${PROMETHEUS_PIDS_LIMIT:-100}
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -385,8 +513,14 @@ services:
     networks: [hospital-network]
 
   grafana:
+    <<: *container-logging
     image: grafana/grafana:11.1.0
     container_name: grafana
+    restart: unless-stopped
+    mem_limit: ${GRAFANA_MEMORY_LIMIT:-256m}
+    mem_reservation: ${GRAFANA_MEMORY_RESERVATION:-96m}
+    memswap_limit: ${GRAFANA_MEMORY_LIMIT:-256m}
+    pids_limit: ${GRAFANA_PIDS_LIMIT:-100}
     depends_on: [prometheus]
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}

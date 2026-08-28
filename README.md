@@ -61,6 +61,35 @@ Remplacez `auth-service` par `account-service`, `notification-service`,
 `--no-cache` pour le développement courant : cette option force volontairement
 le téléchargement et la reconstruction de toutes les couches.
 
+### Ressources et stabilité Docker
+
+Les conteneurs ont des plafonds mémoire, un heap JVM borné et des logs rotatifs
+afin de préserver la mémoire et le disque de l'hôte. Les valeurs par défaut
+figurent dans `.env.example` et `.env.production.example`; elles ciblent un VPS
+de **8 Go de RAM minimum**. SQL Server demande à lui seul au moins 2 Go pour
+démarrer : un serveur de 4 Go ne peut donc pas héberger durablement toute la
+plateforme avec Keycloak, Kafka et les services métier.
+
+Pour éviter de bloquer le VPS pendant une reconstruction, limitez le nombre de
+builds parallèles et ne construisez que les services modifiés :
+
+```bash
+# Un seul build à la fois : plus lent, mais le VPS reste réactif.
+docker compose --parallel 1 build personnel-service
+docker compose up -d --no-deps --force-recreate personnel-service
+```
+
+Après une modification de la configuration Docker ou du fichier `.env`,
+recréez la pile sans forcer de build :
+
+```bash
+docker compose up -d
+```
+
+Les journaux déjà existants ne sont pas réduits rétroactivement. Sur un disque
+presque plein, vérifiez d'abord `docker system df`; ne nettoyez le cache de
+build (`docker builder prune`) qu'après avoir validé les éléments à supprimer.
+
 ## Déploiement de production
 
 Le fichier `docker-compose.prod.yml` complète la configuration locale. Il ferme
@@ -82,6 +111,9 @@ cp .env.production.example .env
 # Éditez .env : tous les mots de passe.
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
+
+Sur un VPS contraint, remplacez la dernière commande par une construction
+séquentielle des seuls services modifiés, puis lancez `up -d` sans `--build`.
 
 Installez ensuite le fichier
 `infrastructure/proxy/nginx/hopital-gestion.conf` dans Nginx, en y remplaçant

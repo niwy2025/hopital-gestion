@@ -13,7 +13,6 @@ import jakarta.persistence.Table;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "roles")
@@ -24,11 +23,9 @@ public class RoleEntity {
     private UUID id;
 
     @Column(nullable = false, length = 50)
-    @Nationalized
     private String code;
 
     @Column(nullable = false, length = 100)
-    @Nationalized
     private String label;
 
     @ManyToMany(fetch = FetchType.EAGER)

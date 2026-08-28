@@ -12,7 +12,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "analysis_results")
@@ -28,19 +27,15 @@ public class AnalysisResultEntity {
     @JoinColumn(name = "analysis_request_id", nullable = false, unique = true)
     private AnalysisRequestEntity analysisRequest;
 
-    @Nationalized
     @Column(name = "result_value", nullable = false, length = 1000)
     private String resultValue;
 
-    @Nationalized
     @Column(length = 100)
     private String unit;
 
-    @Nationalized
     @Column(name = "reference_range", length = 255)
     private String referenceRange;
 
-    @Nationalized
     @Column(length = 1000)
     private String comment;
 

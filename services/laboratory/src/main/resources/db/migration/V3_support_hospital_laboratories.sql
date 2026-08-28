@@ -1,5 +1,5 @@
 ALTER TABLE analysis_requests
-    ADD laboratory_type NVARCHAR(30) NOT NULL
-        CONSTRAINT DF_analysis_requests_laboratory_type DEFAULT N'REFERENCE' WITH VALUES;
+    ADD COLUMN laboratory_type VARCHAR(30) NOT NULL DEFAULT 'REFERENCE';
 
-EXEC sp_rename 'dbo.analysis_requests.reference_laboratory_code', 'laboratory_code', 'COLUMN';
+ALTER TABLE analysis_requests
+    RENAME COLUMN reference_laboratory_code TO laboratory_code;

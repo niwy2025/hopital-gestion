@@ -10,7 +10,6 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "patients")
@@ -22,11 +21,9 @@ public class PatientEntity {
     @Column(nullable = false, unique = true, length = 30)
     private String code;
 
-    @Nationalized
     @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
 
-    @Nationalized
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
@@ -40,7 +37,6 @@ public class PatientEntity {
     @Column(name = "phone_number", length = 30)
     private String phoneNumber;
 
-    @Nationalized
     @Column(length = 255)
     private String address;
 

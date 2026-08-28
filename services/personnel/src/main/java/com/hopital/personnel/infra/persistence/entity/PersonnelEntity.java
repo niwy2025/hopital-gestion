@@ -11,7 +11,6 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "personnel")
@@ -20,19 +19,15 @@ public class PersonnelEntity {
     @Id
     private UUID id;
 
-    @Nationalized
     @Column(name = "employee_number", nullable = false, unique = true, length = 40)
     private String employeeNumber;
 
-    @Nationalized
     @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
 
-    @Nationalized
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
-    @Nationalized
     @Column(name = "middle_name", length = 100)
     private String middleName;
 
@@ -47,7 +42,6 @@ public class PersonnelEntity {
     @Column(nullable = false, length = 30)
     private PersonnelCategory category;
 
-    @Nationalized
     @Column(name = "job_title", nullable = false, length = 150)
     private String jobTitle;
 
@@ -57,7 +51,6 @@ public class PersonnelEntity {
     @Column(length = 255)
     private String email;
 
-    @Nationalized
     @Column(length = 255)
     private String address;
 

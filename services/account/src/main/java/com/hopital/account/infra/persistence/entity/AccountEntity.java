@@ -11,7 +11,6 @@ import jakarta.persistence.Table;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "accounts")
@@ -21,19 +20,15 @@ public class AccountEntity {
     private UUID id;
 
     @Column(nullable = false, length = 100)
-    @Nationalized
     private String username;
 
     @Column(nullable = false, length = 255)
-    @Nationalized
     private String email;
 
     @Column(name = "display_name", nullable = false, length = 255)
-    @Nationalized
     private String displayName;
 
     @Column(name = "password_hash", nullable = false, length = 255)
-    @Nationalized
     private String passwordHash;
 
     /**
@@ -43,12 +38,10 @@ public class AccountEntity {
     @Column(name = "hospital_id")
     private UUID hospitalId;
 
-    @Column(name = "profile_photo_base64", columnDefinition = "NVARCHAR(MAX)")
-    @Nationalized
+    @Column(name = "profile_photo_base64", columnDefinition = "TEXT")
     private String profilePhotoBase64;
 
     @Column(name = "profile_photo_content_type", length = 100)
-    @Nationalized
     private String profilePhotoContentType;
 
     @ManyToMany(fetch = FetchType.EAGER)

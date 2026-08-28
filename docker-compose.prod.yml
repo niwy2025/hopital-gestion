@@ -13,10 +13,10 @@ services:
     ports: !reset []
     restart: unless-stopped
 
-  sqlserver:
+  postgres:
     # Accès d'administration local uniquement. Utilisez un tunnel SSH pour
-    # DBeaver ; SQL Server ne doit jamais être publié directement sur Internet.
-    ports: !override ["127.0.0.1:${MSSQL_HOST_PORT:-14330}:1433"]
+    # DBeaver ; PostgreSQL ne doit jamais être publié directement sur Internet.
+    ports: !override ["127.0.0.1:${POSTGRES_HOST_PORT:-54320}:5432"]
     restart: unless-stopped
 
   kafka:
@@ -73,19 +73,10 @@ services:
   redis:
     restart: unless-stopped
 
-  kong-database:
-    restart: unless-stopped
-
-  keycloak-database:
-    restart: unless-stopped
-
   kong-migrations:
     restart: on-failure
 
   kong-init:
-    restart: on-failure
-
-  sqlserver-init:
     restart: on-failure
 
   keycloak-init:

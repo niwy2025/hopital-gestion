@@ -7,7 +7,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "provinces")
@@ -20,7 +19,6 @@ public class ProvinceEntity {
     @Column(nullable = false, unique = true, length = 20)
     private String code;
 
-    @Nationalized
     @Column(nullable = false, length = 150)
     private String name;
 

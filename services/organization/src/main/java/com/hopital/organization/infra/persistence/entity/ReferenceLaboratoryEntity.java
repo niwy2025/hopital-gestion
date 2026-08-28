@@ -8,7 +8,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "reference_laboratories")
@@ -20,7 +19,6 @@ public class ReferenceLaboratoryEntity {
     @Column(nullable = false, unique = true, length = 30)
     private String code;
 
-    @Nationalized
     @Column(nullable = false, length = 200)
     private String name;
 
@@ -28,7 +26,6 @@ public class ReferenceLaboratoryEntity {
     @JoinColumn(name = "province_id", nullable = false)
     private ProvinceEntity province;
 
-    @Nationalized
     @Column(length = 255)
     private String address;
 

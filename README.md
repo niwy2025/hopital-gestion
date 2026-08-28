@@ -28,7 +28,7 @@ services/patient/                 Registre provincial des dossiers patients
 - **Docker Compose** pour orchestrer les dépendances et services locaux.
 - **Kong** comme gateway interne, conservée pour les intégrations qui l'utilisent.
 - **Keycloak** pour OAuth2/OpenID Connect et l'émission des JWT.
-- **SQL Server** comme persistance principale des services.
+- **PostgreSQL** comme persistance principale des services, avec une base logique par microservice.
 - **Kafka** pour les échanges asynchrones.
 - **Redis** pour le cache et le rate limiting.
 - **Prometheus + Grafana** pour les métriques et dashboards.
@@ -64,11 +64,12 @@ le téléchargement et la reconstruction de toutes les couches.
 ### Ressources et stabilité Docker
 
 Les conteneurs ont des plafonds mémoire, un heap JVM borné et des logs rotatifs
-afin de préserver la mémoire et le disque de l'hôte. Les valeurs par défaut
-figurent dans `.env.example` et `.env.production.example`; elles ciblent un VPS
-de **8 Go de RAM minimum**. SQL Server demande à lui seul au moins 2 Go pour
-démarrer : un serveur de 4 Go ne peut donc pas héberger durablement toute la
-plateforme avec Keycloak, Kafka et les services métier.
+afin de préserver la mémoire et le disque de l'hôte. PostgreSQL remplace SQL
+Server : une seule instance héberge une base logique par service, ce qui réduit
+fortement la mémoire minimale. Les valeurs par défaut figurent dans
+`.env.example` et `.env.production.example`. Un VPS de 4 Go convient aux tests
+et à une faible charge ; 8 Go restent recommandés pour une production avec tous
+les services, Kafka, Keycloak et l'observabilité actifs.
 
 Pour éviter de bloquer le VPS pendant une reconstruction, limitez le nombre de
 builds parallèles et ne construisez que les services modifiés :
@@ -139,28 +140,30 @@ Ports utiles :
 | Service | URL / port | Usage |
 | --- | --- | --- |
 | API Gateway Spring | `http://localhost:8888` | Point d'entrée API unique |
-| Kong, Keycloak, SQL Server, Kafka et microservices | réseau Docker interne | Services techniques et métier non exposés |
+| Kong, Keycloak, Kafka et microservices | réseau Docker interne | Services techniques et métier non exposés |
+| PostgreSQL | `127.0.0.1:54320` | Administration locale et tunnel SSH uniquement |
 | Redis | réseau Docker interne | Cache et rate limiting des services |
 | Prometheus | `http://localhost:9090` | Métriques |
 | Grafana | `http://localhost:3000` | Dashboards |
 
-### Accès SQL Server avec DBeaver
+### Accès PostgreSQL avec DBeaver
 
-SQL Server est lié à `127.0.0.1:${MSSQL_HOST_PORT:-14330}` : il est accessible
-depuis le VPS mais pas depuis Internet. Dans DBeaver, créez une connexion
-**SQL Server** avec `127.0.0.1`, le port `14330`, l'utilisateur `sa` et le mot
-de passe `MSSQL_SA_PASSWORD`. Dans l'onglet **SSH**, activez le tunnel et
-indiquez l'adresse, le port SSH et l'utilisateur du VPS. Vous pouvez alors
-choisir l'une des bases : `hospital_account`, `hospital_auth`,
-`hospital_organization`, `hospital_laboratory` ou `hospital_patient`.
+PostgreSQL est lié à `127.0.0.1:${POSTGRES_HOST_PORT:-54320}` : il est
+accessible depuis le VPS mais pas depuis Internet. Dans DBeaver, créez une
+connexion **PostgreSQL** avec `127.0.0.1`, le port `54320`, l'utilisateur
+`hospital` et le mot de passe `HOSPITAL_DB_PASSWORD`. Dans l'onglet **SSH**,
+activez le tunnel et indiquez l'adresse, le port SSH et l'utilisateur du VPS.
+Vous pouvez alors choisir l'une des bases : `hospital_account`, `hospital_auth`,
+`hospital_organization`, `hospital_laboratory`, `hospital_patient` ou
+`hospital_personnel`.
 
 L'alternative équivalente en ligne de commande est :
 
 ```bash
-ssh -N -L 14330:127.0.0.1:14330 utilisateur@votre-vps
+ssh -N -L 54320:127.0.0.1:54320 utilisateur@votre-vps
 ```
 
-Puis connectez DBeaver à `127.0.0.1:14330`. Ne créez pas de règle de pare-feu
+Puis connectez DBeaver à `127.0.0.1:54320`. Ne créez pas de règle de pare-feu
 pour ce port et ne remplacez pas l'adresse de liaison par `0.0.0.0`.
 
 ## Convention de structure des services
@@ -194,13 +197,13 @@ Chaque service qui possède une base de données conserve ses migrations SQL dan
 Flyway. Les versions sont strictement croissantes et une
 migration déjà appliquée ne doit jamais être modifiée.
 
-Toutes les clés primaires et étrangères applicatives utilisent des UUID :
-`UNIQUEIDENTIFIER` avec `DEFAULT NEWID()` dans SQL Server et `UUID` dans les
-services Java. `flyway_schema_history.installed_rank` reste numérique, car il
-est le compteur technique de Flyway et non une donnée métier.
+Toutes les clés primaires et étrangères applicatives utilisent des UUID,
+représentés par le type PostgreSQL `UUID` et par `UUID` dans les services Java.
+`flyway_schema_history.installed_rank` reste numérique, car il est le compteur
+technique de Flyway et non une donnée métier.
 
 Les services `services/account`, `services/auth`, `services/organization`,
-`services/laboratory` et `services/patient` appliquent déjà cette convention et servent de modèles
+`services/laboratory`, `services/patient` et `services/personnel` appliquent déjà cette convention et servent de modèles
 pour les futurs services hospitaliers comme `patient-service`,
 `appointment-service`, `staff-service`, `billing-service` ou
 `notification-service`.
@@ -209,7 +212,7 @@ pour les futurs services hospitaliers comme `patient-service`,
 
 Prometheus collecte Kong, Keycloak, `api-gateway`, `auth-service`,
 `account-service`, `notification-service`, `organization-service`,
-`laboratory-service` et `patient-service` depuis
+`laboratory-service`, `patient-service` et `personnel-service` depuis
 `infrastructure/monitoring/prometheus/prometheus.yml`. Chaque service Spring
 Boot expose `/actuator/prometheus` grâce à Actuator et Micrometer, avec le tag
 `application` pour distinguer ses métriques. Grafana provisionne la datasource

@@ -23,23 +23,37 @@ x-spring-jvm: &spring-jvm
   JAVA_TOOL_OPTIONS: ${SPRING_JAVA_TOOL_OPTIONS:--Xms96m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:MaxDirectMemorySize=64m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
 
 services:
-  kong-database:
+  # Une seule instance PostgreSQL, avec une base logique par microservice.
+  # Les rôles Keycloak/Kong sont séparés ; les services métier conservent leurs
+  # propres bases (hospital_account, hospital_auth, etc.).
+  postgres:
     <<: *container-logging
     image: postgres:16-alpine
-    container_name: kong-database
+    container_name: postgres
     restart: unless-stopped
-    mem_limit: ${POSTGRES_MEMORY_LIMIT:-384m}
-    mem_reservation: ${POSTGRES_MEMORY_RESERVATION:-128m}
-    memswap_limit: ${POSTGRES_MEMORY_LIMIT:-384m}
-    pids_limit: ${POSTGRES_PIDS_LIMIT:-100}
+    mem_limit: ${POSTGRES_MEMORY_LIMIT:-768m}
+    mem_reservation: ${POSTGRES_MEMORY_RESERVATION:-256m}
+    memswap_limit: ${POSTGRES_MEMORY_LIMIT:-768m}
+    pids_limit: ${POSTGRES_PIDS_LIMIT:-160}
     environment:
-      POSTGRES_DB: ${KONG_PG_DATABASE:-kong}
-      POSTGRES_USER: ${KONG_PG_USER:-kong}
-      POSTGRES_PASSWORD: ${KONG_PG_PASSWORD:-kong_password}
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-postgres}
+      HOSPITAL_DB_USER: ${HOSPITAL_DB_USER:-hospital}
+      HOSPITAL_DB_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital_password}
+      KEYCLOAK_DB: ${KEYCLOAK_DB:-keycloak}
+      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_password}
+      KONG_PG_DATABASE: ${KONG_PG_DATABASE:-kong}
+      KONG_PG_USER: ${KONG_PG_USER:-kong}
+      KONG_PG_PASSWORD: ${KONG_PG_PASSWORD:-kong_password}
     volumes:
-      - kong_database_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgresql/init-databases.sh:/docker-entrypoint-initdb.d/01-init-databases.sh:ro
+    ports:
+      - "${POSTGRES_HOST_PORT:-54320}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${KONG_PG_USER:-kong} -d ${KONG_PG_DATABASE:-kong}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER:-postgres} -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -51,11 +65,11 @@ services:
     container_name: kong-migrations
     command: kong migrations bootstrap
     depends_on:
-      kong-database:
+      postgres:
         condition: service_healthy
     environment: &kong-env
       KONG_DATABASE: postgres
-      KONG_PG_HOST: kong-database
+      KONG_PG_HOST: postgres
       KONG_PG_DATABASE: ${KONG_PG_DATABASE:-kong}
       KONG_PG_USER: ${KONG_PG_USER:-kong}
       KONG_PG_PASSWORD: ${KONG_PG_PASSWORD:-kong_password}
@@ -104,28 +118,6 @@ services:
       "
     networks: [hospital-network]
 
-  keycloak-database:
-    <<: *container-logging
-    image: postgres:16-alpine
-    container_name: keycloak-database
-    restart: unless-stopped
-    mem_limit: ${POSTGRES_MEMORY_LIMIT:-384m}
-    mem_reservation: ${POSTGRES_MEMORY_RESERVATION:-128m}
-    memswap_limit: ${POSTGRES_MEMORY_LIMIT:-384m}
-    pids_limit: ${POSTGRES_PIDS_LIMIT:-100}
-    environment:
-      POSTGRES_DB: ${KEYCLOAK_DB:-keycloak}
-      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
-      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_password}
-    volumes:
-      - keycloak_database_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloak} -d ${KEYCLOAK_DB:-keycloak}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks: [hospital-network]
-
   keycloak:
     <<: *container-logging
     image: quay.io/keycloak/keycloak:25.0
@@ -138,11 +130,11 @@ services:
     pids_limit: ${KEYCLOAK_PIDS_LIMIT:-180}
     stop_grace_period: 1m
     depends_on:
-      keycloak-database:
+      postgres:
         condition: service_healthy
     environment:
       KC_DB: postgres
-      KC_DB_URL_HOST: keycloak-database
+      KC_DB_URL_HOST: postgres
       KC_DB_URL_DATABASE: ${KEYCLOAK_DB:-keycloak}
       KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_password}
@@ -200,49 +192,6 @@ services:
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-change-me-in-production}
     networks: [hospital-network]
     restart: on-failure
-
-  sqlserver:
-    <<: *container-logging
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: sqlserver
-    restart: unless-stopped
-    # SQL Server requiert au moins 2 Go pour démarrer. Sa limite interne reste
-    # inférieure au plafond du conteneur afin de garder de la marge système.
-    mem_limit: ${SQLSERVER_CONTAINER_MEMORY_LIMIT:-2560m}
-    mem_reservation: ${SQLSERVER_CONTAINER_MEMORY_RESERVATION:-1536m}
-    memswap_limit: ${SQLSERVER_CONTAINER_MEMORY_LIMIT:-2560m}
-    pids_limit: ${SQLSERVER_PIDS_LIMIT:-384}
-    stop_grace_period: 1m
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
-      MSSQL_PID: ${MSSQL_PID:-Developer}
-      MSSQL_MEMORY_LIMIT_MB: ${MSSQL_MEMORY_LIMIT_MB:-2048}
-    volumes:
-      - sqlserver_data:/var/opt/mssql
-    networks: [hospital-network]
-
-  sqlserver-init:
-    <<: *container-logging
-    image: mcr.microsoft.com/mssql-tools
-    container_name: sqlserver-init
-    depends_on:
-      - sqlserver
-    volumes:
-      - ./infrastructure/docker/sqlserver/reset-database.sql:/reset-database.sql:ro
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        for i in {1..60}; do
-          if /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD}" -Q 'SELECT 1' >/dev/null 2>&1; then
-            break
-          fi
-          sleep 2
-        done
-        /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD}" -i /reset-database.sql
-    environment:
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
-    networks: [hospital-network]
 
   zookeeper:
     <<: *container-logging
@@ -346,9 +295,9 @@ services:
     container_name: auth-service
     environment:
       <<: *spring-jvm
-      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_auth;encrypt=false;trustServerCertificate=true
-      SPRING_DATASOURCE_USERNAME: sa
-      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hospital_auth
+      SPRING_DATASOURCE_USERNAME: ${HOSPITAL_DB_USER:-hospital}
+      SPRING_DATASOURCE_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital_password}
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       NOTIFICATION_TOPIC: hospital.notification.request.v1
@@ -358,10 +307,8 @@ services:
       KEYCLOAK_CLIENT_ID: hospital-services
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-change-me-in-production}
     depends_on:
-      sqlserver:
-        condition: service_started
-      sqlserver-init:
-        condition: service_started
+      postgres:
+        condition: service_healthy
       account-service:
         condition: service_started
       redis:
@@ -383,19 +330,17 @@ services:
     container_name: account-service
     environment:
       <<: *spring-jvm
-      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_account;encrypt=false;trustServerCertificate=true
-      SPRING_DATASOURCE_USERNAME: sa
-      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hospital_account
+      SPRING_DATASOURCE_USERNAME: ${HOSPITAL_DB_USER:-hospital}
+      SPRING_DATASOURCE_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital_password}
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       HOSPITAL_ADMIN_USERNAME: ${HOSPITAL_ADMIN_USERNAME:-admin}
       HOSPITAL_ADMIN_EMAIL: ${HOSPITAL_ADMIN_EMAIL:-admin@hopital.local}
       HOSPITAL_ADMIN_PASSWORD: ${HOSPITAL_ADMIN_PASSWORD:-admin123}
     depends_on:
-      sqlserver:
-        condition: service_started
-      sqlserver-init:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_started
       kafka:
@@ -427,12 +372,12 @@ services:
     container_name: organization-service
     environment:
       <<: *spring-jvm
-      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_organization;encrypt=false;trustServerCertificate=true
-      SPRING_DATASOURCE_USERNAME: sa
-      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hospital_organization
+      SPRING_DATASOURCE_USERNAME: ${HOSPITAL_DB_USER:-hospital}
+      SPRING_DATASOURCE_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital_password}
     depends_on:
-      - sqlserver
-      - sqlserver-init
+      postgres:
+        condition: service_healthy
     networks: [hospital-network]
 
   laboratory-service:
@@ -444,12 +389,12 @@ services:
     container_name: laboratory-service
     environment:
       <<: *spring-jvm
-      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_laboratory;encrypt=false;trustServerCertificate=true
-      SPRING_DATASOURCE_USERNAME: sa
-      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hospital_laboratory
+      SPRING_DATASOURCE_USERNAME: ${HOSPITAL_DB_USER:-hospital}
+      SPRING_DATASOURCE_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital_password}
     depends_on:
-      - sqlserver
-      - sqlserver-init
+      postgres:
+        condition: service_healthy
     networks: [hospital-network]
 
   patient-service:
@@ -461,14 +406,12 @@ services:
     container_name: patient-service
     environment:
       <<: *spring-jvm
-      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_patient;encrypt=false;trustServerCertificate=true
-      SPRING_DATASOURCE_USERNAME: sa
-      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hospital_patient
+      SPRING_DATASOURCE_USERNAME: ${HOSPITAL_DB_USER:-hospital}
+      SPRING_DATASOURCE_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital_password}
     depends_on:
-      sqlserver:
-        condition: service_started
-      sqlserver-init:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     networks: [hospital-network]
 
   personnel-service:
@@ -480,15 +423,13 @@ services:
     container_name: personnel-service
     environment:
       <<: *spring-jvm
-      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver:1433;databaseName=hospital_personnel;encrypt=false;trustServerCertificate=true
-      SPRING_DATASOURCE_USERNAME: sa
-      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_Password123!}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hospital_personnel
+      SPRING_DATASOURCE_USERNAME: ${HOSPITAL_DB_USER:-hospital}
+      SPRING_DATASOURCE_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital_password}
       ACCOUNT_SERVICE_URI: http://account-service:8082
     depends_on:
-      sqlserver:
-        condition: service_started
-      sqlserver-init:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
       account-service:
         condition: service_started
     networks: [hospital-network]
@@ -538,9 +479,7 @@ networks:
     driver: bridge
 
 volumes:
-  kong_database_data:
-  keycloak_database_data:
-  sqlserver_data:
+  postgres_data:
   redis_data:
   prometheus_data:
   grafana_data:

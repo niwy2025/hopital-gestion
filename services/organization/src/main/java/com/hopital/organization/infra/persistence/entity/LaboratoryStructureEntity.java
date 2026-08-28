@@ -11,7 +11,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "laboratory_structures")
@@ -23,7 +22,6 @@ public class LaboratoryStructureEntity {
     @Column(nullable = false, unique = true, length = 30)
     private String code;
 
-    @Nationalized
     @Column(nullable = false, length = 200)
     private String name;
 

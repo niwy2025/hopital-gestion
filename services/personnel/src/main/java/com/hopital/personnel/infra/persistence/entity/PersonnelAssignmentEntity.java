@@ -11,7 +11,6 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "personnel_assignments")
@@ -33,15 +32,12 @@ public class PersonnelAssignmentEntity {
     @Column(name = "laboratory_code", length = 30)
     private String laboratoryCode;
 
-    @Nationalized
     @Column(name = "department_name", length = 150)
     private String departmentName;
 
-    @Nationalized
     @Column(name = "unit_name", length = 150)
     private String unitName;
 
-    @Nationalized
     @Column(name = "position_title", nullable = false, length = 150)
     private String positionTitle;
 
@@ -58,7 +54,6 @@ public class PersonnelAssignmentEntity {
     @Column(name = "primary_assignment", nullable = false)
     private boolean primaryAssignment;
 
-    @Nationalized
     @Column(length = 1000)
     private String notes;
 

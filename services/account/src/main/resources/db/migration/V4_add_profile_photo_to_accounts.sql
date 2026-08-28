@@ -1,2 +1,2 @@
-ALTER TABLE accounts ADD profile_photo_base64 NVARCHAR(MAX) NULL;
-ALTER TABLE accounts ADD profile_photo_content_type NVARCHAR(100) NULL;
+ALTER TABLE accounts ADD COLUMN profile_photo_base64 TEXT NULL;
+ALTER TABLE accounts ADD COLUMN profile_photo_content_type VARCHAR(100) NULL;

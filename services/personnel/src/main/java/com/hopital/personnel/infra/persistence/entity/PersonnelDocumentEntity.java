@@ -6,11 +6,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "personnel_documents")
@@ -26,7 +24,6 @@ public class PersonnelDocumentEntity {
     @Column(name = "document_type", nullable = false, length = 40)
     private PersonnelDocumentType documentType;
 
-    @Nationalized
     @Column(name = "file_name", nullable = false, length = 255)
     private String fileName;
 
@@ -36,9 +33,7 @@ public class PersonnelDocumentEntity {
     @Column(name = "size_bytes", nullable = false)
     private int sizeBytes;
 
-    @Lob
-    @Nationalized
-    @Column(name = "content_base64", nullable = false)
+    @Column(name = "content_base64", nullable = false, columnDefinition = "TEXT")
     private String contentBase64;
 
     @Column(name = "created_at", nullable = false)

@@ -5,9 +5,9 @@ spring:
   application:
     name: organization-service
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:sqlserver://sqlserver:1433;databaseName=hospital_organization;encrypt=false;trustServerCertificate=true}
-    username: ${SPRING_DATASOURCE_USERNAME:sa}
-    password: ${SPRING_DATASOURCE_PASSWORD:Your_strong_Password123!}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/hospital_organization}
+    username: ${SPRING_DATASOURCE_USERNAME:hospital}
+    password: ${SPRING_DATASOURCE_PASSWORD:hospital_password}
   flyway:
     locations: classpath:db/migration
     sql-migration-separator: _

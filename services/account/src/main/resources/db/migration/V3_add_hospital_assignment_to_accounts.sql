@@ -1,3 +1,3 @@
-ALTER TABLE accounts ADD hospital_id UNIQUEIDENTIFIER NULL;
+ALTER TABLE accounts ADD COLUMN hospital_id UUID NULL;
 
-CREATE INDEX IX_accounts_hospital_id ON accounts (hospital_id);
+CREATE INDEX ix_accounts_hospital_id ON accounts (hospital_id);

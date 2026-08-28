@@ -7,7 +7,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.util.UUID;
-import org.hibernate.annotations.Nationalized;
 
 @Entity
 @Table(name = "permissions")
@@ -18,11 +17,9 @@ public class PermissionEntity {
     private UUID id;
 
     @Column(nullable = false, length = 100)
-    @Nationalized
     private String code;
 
     @Column(nullable = false, length = 255)
-    @Nationalized
     private String description;
 
     protected PermissionEntity() {

@@ -1,4 +1,4 @@
-ALTER TABLE personnel_assignments ADD laboratory_code VARCHAR(30) NULL;
+ALTER TABLE personnel_assignments ADD COLUMN laboratory_code VARCHAR(30);
 
 ALTER TABLE personnel_assignments DROP CONSTRAINT CK_personnel_assignments_scope;
 ALTER TABLE personnel_assignments DROP CONSTRAINT CK_personnel_assignments_hospital;

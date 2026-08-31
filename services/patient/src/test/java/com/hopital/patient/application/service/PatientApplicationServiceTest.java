@@ -12,6 +12,7 @@ import com.hopital.patient.application.dto.EmergencyContactRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
+import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
@@ -96,6 +97,32 @@ class PatientApplicationServiceTest {
                 patient.getId(), new UpdatePatientStatusRequest(false), new DataAccessScope(true, null));
 
         assertThat(response.active()).isFalse();
+    }
+
+    @Test
+    void updatesPatientWithoutChangingTheRegistrationHospital() {
+        PatientEntity patient = patient("HP-GOMA");
+        UUID registrationHospitalId = patient.getRegistrationHospitalId();
+        when(patientRepository.findById(patient.getId())).thenReturn(Optional.of(patient));
+        when(patientRepository.findByIdentity(any(), any(), any(), any(), any())).thenReturn(List.of(patient));
+
+        PatientResponse response = patientApplicationService.updatePatient(patient.getId(), new UpdatePatientRequest(
+                "Aminata",
+                "Kasongo",
+                "Mbuyi",
+                LocalDate.of(1992, 5, 4),
+                Gender.FEMALE,
+                "+243 900 000 001",
+                "aminata@example.cd",
+                "Goma",
+                List.of(new EmergencyContactRequest(
+                        "Jean Kasongo",
+                        "+243 810 000 000",
+                        EmergencyContactRelationship.SIBLING))), new DataAccessScope(false, "HP-GOMA"));
+
+        assertThat(response.firstName()).isEqualTo("Aminata");
+        assertThat(response.registrationHospitalId()).isEqualTo(registrationHospitalId);
+        assertThat(response.emergencyContacts()).hasSize(1);
     }
 
     @Test

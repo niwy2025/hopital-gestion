@@ -7,6 +7,7 @@ import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
+import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.application.service.PatientApplicationService;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.infra.integration.auth.AuthAccessScopeClient;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 
@@ -71,6 +73,14 @@ public class PatientController {
             @PathVariable("patientId") UUID patientId,
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(patientApplicationService.getPatient(patientId, accessScope(jwt)));
+    }
+
+    @PutMapping("/{patientId}")
+    public ResponseEntity<PatientResponse> updatePatient(
+            @PathVariable("patientId") UUID patientId,
+            @Valid @RequestBody UpdatePatientRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(patientApplicationService.updatePatient(patientId, request, accessScope(jwt)));
     }
 
     @PatchMapping("/{patientId}/status")

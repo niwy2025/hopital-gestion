@@ -161,6 +161,39 @@ public class PatientEntity {
                 UUID.randomUUID(), this, fullName, phoneNumber, relationship, displayOrder));
     }
 
+    public void replaceEmergencyContacts(List<EmergencyContactData> contacts) {
+        emergencyContacts.clear();
+        for (int index = 0; index < contacts.size(); index++) {
+            EmergencyContactData contact = contacts.get(index);
+            addEmergencyContact(contact.fullName(), contact.phoneNumber(), contact.relationship(), index);
+        }
+    }
+
+    public void updateProfile(
+            String firstName,
+            String lastName,
+            String middleName,
+            LocalDate dateOfBirth,
+            Gender gender,
+            String phoneNumber,
+            String email,
+            String address) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.middleName = middleName;
+        this.dateOfBirth = dateOfBirth;
+        this.gender = gender;
+        this.phoneNumber = phoneNumber;
+        this.email = email;
+        this.address = address;
+    }
+
+    public record EmergencyContactData(
+            String fullName,
+            String phoneNumber,
+            EmergencyContactRelationship relationship) {
+    }
+
     public UUID getRegistrationHospitalId() {
         return registrationHospitalId;
     }

@@ -10,6 +10,7 @@ import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
+import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.DuplicatePatientException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
@@ -131,6 +132,25 @@ public class PatientApplicationService {
     }
 
     @Transactional
+    public PatientResponse updatePatient(UUID patientId, UpdatePatientRequest request, DataAccessScope accessScope) {
+        PatientEntity patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
+        assertAccess(accessScope, patient.getRegistrationHospitalCode());
+        assertNoDuplicate(request, patient.getId());
+        patient.updateProfile(
+                request.firstName().trim(),
+                request.lastName().trim(),
+                trimToNull(request.middleName()),
+                request.dateOfBirth(),
+                request.gender(),
+                trimToNull(request.phoneNumber()),
+                trimToNull(request.email()),
+                trimToNull(request.address()));
+        replaceEmergencyContacts(patient, request.emergencyContacts());
+        return toDetails(patient);
+    }
+
+    @Transactional
     public PatientResponse updateStatus(UUID patientId, UpdatePatientStatusRequest request, DataAccessScope accessScope) {
         PatientEntity patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
@@ -212,6 +232,30 @@ public class PatientApplicationService {
                 request.gender()).isEmpty()) {
             throw new DuplicatePatientException("cette identité");
         }
+    }
+
+    private void assertNoDuplicate(UpdatePatientRequest request, UUID patientId) {
+        boolean anotherPatientExists = findDuplicateCandidates(
+                request.firstName(),
+                request.lastName(),
+                request.middleName(),
+                request.dateOfBirth(),
+                request.gender()).stream()
+                .anyMatch(candidate -> !candidate.getId().equals(patientId));
+        if (anotherPatientExists) {
+            throw new DuplicatePatientException("cette identité");
+        }
+    }
+
+    private void replaceEmergencyContacts(
+            PatientEntity patient,
+            List<com.hopital.patient.application.dto.EmergencyContactRequest> contacts) {
+        patient.replaceEmergencyContacts(contacts.stream()
+                .map(contact -> new PatientEntity.EmergencyContactData(
+                        contact.fullName().trim(),
+                        contact.phoneNumber().trim(),
+                        contact.relationship()))
+                .toList());
     }
 
     private List<PatientEntity> findDuplicateCandidates(

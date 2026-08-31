@@ -1,8 +1,11 @@
 package com.hopital.patient.application.service;
 
 import com.hopital.patient.application.domain.DataAccessScope;
+import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.PageResponse;
+import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
+import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
@@ -77,6 +80,20 @@ public class PatientApplicationService {
         return toDetails(patient);
     }
 
+    public PatientDuplicateCheckResponse checkDuplicates(
+            PatientDuplicateCheckRequest request,
+            DataAccessScope accessScope) {
+        return new PatientDuplicateCheckResponse(findDuplicateCandidates(
+                request.firstName(),
+                request.lastName(),
+                request.middleName(),
+                request.dateOfBirth(),
+                request.gender()).stream()
+                .filter(patient -> accessScope.canAccessHospital(patient.getRegistrationHospitalCode()))
+                .map(this::toSummary)
+                .toList());
+    }
+
     @Transactional
     public PatientResponse createPatient(CreatePatientRequest request, DataAccessScope accessScope) {
         HospitalReferenceClient.HospitalReference hospital = hospitalReferenceClient.resolveActiveHospital(
@@ -84,8 +101,7 @@ public class PatientApplicationService {
         String registrationHospitalCode = normalizeCode(hospital.hospitalCode());
         assertAccess(accessScope, registrationHospitalCode);
 
-        String nationalIdentifier = normalizeIdentifier(request.nationalIdentifier());
-        assertNoDuplicate(request, nationalIdentifier);
+        assertNoDuplicate(request);
 
         PatientEntity patient = new PatientEntity(
                 UUID.randomUUID(),
@@ -98,7 +114,7 @@ public class PatientApplicationService {
                 trimToNull(request.phoneNumber()),
                 trimToNull(request.email()),
                 trimToNull(request.address()),
-                nationalIdentifier,
+                nextNationalIdentifier(),
                 trimToNull(request.emergencyContactName()),
                 trimToNull(request.emergencyContactPhone()),
                 trimToNull(request.emergencyContactRelationship()),
@@ -166,28 +182,45 @@ public class PatientApplicationService {
         throw new IllegalStateException("Impossible de générer un numéro de dossier patient unique.");
     }
 
-    private void assertNoDuplicate(CreatePatientRequest request, String nationalIdentifier) {
-        if (nationalIdentifier != null && patientRepository.existsByNationalIdentifierIgnoreCase(nationalIdentifier)) {
-            throw new DuplicatePatientException("ce numéro d’identification");
+    private String nextNationalIdentifier() {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String identifier = "NAT-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "-"
+                    + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT);
+            if (!patientRepository.existsByNationalIdentifierIgnoreCase(identifier)) {
+                return identifier;
+            }
         }
-        String middleName = trimToNull(request.middleName());
-        if (patientRepository.existsByIdentity(
-                request.lastName().trim(),
-                request.firstName().trim(),
-                middleName == null ? "" : middleName,
+        throw new IllegalStateException("Impossible de générer un identifiant national patient unique.");
+    }
+
+    private void assertNoDuplicate(CreatePatientRequest request) {
+        if (!findDuplicateCandidates(
+                request.firstName(),
+                request.lastName(),
+                request.middleName(),
                 request.dateOfBirth(),
-                request.gender())) {
+                request.gender()).isEmpty()) {
             throw new DuplicatePatientException("cette identité");
         }
     }
 
-    private String normalizeCode(String code) {
-        return code.trim().toUpperCase(Locale.ROOT);
+    private List<PatientEntity> findDuplicateCandidates(
+            String firstName,
+            String lastName,
+            String middleName,
+            LocalDate dateOfBirth,
+            Gender gender) {
+        String normalizedMiddleName = trimToNull(middleName);
+        return patientRepository.findByIdentity(
+                lastName.trim(),
+                firstName.trim(),
+                normalizedMiddleName == null ? "" : normalizedMiddleName,
+                dateOfBirth,
+                gender);
     }
 
-    private String normalizeIdentifier(String value) {
-        String normalized = trimToNull(value);
-        return normalized == null ? null : normalized.toUpperCase(Locale.ROOT);
+    private String normalizeCode(String code) {
+        return code.trim().toUpperCase(Locale.ROOT);
     }
 
     private String trimToNull(String value) {

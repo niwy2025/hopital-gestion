@@ -46,7 +46,7 @@ public class PatientEntity {
     @Column(length = 255)
     private String address;
 
-    @Column(name = "national_identifier", length = 100)
+    @Column(name = "national_identifier", nullable = false, length = 100)
     private String nationalIdentifier;
 
     @Column(name = "emergency_contact_name", length = 200)

@@ -1,6 +1,8 @@
 package com.hopital.patient.api;
 
 import com.hopital.patient.application.dto.CreatePatientRequest;
+import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
+import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.PageResponse;
@@ -50,6 +52,13 @@ public class PatientController {
             @RequestParam(name = "active", required = false) Boolean active,
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(patientApplicationService.searchPatients(page, size, query, hospitalId, active, accessScope(jwt)));
+    }
+
+    @PostMapping("/duplicate-check")
+    public ResponseEntity<PatientDuplicateCheckResponse> checkDuplicates(
+            @Valid @RequestBody PatientDuplicateCheckRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(patientApplicationService.checkDuplicates(request, accessScope(jwt)));
     }
 
     @PostMapping

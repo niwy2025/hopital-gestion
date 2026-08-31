@@ -25,15 +25,16 @@ public interface PatientRepository extends JpaRepository<PatientEntity, UUID> {
     List<PatientEntity> findAllByRegistrationHospitalCodeIgnoreCaseOrderByLastNameAscFirstNameAsc(String registrationHospitalCode);
 
     @Query("""
-            SELECT CASE WHEN COUNT(patient) > 0 THEN true ELSE false END
+            SELECT patient
             FROM PatientEntity patient
             WHERE LOWER(patient.lastName) = LOWER(:lastName)
               AND LOWER(patient.firstName) = LOWER(:firstName)
               AND LOWER(COALESCE(patient.middleName, '')) = LOWER(:middleName)
               AND patient.dateOfBirth = :dateOfBirth
               AND patient.gender = :gender
+            ORDER BY patient.createdAt DESC
             """)
-    boolean existsByIdentity(
+    List<PatientEntity> findByIdentity(
             @Param("lastName") String lastName,
             @Param("firstName") String firstName,
             @Param("middleName") String middleName,

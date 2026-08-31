@@ -112,8 +112,13 @@ class PersonnelApplicationServiceTest {
                 accountId.toString()));
 
         verify(accountReferenceClient).synchronizeHospitalAssignment(accountId, hospitalId);
+        ArgumentCaptor<PersonnelAssignmentEntity> assignmentCaptor = ArgumentCaptor.forClass(PersonnelAssignmentEntity.class);
+        verify(personnelAssignmentRepository).save(assignmentCaptor.capture());
         assertThat(response.employeeNumber()).matches("PERS-\\d{4}-[0-9A-F]{8}");
         assertThat(response.hospitalId()).isEqualTo(hospitalId);
+        assertThat(assignmentCaptor.getValue().getScope()).isEqualTo(PersonnelAssignmentScope.HOSPITAL);
+        assertThat(assignmentCaptor.getValue().getHospitalId()).isEqualTo(hospitalId);
+        assertThat(assignmentCaptor.getValue().isPrimaryAssignment()).isTrue();
     }
 
     @Test

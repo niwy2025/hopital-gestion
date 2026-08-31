@@ -143,6 +143,7 @@ public class PersonnelApplicationService {
                 accountId,
                 Instant.now());
         PersonnelEntity savedPersonnel = personnelRepository.save(personnel);
+        createInitialHospitalAssignment(savedPersonnel);
         synchronizeAccountHospital(accountId, account, hospitalId);
         return toResponse(savedPersonnel);
     }
@@ -173,6 +174,7 @@ public class PersonnelApplicationService {
                 trimToNull(request.address()),
                 hospitalId,
                 accountId);
+        createInitialHospitalAssignment(personnel);
         synchronizeAccountHospital(accountId, account, hospitalId);
         return toResponse(personnel);
     }
@@ -298,6 +300,32 @@ public class PersonnelApplicationService {
         personnel.updateHospitalAssignment(hospitalId);
         AccountReferenceClient.AccountReference account = findAccount(personnel.getAccountId());
         synchronizeAccountHospital(personnel.getAccountId(), account, hospitalId);
+    }
+
+    /**
+     * A hospital selected on the initial personnel form is a real operational assignment, not only
+     * an informational field. It must therefore create the primary scope used at login.
+     */
+    private void createInitialHospitalAssignment(PersonnelEntity personnel) {
+        if (personnel.getHospitalId() == null || personnelAssignmentRepository
+                .existsByPersonnelIdAndStatusAndPrimaryAssignmentTrue(
+                        personnel.getId(), PersonnelAssignmentStatus.ACTIVE)) {
+            return;
+        }
+        PersonnelAssignmentEntity assignment = new PersonnelAssignmentEntity(
+                UUID.randomUUID(),
+                personnel.getId(),
+                PersonnelAssignmentScope.HOSPITAL,
+                personnel.getHospitalId(),
+                null,
+                null,
+                null,
+                personnel.getJobTitle(),
+                LocalDate.now(),
+                true,
+                "Affectation initiale créée automatiquement.",
+                Instant.now());
+        personnelAssignmentRepository.save(assignment);
     }
 
     private PersonnelResponse toResponse(PersonnelEntity personnel) {

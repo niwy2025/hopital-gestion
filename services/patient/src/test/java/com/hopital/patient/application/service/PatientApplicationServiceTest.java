@@ -5,8 +5,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.hopital.patient.application.domain.DataAccessScope;
+import com.hopital.patient.application.domain.EmergencyContactRelationship;
 import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.dto.CreatePatientRequest;
+import com.hopital.patient.application.dto.EmergencyContactRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
@@ -56,15 +58,17 @@ class PatientApplicationServiceTest {
                 "amina@example.cd",
                 "Goma",
                 "AB-12345",
-                "Jean Kasongo",
-                "+243 810 000 000",
-                "Frère",
+                List.of(new EmergencyContactRequest(
+                        "Jean Kasongo",
+                        "+243 810 000 000",
+                        EmergencyContactRelationship.SIBLING)),
                 hospitalId), new DataAccessScope(true, null));
 
         assertThat(response.code()).startsWith("PAT-");
         assertThat(response.registrationHospitalCode()).isEqualTo("HP-GOMA");
         assertThat(response.registrationHospitalId()).isEqualTo(hospitalId);
         assertThat(response.nationalIdentifier()).startsWith("NAT-");
+        assertThat(response.emergencyContacts()).hasSize(1);
         assertThat(response.phoneNumber()).isEqualTo("+243 900 000 000");
         assertThat(response.active()).isTrue();
     }
@@ -79,9 +83,6 @@ class PatientApplicationServiceTest {
                 null,
                 LocalDate.of(1992, 5, 4),
                 Gender.FEMALE,
-                null,
-                null,
-                null,
                 null,
                 null,
                 null,
@@ -127,9 +128,6 @@ class PatientApplicationServiceTest {
                 null,
                 null,
                 "NAT-20260831-ABCDEF1234",
-                null,
-                null,
-                null,
                 UUID.randomUUID(),
                 hospitalCode,
                 Instant.now());

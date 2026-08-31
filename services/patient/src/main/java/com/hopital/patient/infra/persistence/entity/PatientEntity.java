@@ -1,14 +1,20 @@
 package com.hopital.patient.infra.persistence.entity;
 
 import com.hopital.patient.application.domain.Gender;
+import com.hopital.patient.application.domain.EmergencyContactRelationship;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -49,14 +55,9 @@ public class PatientEntity {
     @Column(name = "national_identifier", nullable = false, length = 100)
     private String nationalIdentifier;
 
-    @Column(name = "emergency_contact_name", length = 200)
-    private String emergencyContactName;
-
-    @Column(name = "emergency_contact_phone", length = 30)
-    private String emergencyContactPhone;
-
-    @Column(name = "emergency_contact_relationship", length = 100)
-    private String emergencyContactRelationship;
+    @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("displayOrder ASC")
+    private List<PatientEmergencyContactEntity> emergencyContacts = new ArrayList<>();
 
     @Column(name = "registration_hospital_id")
     private UUID registrationHospitalId;
@@ -85,9 +86,6 @@ public class PatientEntity {
             String email,
             String address,
             String nationalIdentifier,
-            String emergencyContactName,
-            String emergencyContactPhone,
-            String emergencyContactRelationship,
             UUID registrationHospitalId,
             String registrationHospitalCode,
             Instant createdAt) {
@@ -102,9 +100,6 @@ public class PatientEntity {
         this.email = email;
         this.address = address;
         this.nationalIdentifier = nationalIdentifier;
-        this.emergencyContactName = emergencyContactName;
-        this.emergencyContactPhone = emergencyContactPhone;
-        this.emergencyContactRelationship = emergencyContactRelationship;
         this.registrationHospitalId = registrationHospitalId;
         this.registrationHospitalCode = registrationHospitalCode;
         this.active = true;
@@ -155,16 +150,15 @@ public class PatientEntity {
         return nationalIdentifier;
     }
 
-    public String getEmergencyContactName() {
-        return emergencyContactName;
-    }
+    public List<PatientEmergencyContactEntity> getEmergencyContacts() { return emergencyContacts; }
 
-    public String getEmergencyContactPhone() {
-        return emergencyContactPhone;
-    }
-
-    public String getEmergencyContactRelationship() {
-        return emergencyContactRelationship;
+    public void addEmergencyContact(
+            String fullName,
+            String phoneNumber,
+            EmergencyContactRelationship relationship,
+            int displayOrder) {
+        emergencyContacts.add(new PatientEmergencyContactEntity(
+                UUID.randomUUID(), this, fullName, phoneNumber, relationship, displayOrder));
     }
 
     public UUID getRegistrationHospitalId() {

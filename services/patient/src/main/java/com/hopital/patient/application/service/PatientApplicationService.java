@@ -3,6 +3,7 @@ package com.hopital.patient.application.service;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.dto.CreatePatientRequest;
+import com.hopital.patient.application.dto.EmergencyContactResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
@@ -115,12 +116,17 @@ public class PatientApplicationService {
                 trimToNull(request.email()),
                 trimToNull(request.address()),
                 nextNationalIdentifier(),
-                trimToNull(request.emergencyContactName()),
-                trimToNull(request.emergencyContactPhone()),
-                trimToNull(request.emergencyContactRelationship()),
                 hospital.hospitalId(),
                 registrationHospitalCode,
                 Instant.now());
+        for (int index = 0; index < request.emergencyContacts().size(); index++) {
+            var contact = request.emergencyContacts().get(index);
+            patient.addEmergencyContact(
+                    contact.fullName().trim(),
+                    contact.phoneNumber().trim(),
+                    contact.relationship(),
+                    index);
+        }
         return toDetails(patientRepository.save(patient));
     }
 
@@ -162,9 +168,13 @@ public class PatientApplicationService {
                 patient.getEmail(),
                 patient.getAddress(),
                 patient.getNationalIdentifier(),
-                patient.getEmergencyContactName(),
-                patient.getEmergencyContactPhone(),
-                patient.getEmergencyContactRelationship(),
+                patient.getEmergencyContacts().stream()
+                        .map(contact -> new EmergencyContactResponse(
+                                contact.getId(),
+                                contact.getFullName(),
+                                contact.getPhoneNumber(),
+                                contact.getRelationship()))
+                        .toList(),
                 patient.getRegistrationHospitalId(),
                 patient.getRegistrationHospitalCode(),
                 patient.isActive(),

@@ -3,6 +3,7 @@ package com.hopital.patient.application.dto;
 import com.hopital.patient.application.domain.Gender;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public record PatientResponse(
@@ -17,9 +18,7 @@ public record PatientResponse(
         String email,
         String address,
         String nationalIdentifier,
-        String emergencyContactName,
-        String emergencyContactPhone,
-        String emergencyContactRelationship,
+        List<EmergencyContactResponse> emergencyContacts,
         UUID registrationHospitalId,
         String registrationHospitalCode,
         boolean active,

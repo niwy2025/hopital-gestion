@@ -15,6 +15,7 @@ import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
 import com.hopital.patient.application.dto.PatientAuditEventResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
+import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
@@ -117,6 +118,40 @@ public class PatientApplicationService {
                         Sort.by("arrivedAt").descending()));
         return new PageResponse<>(
                 passages.getContent().stream().map(this::toPassage).toList(),
+                passages.getNumber(),
+                passages.getSize(),
+                passages.getTotalElements(),
+                passages.getTotalPages());
+    }
+
+    public PageResponse<PatientPassageSummaryResponse> searchPassageRegistry(
+            int page,
+            int size,
+            String query,
+            UUID hospitalId,
+            PatientPassageType type,
+            PatientPassageStatus status,
+            DataAccessScope accessScope) {
+        String scopeHospitalCode = "";
+        if (!accessScope.provinceWide()) {
+            if (accessScope.hospitalCode() == null || accessScope.hospitalCode().isBlank()) {
+                throw new DataAccessDeniedException();
+            }
+            scopeHospitalCode = accessScope.hospitalCode();
+        }
+
+        var passages = patientPassageRepository.searchRegistry(
+                scopeHospitalCode,
+                accessScope.provinceWide() ? hospitalId : null,
+                normalizeSearchFilter(query),
+                type,
+                status,
+                PageRequest.of(
+                        Math.max(page, 0),
+                        Math.min(Math.max(size, 1), 100),
+                        Sort.by("arrivedAt").descending()));
+        return new PageResponse<>(
+                passages.getContent().stream().map(this::toPassageSummary).toList(),
                 passages.getNumber(),
                 passages.getSize(),
                 passages.getTotalElements(),
@@ -454,6 +489,28 @@ public class PatientApplicationService {
         return new PatientPassageResponse(
                 passage.getId(),
                 passage.getCode(),
+                passage.getHospitalId(),
+                passage.getHospitalCode(),
+                passage.getType(),
+                passage.getServiceName(),
+                passage.getReason(),
+                passage.getStatus(),
+                passage.getArrivedAt(),
+                passage.getClosedAt(),
+                passage.getCreatedByUsername(),
+                passage.getClosedByUsername());
+    }
+
+    private PatientPassageSummaryResponse toPassageSummary(PatientPassageEntity passage) {
+        PatientEntity patient = passage.getPatient();
+        return new PatientPassageSummaryResponse(
+                passage.getId(),
+                passage.getCode(),
+                patient.getId(),
+                patient.getCode(),
+                patient.getFirstName(),
+                patient.getLastName(),
+                patient.getMiddleName(),
                 passage.getHospitalId(),
                 passage.getHospitalCode(),
                 passage.getType(),

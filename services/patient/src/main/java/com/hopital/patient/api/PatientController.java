@@ -9,6 +9,7 @@ import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
+import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
@@ -60,6 +61,19 @@ public class PatientController {
             @RequestParam(name = "active", required = false) Boolean active,
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(patientApplicationService.searchPatients(page, size, query, hospitalId, active, accessScope(jwt)));
+    }
+
+    @GetMapping("/passages/search")
+    public ResponseEntity<PageResponse<PatientPassageSummaryResponse>> searchPassageRegistry(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "hospitalId", required = false) UUID hospitalId,
+            @RequestParam(name = "type", required = false) PatientPassageType type,
+            @RequestParam(name = "status", required = false) PatientPassageStatus status,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(patientApplicationService.searchPassageRegistry(
+                page, size, query, hospitalId, type, status, accessScope(jwt)));
     }
 
     @PostMapping("/duplicate-check")

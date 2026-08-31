@@ -21,6 +21,7 @@ import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
 
 @ExtendWith(MockitoExtension.class)
 class PatientApplicationServiceTest {
@@ -164,6 +166,47 @@ class PatientApplicationServiceTest {
         assertThat(response.hospitalCode()).isEqualTo("HP-GOMA");
         assertThat(response.status()).isEqualTo(PatientPassageStatus.OPEN);
         assertThat(response.createdByUsername()).isEqualTo("operateur.accueil");
+    }
+
+    @Test
+    void searchesOnlyPassagesFromTheOperatorHospital() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(),
+                "PAS-20260831-ABCD1234",
+                patient,
+                patient.getRegistrationHospitalId(),
+                "HP-GOMA",
+                PatientPassageType.CONSULTATION,
+                "Accueil",
+                "Consultation générale",
+                auditActor(),
+                Instant.now());
+        when(patientPassageRepository.searchRegistry(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(passage)));
+
+        var response = patientApplicationService.searchPassageRegistry(
+                0,
+                20,
+                "Amina",
+                UUID.randomUUID(),
+                PatientPassageType.CONSULTATION,
+                PatientPassageStatus.OPEN,
+                new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"));
+
+        assertThat(response.items()).singleElement().satisfies(item -> {
+            assertThat(item.patientId()).isEqualTo(patient.getId());
+            assertThat(item.patientCode()).isEqualTo("PAT-0001");
+            assertThat(item.patientLastName()).isEqualTo("Kasongo");
+            assertThat(item.hospitalCode()).isEqualTo("HP-GOMA");
+        });
+        verify(patientPassageRepository).searchRegistry(
+                org.mockito.ArgumentMatchers.eq("HP-GOMA"),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq("Amina"),
+                org.mockito.ArgumentMatchers.eq(PatientPassageType.CONSULTATION),
+                org.mockito.ArgumentMatchers.eq(PatientPassageStatus.OPEN),
+                any());
     }
 
     @Test

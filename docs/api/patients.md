@@ -12,8 +12,11 @@ défaut `http://localhost:8888`.
 | --- | --- | --- |
 | `GET` | `/api/v1/patients` | Liste les dossiers patients. |
 | `GET` | `/api/v1/patients/search?page=0&size=20&query=amina&hospitalId={uuid}` | Recherche paginée par code, identité ou hôpital d'enregistrement. |
+| `GET` | `/api/v1/patients/passages/search?page=0&size=20&query=amina&hospitalId={uuid}&type=CONSULTATION&status=OPEN` | Registre paginé des passages visibles dans le périmètre de l’utilisateur. |
 | `GET` | `/api/v1/patients/{patientId}` | Consulte la fiche complète d’un patient. |
+| `GET` | `/api/v1/patients/{patientId}/passages?page=0&size=20` | Consulte l’historique des passages d’un dossier. |
 | `POST` | `/api/v1/patients` | Crée un dossier patient. |
+| `POST` | `/api/v1/patients/{patientId}/passages` | Enregistre une arrivée dans le parcours du patient. |
 | `PATCH` | `/api/v1/patients/{patientId}/status` | Active ou désactive un dossier. |
 
 Les listes destinées à l'interface utilisent l'endpoint `search`. `page` est

@@ -289,12 +289,18 @@ public class PatientApplicationService {
     private void replaceEmergencyContacts(
             PatientEntity patient,
             List<com.hopital.patient.application.dto.EmergencyContactRequest> contacts) {
-        patient.replaceEmergencyContacts(contacts.stream()
-                .map(contact -> new PatientEntity.EmergencyContactData(
-                        contact.fullName().trim(),
-                        contact.phoneNumber().trim(),
-                        contact.relationship()))
-                .toList());
+        patient.clearEmergencyContacts();
+        // Hibernate may otherwise insert the new contact at order 0 before deleting
+        // the existing order 0, violating uk_patient_emergency_contacts_order.
+        patientRepository.flush();
+        for (int index = 0; index < contacts.size(); index++) {
+            var contact = contacts.get(index);
+            patient.addEmergencyContact(
+                    contact.fullName().trim(),
+                    contact.phoneNumber().trim(),
+                    contact.relationship(),
+                    index);
+        }
     }
 
     private List<PatientEntity> findDuplicateCandidates(

@@ -182,12 +182,12 @@ public class PatientEntity {
                 UUID.randomUUID(), this, fullName, phoneNumber, relationship, displayOrder));
     }
 
-    public void replaceEmergencyContacts(List<EmergencyContactData> contacts) {
+    /**
+     * Must be flushed before replacement contacts are added: their display order
+     * is unique for a patient at database level.
+     */
+    public void clearEmergencyContacts() {
         emergencyContacts.clear();
-        for (int index = 0; index < contacts.size(); index++) {
-            EmergencyContactData contact = contacts.get(index);
-            addEmergencyContact(contact.fullName(), contact.phoneNumber(), contact.relationship(), index);
-        }
     }
 
     public void updateProfile(
@@ -236,12 +236,6 @@ public class PatientEntity {
             Instant occurredAt) {
         auditEvents.add(new PatientAuditEventEntity(
                 UUID.randomUUID(), this, type, description, actor.userId(), actor.username(), occurredAt));
-    }
-
-    public record EmergencyContactData(
-            String fullName,
-            String phoneNumber,
-            EmergencyContactRelationship relationship) {
     }
 
     public UUID getRegistrationHospitalId() {

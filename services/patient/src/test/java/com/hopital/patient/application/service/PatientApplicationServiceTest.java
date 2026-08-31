@@ -3,6 +3,7 @@ package com.hopital.patient.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.DataAccessScope;
@@ -133,6 +134,7 @@ class PatientApplicationServiceTest {
         assertThat(response.registrationHospitalId()).isEqualTo(registrationHospitalId);
         assertThat(response.emergencyContacts()).hasSize(1);
         assertThat(response.updatedByUsername()).isEqualTo("operateur.accueil");
+        verify(patientRepository).flush();
     }
 
     @Test

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.EmergencyContactRelationship;
 import com.hopital.patient.application.domain.Gender;
@@ -63,7 +64,7 @@ class PatientApplicationServiceTest {
                         "Jean Kasongo",
                         "+243 810 000 000",
                         EmergencyContactRelationship.SIBLING)),
-                hospitalId), new DataAccessScope(true, null));
+                hospitalId), new DataAccessScope(true, null), auditActor());
 
         assertThat(response.code()).startsWith("PAT-");
         assertThat(response.registrationHospitalCode()).isEqualTo("HP-GOMA");
@@ -72,6 +73,11 @@ class PatientApplicationServiceTest {
         assertThat(response.emergencyContacts()).hasSize(1);
         assertThat(response.phoneNumber()).isEqualTo("+243 900 000 000");
         assertThat(response.active()).isTrue();
+        assertThat(response.createdByUsername()).isEqualTo("operateur.accueil");
+        assertThat(response.auditEvents()).singleElement().satisfies(event -> {
+            assertThat(event.type()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.CREATED);
+            assertThat(event.operatorUsername()).isEqualTo("operateur.accueil");
+        });
     }
 
     @Test
@@ -94,9 +100,12 @@ class PatientApplicationServiceTest {
         when(patientRepository.findById(patient.getId())).thenReturn(Optional.of(patient));
 
         PatientResponse response = patientApplicationService.updateStatus(
-                patient.getId(), new UpdatePatientStatusRequest(false), new DataAccessScope(true, null));
+                patient.getId(), new UpdatePatientStatusRequest(false), new DataAccessScope(true, null), auditActor());
 
         assertThat(response.active()).isFalse();
+        assertThat(response.updatedByUsername()).isEqualTo("operateur.accueil");
+        assertThat(response.auditEvents()).singleElement().satisfies(event ->
+                assertThat(event.type()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.STATUS_CHANGED));
     }
 
     @Test
@@ -114,15 +123,16 @@ class PatientApplicationServiceTest {
                 Gender.FEMALE,
                 "+243 900 000 001",
                 "aminata@example.cd",
-                "Goma",
-                List.of(new EmergencyContactRequest(
-                        "Jean Kasongo",
-                        "+243 810 000 000",
-                        EmergencyContactRelationship.SIBLING))), new DataAccessScope(false, "HP-GOMA"));
+                        "Goma",
+                        List.of(new EmergencyContactRequest(
+                                "Jean Kasongo",
+                                "+243 810 000 000",
+                        EmergencyContactRelationship.SIBLING))), new DataAccessScope(false, "HP-GOMA"), auditActor());
 
         assertThat(response.firstName()).isEqualTo("Aminata");
         assertThat(response.registrationHospitalId()).isEqualTo(registrationHospitalId);
         assertThat(response.emergencyContacts()).hasSize(1);
+        assertThat(response.updatedByUsername()).isEqualTo("operateur.accueil");
     }
 
     @Test
@@ -158,5 +168,9 @@ class PatientApplicationServiceTest {
                 UUID.randomUUID(),
                 hospitalCode,
                 Instant.now());
+    }
+
+    private AuditActor auditActor() {
+        return new AuditActor("b5695329-1d88-4bb5-b136-e609301c9c04", "operateur.accueil");
     }
 }

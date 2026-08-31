@@ -22,5 +22,9 @@ public record PatientResponse(
         UUID registrationHospitalId,
         String registrationHospitalCode,
         boolean active,
-        Instant createdAt) {
+        Instant createdAt,
+        String createdByUsername,
+        Instant updatedAt,
+        String updatedByUsername,
+        List<PatientAuditEventResponse> auditEvents) {
 }

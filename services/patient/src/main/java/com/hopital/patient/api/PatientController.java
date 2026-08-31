@@ -1,5 +1,6 @@
 package com.hopital.patient.api;
 
+import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
@@ -65,7 +66,10 @@ public class PatientController {
 
     @PostMapping
     public ResponseEntity<PatientResponse> createPatient(@Valid @RequestBody CreatePatientRequest request, @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(patientApplicationService.createPatient(request, accessScope(jwt)));
+        return ResponseEntity.status(HttpStatus.CREATED).body(patientApplicationService.createPatient(
+                request,
+                accessScope(jwt),
+                auditActor(jwt)));
     }
 
     @GetMapping("/{patientId}")
@@ -80,7 +84,11 @@ public class PatientController {
             @PathVariable("patientId") UUID patientId,
             @Valid @RequestBody UpdatePatientRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(patientApplicationService.updatePatient(patientId, request, accessScope(jwt)));
+        return ResponseEntity.ok(patientApplicationService.updatePatient(
+                patientId,
+                request,
+                accessScope(jwt),
+                auditActor(jwt)));
     }
 
     @PatchMapping("/{patientId}/status")
@@ -88,10 +96,21 @@ public class PatientController {
             @PathVariable("patientId") UUID patientId,
             @Valid @RequestBody UpdatePatientStatusRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(patientApplicationService.updateStatus(patientId, request, accessScope(jwt)));
+        return ResponseEntity.ok(patientApplicationService.updateStatus(
+                patientId,
+                request,
+                accessScope(jwt),
+                auditActor(jwt)));
     }
 
     private DataAccessScope accessScope(Jwt jwt) {
         return authAccessScopeClient.resolve(jwt.getClaimAsString("preferred_username"));
+    }
+
+    private AuditActor auditActor(Jwt jwt) {
+        String username = jwt.getClaimAsString("preferred_username");
+        return new AuditActor(
+                jwt.getSubject(),
+                username == null || username.isBlank() ? "Utilisateur authentifié" : username);
     }
 }

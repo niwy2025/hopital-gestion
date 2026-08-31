@@ -1,7 +1,9 @@
 package com.hopital.patient.infra.persistence.entity;
 
+import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.EmergencyContactRelationship;
+import com.hopital.patient.application.domain.PatientAuditEventType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -70,6 +72,25 @@ public class PatientEntity {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @Column(name = "created_by_user_id", nullable = false, length = 100)
+    private String createdByUserId;
+
+    @Column(name = "created_by_username", nullable = false, length = 150)
+    private String createdByUsername;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @Column(name = "updated_by_user_id", nullable = false, length = 100)
+    private String updatedByUserId;
+
+    @Column(name = "updated_by_username", nullable = false, length = 150)
+    private String updatedByUsername;
+
+    @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("occurredAt DESC")
+    private List<PatientAuditEventEntity> auditEvents = new ArrayList<>();
 
     protected PatientEntity() {
     }
@@ -188,6 +209,35 @@ public class PatientEntity {
         this.address = address;
     }
 
+    public void recordCreation(AuditActor actor, Instant occurredAt) {
+        this.createdByUserId = actor.userId();
+        this.createdByUsername = actor.username();
+        this.updatedAt = occurredAt;
+        this.updatedByUserId = actor.userId();
+        this.updatedByUsername = actor.username();
+        addAuditEvent(actor, PatientAuditEventType.CREATED, "Dossier patient enregistré.", occurredAt);
+    }
+
+    public void recordModification(
+            AuditActor actor,
+            PatientAuditEventType type,
+            String description,
+            Instant occurredAt) {
+        this.updatedAt = occurredAt;
+        this.updatedByUserId = actor.userId();
+        this.updatedByUsername = actor.username();
+        addAuditEvent(actor, type, description, occurredAt);
+    }
+
+    private void addAuditEvent(
+            AuditActor actor,
+            PatientAuditEventType type,
+            String description,
+            Instant occurredAt) {
+        auditEvents.add(new PatientAuditEventEntity(
+                UUID.randomUUID(), this, type, description, actor.userId(), actor.username(), occurredAt));
+    }
+
     public record EmergencyContactData(
             String fullName,
             String phoneNumber,
@@ -208,6 +258,22 @@ public class PatientEntity {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public String getCreatedByUsername() {
+        return createdByUsername;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public String getUpdatedByUsername() {
+        return updatedByUsername;
+    }
+
+    public List<PatientAuditEventEntity> getAuditEvents() {
+        return auditEvents;
     }
 
     public void setActive(boolean active) {

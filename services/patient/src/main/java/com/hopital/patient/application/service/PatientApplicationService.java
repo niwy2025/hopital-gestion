@@ -1,12 +1,15 @@
 package com.hopital.patient.application.service;
 
+import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.Gender;
+import com.hopital.patient.application.domain.PatientAuditEventType;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.EmergencyContactResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
+import com.hopital.patient.application.dto.PatientAuditEventResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
@@ -97,7 +100,10 @@ public class PatientApplicationService {
     }
 
     @Transactional
-    public PatientResponse createPatient(CreatePatientRequest request, DataAccessScope accessScope) {
+    public PatientResponse createPatient(
+            CreatePatientRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
         HospitalReferenceClient.HospitalReference hospital = hospitalReferenceClient.resolveActiveHospital(
                 request.registrationHospitalId());
         String registrationHospitalCode = normalizeCode(hospital.hospitalCode());
@@ -105,6 +111,7 @@ public class PatientApplicationService {
 
         assertNoDuplicate(request);
 
+        Instant createdAt = Instant.now();
         PatientEntity patient = new PatientEntity(
                 UUID.randomUUID(),
                 nextPatientCode(),
@@ -119,7 +126,7 @@ public class PatientApplicationService {
                 nextNationalIdentifier(),
                 hospital.hospitalId(),
                 registrationHospitalCode,
-                Instant.now());
+                createdAt);
         for (int index = 0; index < request.emergencyContacts().size(); index++) {
             var contact = request.emergencyContacts().get(index);
             patient.addEmergencyContact(
@@ -128,11 +135,16 @@ public class PatientApplicationService {
                     contact.relationship(),
                     index);
         }
+        patient.recordCreation(auditActor, createdAt);
         return toDetails(patientRepository.save(patient));
     }
 
     @Transactional
-    public PatientResponse updatePatient(UUID patientId, UpdatePatientRequest request, DataAccessScope accessScope) {
+    public PatientResponse updatePatient(
+            UUID patientId,
+            UpdatePatientRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
         PatientEntity patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
         assertAccess(accessScope, patient.getRegistrationHospitalCode());
@@ -147,15 +159,31 @@ public class PatientApplicationService {
                 trimToNull(request.email()),
                 trimToNull(request.address()));
         replaceEmergencyContacts(patient, request.emergencyContacts());
+        patient.recordModification(
+                auditActor,
+                PatientAuditEventType.UPDATED,
+                "Informations administratives mises à jour.",
+                Instant.now());
         return toDetails(patient);
     }
 
     @Transactional
-    public PatientResponse updateStatus(UUID patientId, UpdatePatientStatusRequest request, DataAccessScope accessScope) {
+    public PatientResponse updateStatus(
+            UUID patientId,
+            UpdatePatientStatusRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
         PatientEntity patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
         assertAccess(accessScope, patient.getRegistrationHospitalCode());
-        patient.setActive(request.active());
+        if (patient.isActive() != request.active()) {
+            patient.setActive(request.active());
+            patient.recordModification(
+                    auditActor,
+                    PatientAuditEventType.STATUS_CHANGED,
+                    request.active() ? "Dossier patient activé." : "Dossier patient désactivé.",
+                    Instant.now());
+        }
         return toDetails(patient);
     }
 
@@ -198,7 +226,18 @@ public class PatientApplicationService {
                 patient.getRegistrationHospitalId(),
                 patient.getRegistrationHospitalCode(),
                 patient.isActive(),
-                patient.getCreatedAt());
+                patient.getCreatedAt(),
+                patient.getCreatedByUsername(),
+                patient.getUpdatedAt(),
+                patient.getUpdatedByUsername(),
+                patient.getAuditEvents().stream()
+                        .map(event -> new PatientAuditEventResponse(
+                                event.getId(),
+                                event.getType(),
+                                event.getDescription(),
+                                event.getOperatorUsername(),
+                                event.getOccurredAt()))
+                        .toList());
     }
 
     private String nextPatientCode() {

@@ -21,7 +21,7 @@ public class InternalOrganizationController {
     }
 
     @GetMapping("/hospitals/{hospitalId}/access-reference")
-    public ResponseEntity<HospitalAccessReferenceResponse> resolveHospital(@PathVariable UUID hospitalId) {
+    public ResponseEntity<HospitalAccessReferenceResponse> resolveHospital(@PathVariable("hospitalId") UUID hospitalId) {
         return ResponseEntity.ok(organizationApplicationService.resolveHospitalAccessReference(hospitalId));
     }
 }

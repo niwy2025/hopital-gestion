@@ -63,7 +63,7 @@ public class AccountController {
     }
 
     @GetMapping("/identifier/{identifier}")
-    public ResponseEntity<AccountResponse> findByIdentifier(@PathVariable String identifier) {
+    public ResponseEntity<AccountResponse> findByIdentifier(@PathVariable("identifier") String identifier) {
         return ResponseEntity.ok(accountApplicationService.findByIdentifier(identifier));
     }
 

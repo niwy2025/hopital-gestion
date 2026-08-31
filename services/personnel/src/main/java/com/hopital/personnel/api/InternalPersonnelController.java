@@ -21,7 +21,7 @@ public class InternalPersonnelController {
     }
 
     @GetMapping("/accounts/{accountId}/access-scope")
-    public ResponseEntity<PersonnelAccessScopeResponse> resolveAccessScope(@PathVariable UUID accountId) {
+    public ResponseEntity<PersonnelAccessScopeResponse> resolveAccessScope(@PathVariable("accountId") UUID accountId) {
         return ResponseEntity.ok(personnelApplicationService.resolveAccessScope(accountId));
     }
 }

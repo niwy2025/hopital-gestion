@@ -20,7 +20,7 @@ public class InternalAuthController {
     }
 
     @GetMapping("/access-scopes/{username}")
-    ResponseEntity<DataAccessScopeResponse> resolveDataAccessScope(@PathVariable String username) {
+    ResponseEntity<DataAccessScopeResponse> resolveDataAccessScope(@PathVariable("username") String username) {
         return ResponseEntity.ok(authApplicationService.resolveDataAccessScope(username));
     }
 }

@@ -18,6 +18,8 @@ public class AuthExceptionHandler {
     ResponseEntity<Map<String, String>> handleAuthException(AuthException exception) {
         // Ne jamais journaliser le corps de la requête : il contient le mot de passe.
         LOGGER.warn("Requête d'authentification refusée : {}", exception.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", exception.getMessage()));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                "code", exception.getCode().name(),
+                "error", exception.getMessage()));
     }
 }

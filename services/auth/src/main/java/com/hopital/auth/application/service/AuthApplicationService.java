@@ -10,6 +10,7 @@ import com.hopital.auth.application.dto.LoginRequest;
 import com.hopital.auth.application.dto.LoginResponse;
 import com.hopital.auth.application.dto.RefreshTokenRequest;
 import com.hopital.auth.application.exception.AuthException;
+import com.hopital.auth.application.exception.AuthFailureCode;
 import com.hopital.auth.infra.audit.LoginAuditRepository;
 import com.hopital.auth.infra.integration.account.AccountClient;
 import com.hopital.auth.infra.integration.keycloak.KeycloakAuthClient;
@@ -52,7 +53,7 @@ public class AuthApplicationService {
                 new com.hopital.auth.application.dto.CredentialsValidationRequest(request.username(), request.password()));
         if (!validatedAccount.authenticated() || validatedAccount.account() == null) {
             loginAuditRepository.recordFailure(request.username(), request.userAgent());
-            throw new AuthException("Identifiants invalides.");
+            throw new AuthException(AuthFailureCode.INVALID_CREDENTIALS, "Identifiants invalides.");
         }
 
         assertCanSignInWithinAssignment(validatedAccount.account());
@@ -65,12 +66,12 @@ public class AuthApplicationService {
 
     public LoginResponse refresh(RefreshTokenRequest request) {
         if (request.refreshToken() == null || request.refreshToken().isBlank()) {
-            throw new AuthException("Session invalide.");
+            throw new AuthException(AuthFailureCode.SESSION_INVALID, "Session invalide.");
         }
         KeycloakAuthClient.KeycloakToken token = keycloakAuthClient.refresh(request.refreshToken());
         String username = jwtDecoder.decode(token.accessToken()).getClaimAsString("preferred_username");
         if (username == null || username.isBlank()) {
-            throw new AuthException("Session invalide.");
+            throw new AuthException(AuthFailureCode.SESSION_INVALID, "Session invalide.");
         }
         assertCanSignInWithinAssignment(accountClient.findByIdentifier(username));
         return toLoginResponse(token, request.userAgent());
@@ -78,7 +79,7 @@ public class AuthApplicationService {
 
     public AccountWorkspaceResponse getAccountWorkspace(String username, String currentUserAgent) {
         if (username == null || username.isBlank()) {
-            throw new AuthException("Session invalide.");
+            throw new AuthException(AuthFailureCode.SESSION_INVALID, "Session invalide.");
         }
         var account = accountClient.findByIdentifier(username);
         return new AccountWorkspaceResponse(account, loginAuditRepository.findKnownDevices(account.id(), currentUserAgent));
@@ -129,9 +130,13 @@ public class AuthApplicationService {
             resolveDataAccessScope(account.username());
         } catch (RestClientResponseException exception) {
             if (exception.getStatusCode() == HttpStatus.NOT_FOUND) {
-                throw new AuthException("Ce compte ne possède pas d’affectation principale active.");
+                throw new AuthException(
+                        AuthFailureCode.ACCOUNT_ASSIGNMENT_REQUIRED,
+                        "Votre compte doit encore recevoir une affectation principale avant de pouvoir se connecter.");
             }
-            throw new AuthException("L’affectation du compte ne peut pas être vérifiée.");
+            throw new AuthException(
+                    AuthFailureCode.ACCESS_SCOPE_UNAVAILABLE,
+                    "Votre périmètre d’accès ne peut pas être vérifié pour le moment.");
         }
     }
 

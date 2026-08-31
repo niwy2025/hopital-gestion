@@ -17,6 +17,11 @@ spring:
     locations: classpath:db/migration
     sql-migration-separator: _
     validate-migration-naming: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/hospital}
 
 personnel:
   account-service-url: ${ACCOUNT_SERVICE_URI:http://account-service:8082}

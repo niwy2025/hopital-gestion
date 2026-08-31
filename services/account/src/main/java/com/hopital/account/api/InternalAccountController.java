@@ -3,11 +3,14 @@ package com.hopital.account.api;
 import com.hopital.account.application.dto.AuthenticatedAccountResponse;
 import com.hopital.account.application.dto.AccountResponse;
 import com.hopital.account.application.dto.CredentialsValidationRequest;
+import com.hopital.account.application.dto.UpdateAccountHospitalAssignmentRequest;
 import com.hopital.account.application.service.AccountApplicationService;
+import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,5 +39,12 @@ public class InternalAccountController {
     @GetMapping("/{accountId}")
     public ResponseEntity<AccountResponse> findById(@PathVariable("accountId") UUID accountId) {
         return ResponseEntity.ok(accountApplicationService.findSummaryById(accountId));
+    }
+
+    @PatchMapping("/{accountId}/hospital-assignment")
+    public ResponseEntity<AccountResponse> updateHospitalAssignment(
+            @PathVariable("accountId") UUID accountId,
+            @Valid @RequestBody UpdateAccountHospitalAssignmentRequest request) {
+        return ResponseEntity.ok(accountApplicationService.updateHospitalAssignment(accountId, request));
     }
 }

@@ -8,6 +8,7 @@ import com.hopital.account.application.dto.CredentialsValidationRequest;
 import com.hopital.account.application.dto.PageResponse;
 import com.hopital.account.application.dto.RoleResponse;
 import com.hopital.account.application.dto.UpdateAccountRequest;
+import com.hopital.account.application.dto.UpdateAccountHospitalAssignmentRequest;
 import com.hopital.account.application.domain.AccountCreatedEvent;
 import com.hopital.account.application.exception.DuplicateAccountException;
 import com.hopital.account.application.exception.InvalidHospitalAssignmentException;
@@ -98,6 +99,19 @@ public class AccountApplicationService {
         return accountRepository.findById(accountId)
                 .map(this::toResponse)
                 .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
+    }
+
+    /**
+     * Synchronizes the access perimeter from the personnel service without exposing the full
+     * account-update operation to inter-service callers.
+     */
+    @Transactional
+    public AccountResponse updateHospitalAssignment(
+            UUID accountId, UpdateAccountHospitalAssignmentRequest request) {
+        AccountEntity account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
+        account.updateHospitalAssignment(parseOptionalUuid(request.hospitalId()));
+        return toResponse(account);
     }
 
     @Transactional

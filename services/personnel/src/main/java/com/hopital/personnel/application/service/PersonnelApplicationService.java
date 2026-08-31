@@ -32,6 +32,7 @@ import java.util.Base64;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
@@ -120,13 +121,11 @@ public class PersonnelApplicationService {
 
     @Transactional
     public PersonnelResponse createPersonnel(CreatePersonnelRequest request) {
-        String employeeNumber = normalizeEmployeeNumber(request.employeeNumber());
-        if (personnelRepository.existsByEmployeeNumberIgnoreCase(employeeNumber)) {
-            throw new DuplicatePersonnelException("Ce matricule est déjà attribué.");
-        }
+        String employeeNumber = resolveEmployeeNumberForCreation(request.employeeNumber());
         UUID accountId = parseOptionalUuid(request.accountId(), "compte utilisateur");
         assertAvailableAccount(accountId, null);
-        assertExistingAccount(accountId);
+        AccountReferenceClient.AccountReference account = findAccount(accountId);
+        UUID hospitalId = resolveHospitalForCreation(request.hospitalId(), account);
         PersonnelEntity personnel = new PersonnelEntity(
                 UUID.randomUUID(),
                 employeeNumber,
@@ -140,10 +139,12 @@ public class PersonnelApplicationService {
                 trimToNull(request.phoneNumber()),
                 trimToNull(request.email()),
                 trimToNull(request.address()),
-                parseOptionalUuid(request.hospitalId(), "hôpital"),
+                hospitalId,
                 accountId,
                 Instant.now());
-        return toResponse(personnelRepository.save(personnel));
+        PersonnelEntity savedPersonnel = personnelRepository.save(personnel);
+        synchronizeAccountHospital(accountId, account, hospitalId);
+        return toResponse(savedPersonnel);
     }
 
     @Transactional
@@ -156,7 +157,8 @@ public class PersonnelApplicationService {
         }
         UUID accountId = parseOptionalUuid(request.accountId(), "compte utilisateur");
         assertAvailableAccount(accountId, personnelId);
-        assertExistingAccount(accountId);
+        AccountReferenceClient.AccountReference account = findAccount(accountId);
+        UUID hospitalId = parseOptionalUuid(request.hospitalId(), "hôpital");
         personnel.update(
                 employeeNumber,
                 request.firstName().trim(),
@@ -169,8 +171,9 @@ public class PersonnelApplicationService {
                 trimToNull(request.phoneNumber()),
                 trimToNull(request.email()),
                 trimToNull(request.address()),
-                parseOptionalUuid(request.hospitalId(), "hôpital"),
+                hospitalId,
                 accountId);
+        synchronizeAccountHospital(accountId, account, hospitalId);
         return toResponse(personnel);
     }
 
@@ -212,7 +215,9 @@ public class PersonnelApplicationService {
                 UUID.randomUUID(), personnelId, request.scope(), hospitalId, laboratoryCode,
                 trimToNull(request.departmentName()), trimToNull(request.unitName()), request.positionTitle().trim(),
                 request.startsOn(), request.primaryAssignment(), trimToNull(request.notes()), Instant.now());
-        return toAssignmentResponse(personnelAssignmentRepository.save(assignment));
+        PersonnelAssignmentEntity savedAssignment = personnelAssignmentRepository.save(assignment);
+        synchronizePrimaryAssignment(personnel, request.primaryAssignment(), hospitalId);
+        return toAssignmentResponse(savedAssignment);
     }
 
     @Transactional
@@ -268,10 +273,31 @@ public class PersonnelApplicationService {
         }
     }
 
-    private void assertExistingAccount(UUID accountId) {
-        if (accountId != null) {
-            accountReferenceClient.assertAccountExists(accountId);
+    private AccountReferenceClient.AccountReference findAccount(UUID accountId) {
+        return accountId == null ? null : accountReferenceClient.assertAccountExists(accountId);
+    }
+
+    private UUID resolveHospitalForCreation(
+            String requestedHospitalId, AccountReferenceClient.AccountReference account) {
+        UUID requestedHospital = parseOptionalUuid(requestedHospitalId, "hôpital");
+        return requestedHospital != null || account == null ? requestedHospital : account.hospitalId();
+    }
+
+    private void synchronizeAccountHospital(
+            UUID accountId, AccountReferenceClient.AccountReference account, UUID hospitalId) {
+        if (accountId == null || account == null || Objects.equals(account.hospitalId(), hospitalId)) {
+            return;
         }
+        accountReferenceClient.synchronizeHospitalAssignment(accountId, hospitalId);
+    }
+
+    private void synchronizePrimaryAssignment(PersonnelEntity personnel, boolean primaryAssignment, UUID hospitalId) {
+        if (!primaryAssignment || hospitalId == null) {
+            return;
+        }
+        personnel.updateHospitalAssignment(hospitalId);
+        AccountReferenceClient.AccountReference account = findAccount(personnel.getAccountId());
+        synchronizeAccountHospital(personnel.getAccountId(), account, hospitalId);
     }
 
     private PersonnelResponse toResponse(PersonnelEntity personnel) {
@@ -398,8 +424,28 @@ public class PersonnelApplicationService {
         }
     }
 
+    private String resolveEmployeeNumberForCreation(String value) {
+        String employeeNumber = normalizeEmployeeNumber(value);
+        if (employeeNumber != null) {
+            if (personnelRepository.existsByEmployeeNumberIgnoreCase(employeeNumber)) {
+                throw new DuplicatePersonnelException("Ce matricule est déjà attribué.");
+            }
+            return employeeNumber;
+        }
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String generatedEmployeeNumber = "PERS-" + LocalDate.now().getYear() + "-"
+                    + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
+            if (!personnelRepository.existsByEmployeeNumberIgnoreCase(generatedEmployeeNumber)) {
+                return generatedEmployeeNumber;
+            }
+        }
+        throw new DuplicatePersonnelException("Le matricule n’a pas pu être généré. Réessayez l’enregistrement.");
+    }
+
     private String normalizeEmployeeNumber(String value) {
-        return value.trim().toUpperCase(Locale.ROOT);
+        String normalized = trimToNull(value);
+        return normalized == null ? null : normalized.toUpperCase(Locale.ROOT);
     }
 
     private String normalizeOptionalCode(String value) {

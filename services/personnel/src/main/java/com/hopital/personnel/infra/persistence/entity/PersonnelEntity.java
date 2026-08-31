@@ -149,5 +149,9 @@ public class PersonnelEntity {
         this.accountId = accountId;
     }
 
+    public void updateHospitalAssignment(UUID hospitalId) {
+        this.hospitalId = hospitalId;
+    }
+
     public void setActive(boolean active) { this.active = active; }
 }

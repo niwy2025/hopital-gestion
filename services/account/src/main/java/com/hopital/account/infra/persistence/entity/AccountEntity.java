@@ -124,6 +124,14 @@ public class AccountEntity {
         this.roles = new HashSet<>(roles);
     }
 
+    /**
+     * Updates only the operational perimeter of a connected account. This is used by personnel
+     * assignments without letting another service change the account identity, credentials or roles.
+     */
+    public void updateHospitalAssignment(UUID hospitalId) {
+        this.hospitalId = hospitalId;
+    }
+
     public void changePassword(String passwordHash) {
         this.passwordHash = passwordHash;
     }

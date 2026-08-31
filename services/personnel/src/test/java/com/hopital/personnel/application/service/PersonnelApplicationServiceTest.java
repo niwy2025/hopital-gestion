@@ -2,6 +2,7 @@ package com.hopital.personnel.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -86,6 +87,36 @@ class PersonnelApplicationServiceTest {
     }
 
     @Test
+    void generatesAMatriculeAndSynchronizesTheSelectedAccountsHospital() {
+        UUID accountId = UUID.randomUUID();
+        UUID hospitalId = UUID.randomUUID();
+        when(personnelRepository.existsByEmployeeNumberIgnoreCase(anyString())).thenReturn(false);
+        when(personnelRepository.existsByAccountId(accountId)).thenReturn(false);
+        when(accountReferenceClient.assertAccountExists(accountId))
+                .thenReturn(new AccountReferenceClient.AccountReference(accountId, null));
+        when(personnelRepository.save(any(PersonnelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PersonnelResponse response = personnelApplicationService.createPersonnel(new CreatePersonnelRequest(
+                null,
+                "Amina",
+                "Kasongo",
+                null,
+                null,
+                Gender.FEMALE,
+                PersonnelCategory.DOCTOR,
+                "Médecin chef",
+                null,
+                null,
+                null,
+                hospitalId.toString(),
+                accountId.toString()));
+
+        verify(accountReferenceClient).synchronizeHospitalAssignment(accountId, hospitalId);
+        assertThat(response.employeeNumber()).matches("PERS-\\d{4}-[0-9A-F]{8}");
+        assertThat(response.hospitalId()).isEqualTo(hospitalId);
+    }
+
+    @Test
     void addsProfilePhotoAndReplacesPreviousVersion() {
         UUID personnelId = UUID.randomUUID();
         PersonnelEntity personnel = new PersonnelEntity(
@@ -125,10 +156,18 @@ class PersonnelApplicationServiceTest {
     @Test
     void createsHospitalAssignmentForActivePersonnel() {
         UUID personnelId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
         UUID hospitalId = UUID.randomUUID();
-        when(personnelRepository.findById(personnelId)).thenReturn(Optional.of(activePersonnel(personnelId)));
+        PersonnelEntity personnel = activePersonnel(personnelId);
+        personnel.update(
+                personnel.getEmployeeNumber(), personnel.getFirstName(), personnel.getLastName(), personnel.getMiddleName(),
+                personnel.getDateOfBirth(), personnel.getGender(), personnel.getCategory(), personnel.getJobTitle(),
+                personnel.getPhoneNumber(), personnel.getEmail(), personnel.getAddress(), null, accountId);
+        when(personnelRepository.findById(personnelId)).thenReturn(Optional.of(personnel));
         when(personnelAssignmentRepository.existsByPersonnelIdAndStatusAndPrimaryAssignmentTrue(any(), any())).thenReturn(false);
         when(personnelAssignmentRepository.save(any(PersonnelAssignmentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accountReferenceClient.assertAccountExists(accountId))
+                .thenReturn(new AccountReferenceClient.AccountReference(accountId, null));
 
         PersonnelAssignmentResponse response = personnelApplicationService.createAssignment(personnelId,
                 new CreatePersonnelAssignmentRequest(
@@ -146,6 +185,8 @@ class PersonnelApplicationServiceTest {
         assertThat(response.hospitalId()).isEqualTo(hospitalId);
         assertThat(response.primaryAssignment()).isTrue();
         assertThat(response.status().name()).isEqualTo("ACTIVE");
+        assertThat(personnel.getHospitalId()).isEqualTo(hospitalId);
+        verify(accountReferenceClient).synchronizeHospitalAssignment(accountId, hospitalId);
     }
 
     @Test

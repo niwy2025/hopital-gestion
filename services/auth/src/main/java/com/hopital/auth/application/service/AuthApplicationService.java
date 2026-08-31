@@ -104,9 +104,18 @@ public class AuthApplicationService {
                 throw new AuthException("Le laboratoire de l’affectation est invalide ou inactif.");
             }
             return new DataAccessScopeResponse(
-                    false, hospital.hospitalCode(), List.of(personnelScope.laboratoryCode()), personnelScope.laboratoryCode());
+                    false,
+                    hospital.hospitalId(),
+                    hospital.hospitalCode(),
+                    List.of(personnelScope.laboratoryCode()),
+                    personnelScope.laboratoryCode());
         }
-        return new DataAccessScopeResponse(false, hospital.hospitalCode(), hospital.hospitalLaboratoryCodes(), null);
+        return new DataAccessScopeResponse(
+                false,
+                hospital.hospitalId(),
+                hospital.hospitalCode(),
+                hospital.hospitalLaboratoryCodes(),
+                null);
     }
 
     private LoginResponse toLoginResponse(KeycloakAuthClient.KeycloakToken token, String userAgent) {

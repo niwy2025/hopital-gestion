@@ -4,21 +4,28 @@ import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.PatientAuditEventType;
+import com.hopital.patient.application.domain.PatientPassageStatus;
+import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.dto.CreatePatientRequest;
+import com.hopital.patient.application.dto.CreatePatientPassageRequest;
 import com.hopital.patient.application.dto.EmergencyContactResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
 import com.hopital.patient.application.dto.PatientAuditEventResponse;
 import com.hopital.patient.application.dto.PatientResponse;
+import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
+import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.DuplicatePatientException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
+import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,12 +43,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class PatientApplicationService {
 
     private final PatientRepository patientRepository;
+    private final PatientPassageRepository patientPassageRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
 
     public PatientApplicationService(
             PatientRepository patientRepository,
+            PatientPassageRepository patientPassageRepository,
             HospitalReferenceClient hospitalReferenceClient) {
         this.patientRepository = patientRepository;
+        this.patientPassageRepository = patientPassageRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
     }
 
@@ -83,6 +93,34 @@ public class PatientApplicationService {
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
         assertAccess(accessScope, patient.getRegistrationHospitalCode());
         return toDetails(patient);
+    }
+
+    public PageResponse<PatientPassageResponse> searchPassages(
+            UUID patientId,
+            int page,
+            int size,
+            String query,
+            PatientPassageType type,
+            PatientPassageStatus status,
+            DataAccessScope accessScope) {
+        PatientEntity patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
+        assertAccess(accessScope, patient.getRegistrationHospitalCode());
+        var passages = patientPassageRepository.search(
+                patientId,
+                normalizeSearchFilter(query),
+                type,
+                status,
+                PageRequest.of(
+                        Math.max(page, 0),
+                        Math.min(Math.max(size, 1), 100),
+                        Sort.by("arrivedAt").descending()));
+        return new PageResponse<>(
+                passages.getContent().stream().map(this::toPassage).toList(),
+                passages.getNumber(),
+                passages.getSize(),
+                passages.getTotalElements(),
+                passages.getTotalPages());
     }
 
     public PatientDuplicateCheckResponse checkDuplicates(
@@ -140,6 +178,31 @@ public class PatientApplicationService {
     }
 
     @Transactional
+    public PatientPassageResponse createPassage(
+            UUID patientId,
+            CreatePatientPassageRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        PatientEntity patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
+        assertAccess(accessScope, patient.getRegistrationHospitalCode());
+
+        HospitalReferenceClient.HospitalReference hospital = resolvePassageHospital(request.hospitalId(), accessScope);
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(),
+                nextPassageCode(),
+                patient,
+                hospital.hospitalId(),
+                normalizeCode(hospital.hospitalCode()),
+                request.type(),
+                trimToNull(request.serviceName()),
+                trimToNull(request.reason()),
+                auditActor,
+                Instant.now());
+        return toPassage(patientPassageRepository.save(passage));
+    }
+
+    @Transactional
     public PatientResponse updatePatient(
             UUID patientId,
             UpdatePatientRequest request,
@@ -165,6 +228,25 @@ public class PatientApplicationService {
                 "Informations administratives mises à jour.",
                 Instant.now());
         return toDetails(patient);
+    }
+
+    @Transactional
+    public PatientPassageResponse updatePassageStatus(
+            UUID patientId,
+            UUID passageId,
+            UpdatePatientPassageStatusRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        PatientPassageEntity passage = patientPassageRepository.findById(passageId)
+                .orElseThrow(() -> new PatientNotFoundException(passageId.toString()));
+        if (!passage.getPatient().getId().equals(patientId)) {
+            throw new PatientNotFoundException(passageId.toString());
+        }
+        assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
+        if (passage.getStatus() != request.status()) {
+            passage.changeStatus(request.status(), auditActor, Instant.now());
+        }
+        return toPassage(passage);
     }
 
     @Transactional
@@ -262,6 +344,17 @@ public class PatientApplicationService {
         throw new IllegalStateException("Impossible de générer un identifiant national patient unique.");
     }
 
+    private String nextPassageCode() {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String code = "PAS-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "-"
+                    + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
+            if (!patientPassageRepository.existsByCodeIgnoreCase(code)) {
+                return code;
+            }
+        }
+        throw new IllegalStateException("Impossible de générer un numéro de passage unique.");
+    }
+
     private void assertNoDuplicate(CreatePatientRequest request) {
         if (!findDuplicateCandidates(
                 request.firstName(),
@@ -322,6 +415,24 @@ public class PatientApplicationService {
         return code.trim().toUpperCase(Locale.ROOT);
     }
 
+    private HospitalReferenceClient.HospitalReference resolvePassageHospital(
+            UUID requestedHospitalId,
+            DataAccessScope accessScope) {
+        if (accessScope.provinceWide()) {
+            if (requestedHospitalId == null) {
+                throw new IllegalArgumentException("Un hôpital est obligatoire pour enregistrer un passage.");
+            }
+            return hospitalReferenceClient.resolveActiveHospital(requestedHospitalId);
+        }
+        if (accessScope.hospitalId() == null || accessScope.hospitalCode() == null) {
+            throw new DataAccessDeniedException();
+        }
+        return new HospitalReferenceClient.HospitalReference(
+                accessScope.hospitalId(),
+                accessScope.hospitalCode(),
+                true);
+    }
+
     private String trimToNull(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -337,5 +448,21 @@ public class PatientApplicationService {
         if (!accessScope.canAccessHospital(hospitalCode)) {
             throw new DataAccessDeniedException();
         }
+    }
+
+    private PatientPassageResponse toPassage(PatientPassageEntity passage) {
+        return new PatientPassageResponse(
+                passage.getId(),
+                passage.getCode(),
+                passage.getHospitalId(),
+                passage.getHospitalCode(),
+                passage.getType(),
+                passage.getServiceName(),
+                passage.getReason(),
+                passage.getStatus(),
+                passage.getArrivedAt(),
+                passage.getClosedAt(),
+                passage.getCreatedByUsername(),
+                passage.getClosedByUsername());
     }
 }

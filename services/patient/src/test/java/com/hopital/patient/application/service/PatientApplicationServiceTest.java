@@ -9,14 +9,19 @@ import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.EmergencyContactRelationship;
 import com.hopital.patient.application.domain.Gender;
+import com.hopital.patient.application.domain.PatientPassageStatus;
+import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.dto.CreatePatientRequest;
+import com.hopital.patient.application.dto.CreatePatientPassageRequest;
 import com.hopital.patient.application.dto.EmergencyContactRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientResponse;
+import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
+import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,6 +39,9 @@ class PatientApplicationServiceTest {
 
     @Mock
     private PatientRepository patientRepository;
+
+    @Mock
+    private PatientPassageRepository patientPassageRepository;
 
     @Mock
     private HospitalReferenceClient hospitalReferenceClient;
@@ -135,6 +143,27 @@ class PatientApplicationServiceTest {
         assertThat(response.emergencyContacts()).hasSize(1);
         assertThat(response.updatedByUsername()).isEqualTo("operateur.accueil");
         verify(patientRepository).flush();
+    }
+
+    @Test
+    void createsPassageInTheOperatorHospital() {
+        PatientEntity patient = patient("HP-GOMA");
+        UUID hospitalId = patient.getRegistrationHospitalId();
+        when(patientRepository.findById(patient.getId())).thenReturn(Optional.of(patient));
+        when(patientPassageRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
+        when(patientPassageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PatientPassageResponse response = patientApplicationService.createPassage(
+                patient.getId(),
+                new CreatePatientPassageRequest(null, PatientPassageType.CONSULTATION, "Accueil", "Consultation générale"),
+                new DataAccessScope(false, hospitalId, "HP-GOMA"),
+                auditActor());
+
+        assertThat(response.code()).startsWith("PAS-");
+        assertThat(response.hospitalId()).isEqualTo(hospitalId);
+        assertThat(response.hospitalCode()).isEqualTo("HP-GOMA");
+        assertThat(response.status()).isEqualTo(PatientPassageStatus.OPEN);
+        assertThat(response.createdByUsername()).isEqualTo("operateur.accueil");
     }
 
     @Test

@@ -27,6 +27,9 @@ public class AuthAccessScopeClient {
         return new DataAccessScope(response.provinceWide(), new LinkedHashSet<>(response.hospitalLaboratoryCodes()));
     }
 
-    private record AuthAccessScopeResponse(boolean provinceWide, List<String> hospitalLaboratoryCodes) {
+    private record AuthAccessScopeResponse(
+            boolean provinceWide,
+            String hospitalId,
+            List<String> hospitalLaboratoryCodes) {
     }
 }

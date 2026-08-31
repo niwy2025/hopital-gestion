@@ -4,11 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.DataAccessScope;
+import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
+import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
@@ -27,26 +28,40 @@ class PatientApplicationServiceTest {
     @Mock
     private PatientRepository patientRepository;
 
+    @Mock
+    private HospitalReferenceClient hospitalReferenceClient;
+
     @InjectMocks
     private PatientApplicationService patientApplicationService;
 
     @Test
-    void createsPatientWithNormalizedCodes() {
-        when(patientRepository.existsByCodeIgnoreCase("PAT-0001")).thenReturn(false);
+    void createsPatientWithGeneratedDossierNumberAndHospitalReference() {
+        UUID hospitalId = UUID.randomUUID();
+        when(hospitalReferenceClient.resolveActiveHospital(hospitalId))
+                .thenReturn(new HospitalReferenceClient.HospitalReference(hospitalId, "HP-GOMA", true));
+        when(patientRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
+        when(patientRepository.existsByIdentity(any(), any(), any(), any(), any())).thenReturn(false);
         when(patientRepository.save(any(PatientEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         PatientResponse response = patientApplicationService.createPatient(new CreatePatientRequest(
-                " pat-0001 ",
                 "Amina",
                 "Kasongo",
+                "Mbuyi",
                 LocalDate.of(1992, 5, 4),
                 Gender.FEMALE,
                 " +243 900 000 000 ",
+                "amina@example.cd",
                 "Goma",
-                " hp-goma "), new DataAccessScope(true, null));
+                "AB-12345",
+                "Jean Kasongo",
+                "+243 810 000 000",
+                "Frère",
+                hospitalId), new DataAccessScope(true, null));
 
-        assertThat(response.code()).isEqualTo("PAT-0001");
+        assertThat(response.code()).startsWith("PAT-");
         assertThat(response.registrationHospitalCode()).isEqualTo("HP-GOMA");
+        assertThat(response.registrationHospitalId()).isEqualTo(hospitalId);
+        assertThat(response.nationalIdentifier()).isEqualTo("AB-12345");
         assertThat(response.phoneNumber()).isEqualTo("+243 900 000 000");
         assertThat(response.active()).isTrue();
     }
@@ -58,16 +73,23 @@ class PatientApplicationServiceTest {
                 "PAT-0001",
                 "Amina",
                 "Kasongo",
+                null,
                 LocalDate.of(1992, 5, 4),
                 Gender.FEMALE,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                UUID.randomUUID(),
                 "HP-GOMA",
                 Instant.now());
-        when(patientRepository.findByCodeIgnoreCase("PAT-0001")).thenReturn(Optional.of(patient));
+        when(patientRepository.findById(patient.getId())).thenReturn(Optional.of(patient));
 
         PatientResponse response = patientApplicationService.updateStatus(
-                "pat-0001", new UpdatePatientStatusRequest(false), new DataAccessScope(true, null));
+                patient.getId(), new UpdatePatientStatusRequest(false), new DataAccessScope(true, null));
 
         assertThat(response.active()).isFalse();
     }

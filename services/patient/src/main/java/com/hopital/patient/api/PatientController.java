@@ -2,6 +2,7 @@ package com.hopital.patient.api;
 
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.PatientResponse;
+import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.service.PatientApplicationService;
@@ -9,6 +10,7 @@ import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.infra.integration.auth.AuthAccessScopeClient;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,17 +37,19 @@ public class PatientController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PatientResponse>> listPatients(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<List<PatientSummaryResponse>> listPatients(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(patientApplicationService.listPatients(accessScope(jwt)));
     }
 
     @GetMapping("/search")
-    public ResponseEntity<PageResponse<PatientResponse>> searchPatients(
+    public ResponseEntity<PageResponse<PatientSummaryResponse>> searchPatients(
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "20") int size,
             @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "hospitalId", required = false) UUID hospitalId,
+            @RequestParam(name = "active", required = false) Boolean active,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(patientApplicationService.searchPatients(page, size, query, accessScope(jwt)));
+        return ResponseEntity.ok(patientApplicationService.searchPatients(page, size, query, hospitalId, active, accessScope(jwt)));
     }
 
     @PostMapping
@@ -53,12 +57,19 @@ public class PatientController {
         return ResponseEntity.status(HttpStatus.CREATED).body(patientApplicationService.createPatient(request, accessScope(jwt)));
     }
 
-    @PatchMapping("/{patientCode}/status")
+    @GetMapping("/{patientId}")
+    public ResponseEntity<PatientResponse> getPatient(
+            @PathVariable("patientId") UUID patientId,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(patientApplicationService.getPatient(patientId, accessScope(jwt)));
+    }
+
+    @PatchMapping("/{patientId}/status")
     public ResponseEntity<PatientResponse> updateStatus(
-            @PathVariable("patientCode") String patientCode,
+            @PathVariable("patientId") UUID patientId,
             @Valid @RequestBody UpdatePatientStatusRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(patientApplicationService.updateStatus(patientCode, request, accessScope(jwt)));
+        return ResponseEntity.ok(patientApplicationService.updateStatus(patientId, request, accessScope(jwt)));
     }
 
     private DataAccessScope accessScope(Jwt jwt) {

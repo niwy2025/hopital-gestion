@@ -26,7 +26,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"code\": \"PAT-0001\",\n  \"firstName\": \"Amina\",\n  \"lastName\": \"Kasongo\",\n  \"dateOfBirth\": \"1992-05-04\",\n  \"gender\": \"FEMALE\",\n  \"phoneNumber\": \"+243 900 000 000\",\n  \"address\": \"Goma\",\n  \"registrationHospitalCode\": \"HGR-GOMA-001\"\n}",
+              "raw": "{\n  \"firstName\": \"Amina\",\n  \"lastName\": \"Kasongo\",\n  \"middleName\": \"Mbuyi\",\n  \"dateOfBirth\": \"1992-05-04\",\n  \"gender\": \"FEMALE\",\n  \"phoneNumber\": \"+243 900 000 000\",\n  \"address\": \"Goma\",\n  \"nationalIdentifier\": \"NIN-00000001\",\n  \"emergencyContactName\": \"Jean Kasongo\",\n  \"emergencyContactRelationship\": \"Conjoint\",\n  \"emergencyContactPhone\": \"+243 901 000 000\",\n  \"registrationHospitalId\": \"{{hospital_id}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -47,9 +47,9 @@
               "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/patients/PAT-0001/status",
+              "raw": "{{baseUrl}}/api/v1/patients/{{patient_id}}/status",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "patients", "PAT-0001", "status"]
+              "path": ["api", "v1", "patients", "{{patient_id}}", "status"]
             }
           }
         }

@@ -424,6 +424,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      organization-service:
+        condition: service_started
     networks: [hospital-network]
 
   personnel-service:

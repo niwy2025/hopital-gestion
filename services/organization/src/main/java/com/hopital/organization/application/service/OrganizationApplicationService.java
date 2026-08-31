@@ -125,7 +125,7 @@ public class OrganizationApplicationService {
                 .stream()
                 .map(HospitalLaboratoryEntity::getCode)
                 .toList();
-        return new HospitalAccessReferenceResponse(hospital.getId(), hospital.getCode(), laboratoryCodes);
+        return new HospitalAccessReferenceResponse(hospital.getId(), hospital.getCode(), hospital.isActive(), laboratoryCodes);
     }
 
     public List<ReferenceLaboratoryResponse> listReferenceLaboratories() {

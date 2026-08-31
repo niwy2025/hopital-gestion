@@ -5,7 +5,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-public record PatientResponse(
+/** Deliberately limited payload for registers and patient selectors. */
+public record PatientSummaryResponse(
         UUID id,
         String code,
         String firstName,
@@ -14,12 +15,6 @@ public record PatientResponse(
         LocalDate dateOfBirth,
         Gender gender,
         String phoneNumber,
-        String email,
-        String address,
-        String nationalIdentifier,
-        String emergencyContactName,
-        String emergencyContactPhone,
-        String emergencyContactRelationship,
         UUID registrationHospitalId,
         String registrationHospitalCode,
         boolean active,

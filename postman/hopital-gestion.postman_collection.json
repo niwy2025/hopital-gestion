@@ -361,7 +361,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"code\": \"PAT-0001\",\n  \"firstName\": \"Amina\",\n  \"lastName\": \"Kasongo\",\n  \"dateOfBirth\": \"1992-05-04\",\n  \"gender\": \"FEMALE\",\n  \"registrationHospitalCode\": \"HGR-KIN-001\"\n}",
+              "raw": "{\n  \"firstName\": \"Amina\",\n  \"lastName\": \"Kasongo\",\n  \"dateOfBirth\": \"1992-05-04\",\n  \"gender\": \"FEMALE\",\n  \"registrationHospitalId\": \"{{hospital_id}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {

@@ -27,6 +27,9 @@ public class PatientEntity {
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
+    @Column(name = "middle_name", length = 100)
+    private String middleName;
+
     @Column(name = "date_of_birth", nullable = false)
     private LocalDate dateOfBirth;
 
@@ -38,7 +41,25 @@ public class PatientEntity {
     private String phoneNumber;
 
     @Column(length = 255)
+    private String email;
+
+    @Column(length = 255)
     private String address;
+
+    @Column(name = "national_identifier", length = 100)
+    private String nationalIdentifier;
+
+    @Column(name = "emergency_contact_name", length = 200)
+    private String emergencyContactName;
+
+    @Column(name = "emergency_contact_phone", length = 30)
+    private String emergencyContactPhone;
+
+    @Column(name = "emergency_contact_relationship", length = 100)
+    private String emergencyContactRelationship;
+
+    @Column(name = "registration_hospital_id")
+    private UUID registrationHospitalId;
 
     @Column(name = "registration_hospital_code", nullable = false, length = 30)
     private String registrationHospitalCode;
@@ -57,20 +78,34 @@ public class PatientEntity {
             String code,
             String firstName,
             String lastName,
+            String middleName,
             LocalDate dateOfBirth,
             Gender gender,
             String phoneNumber,
+            String email,
             String address,
+            String nationalIdentifier,
+            String emergencyContactName,
+            String emergencyContactPhone,
+            String emergencyContactRelationship,
+            UUID registrationHospitalId,
             String registrationHospitalCode,
             Instant createdAt) {
         this.id = id;
         this.code = code;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.middleName = middleName;
         this.dateOfBirth = dateOfBirth;
         this.gender = gender;
         this.phoneNumber = phoneNumber;
+        this.email = email;
         this.address = address;
+        this.nationalIdentifier = nationalIdentifier;
+        this.emergencyContactName = emergencyContactName;
+        this.emergencyContactPhone = emergencyContactPhone;
+        this.emergencyContactRelationship = emergencyContactRelationship;
+        this.registrationHospitalId = registrationHospitalId;
         this.registrationHospitalCode = registrationHospitalCode;
         this.active = true;
         this.createdAt = createdAt;
@@ -92,6 +127,10 @@ public class PatientEntity {
         return lastName;
     }
 
+    public String getMiddleName() {
+        return middleName;
+    }
+
     public LocalDate getDateOfBirth() {
         return dateOfBirth;
     }
@@ -104,8 +143,32 @@ public class PatientEntity {
         return phoneNumber;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
     public String getAddress() {
         return address;
+    }
+
+    public String getNationalIdentifier() {
+        return nationalIdentifier;
+    }
+
+    public String getEmergencyContactName() {
+        return emergencyContactName;
+    }
+
+    public String getEmergencyContactPhone() {
+        return emergencyContactPhone;
+    }
+
+    public String getEmergencyContactRelationship() {
+        return emergencyContactRelationship;
+    }
+
+    public UUID getRegistrationHospitalId() {
+        return registrationHospitalId;
     }
 
     public String getRegistrationHospitalCode() {

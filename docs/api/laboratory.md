@@ -9,6 +9,7 @@ routes sont accessibles via l'API Gateway avec la base locale
 
 - `GET /api/v1/laboratory/analysis-requests` : liste les demandes.
 - `GET /api/v1/laboratory/analysis-requests/search?page=0&size=20&query=REQ-001` : recherche paginée.
+- `GET /api/v1/laboratory/analysis-requests/{requestCode}` : détail d’une demande, de ses échantillons et de son résultat.
 - `POST /api/v1/laboratory/analysis-requests` : crée une demande.
 
 Le laboratoire exécutant est explicite : `HOSPITAL` pour un laboratoire interne

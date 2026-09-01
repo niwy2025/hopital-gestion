@@ -4,6 +4,7 @@ import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
 import com.hopital.laboratory.application.domain.AnalysisResultStatus;
 import com.hopital.laboratory.application.domain.LaboratoryType;
 import com.hopital.laboratory.application.dto.AnalysisRequestResponse;
+import com.hopital.laboratory.application.dto.AnalysisRequestDetailResponse;
 import com.hopital.laboratory.application.dto.AnalysisResultResponse;
 import com.hopital.laboratory.application.dto.CreateAnalysisRequestRequest;
 import com.hopital.laboratory.application.dto.CreateAnalysisResultRequest;
@@ -68,6 +69,22 @@ public class LaboratoryApplicationService {
     public PageResponse<AnalysisRequestResponse> searchAnalysisRequests(int page, int size, String query) {
         return toPageResponse(
                 analysisRequestRepository.search(normalizeSearchFilter(query), pageRequest(page, size, "createdAt")), this::toResponse);
+    }
+
+    public AnalysisRequestDetailResponse getAnalysisRequestDetail(String analysisRequestCode) {
+        AnalysisRequestEntity request = findAnalysisRequest(analysisRequestCode);
+        List<SpecimenResponse> specimens = specimenRepository
+                .findAllByAnalysisRequest_IdInOrderByReceivedAtDesc(List.of(request.getId()))
+                .stream()
+                .map(this::toResponse)
+                .toList();
+        AnalysisResultResponse result = analysisResultRepository
+                .findAllByAnalysisRequest_IdIn(List.of(request.getId()))
+                .stream()
+                .findFirst()
+                .map(this::toResponse)
+                .orElse(null);
+        return new AnalysisRequestDetailResponse(toResponse(request), specimens, result);
     }
 
     public List<HospitalLaboratoryOptionResponse> listHospitalLaboratoriesForPassage(UUID passageId) {

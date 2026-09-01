@@ -2,6 +2,7 @@ package com.hopital.laboratory.api;
 
 import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
 import com.hopital.laboratory.application.dto.AnalysisRequestResponse;
+import com.hopital.laboratory.application.dto.AnalysisRequestDetailResponse;
 import com.hopital.laboratory.application.dto.AnalysisResultResponse;
 import com.hopital.laboratory.application.dto.CreateAnalysisRequestRequest;
 import com.hopital.laboratory.application.dto.CreateAnalysisResultRequest;
@@ -50,6 +51,12 @@ public class LaboratoryController {
             @RequestParam(name = "size", defaultValue = "20") int size,
             @RequestParam(name = "query", required = false) String query) {
         return ResponseEntity.ok(laboratoryApplicationService.searchAnalysisRequests(page, size, query));
+    }
+
+    @GetMapping("/analysis-requests/{analysisRequestCode}")
+    public ResponseEntity<AnalysisRequestDetailResponse> getAnalysisRequestDetail(
+            @PathVariable("analysisRequestCode") String analysisRequestCode) {
+        return ResponseEntity.ok(laboratoryApplicationService.getAnalysisRequestDetail(analysisRequestCode));
     }
 
     @GetMapping("/patient-passages/{passageId}/hospital-laboratories")

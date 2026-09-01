@@ -144,7 +144,7 @@ class LaboratoryApplicationServiceTest {
 
         var response = laboratoryApplicationService.createPatientPassageAnalysisRequest(
                 passageId,
-                new CreatePatientPassageAnalysisRequest("lab-hgr-001", "nfs", "Numération formule sanguine"),
+                new CreatePatientPassageAnalysisRequest("lab-hgr-001", "Numération formule sanguine"),
                 "dr.mbala");
 
         assertThat(response.patientPassageId()).isEqualTo(passageId);
@@ -154,5 +154,6 @@ class LaboratoryApplicationServiceTest {
         assertThat(response.laboratoryCode()).isEqualTo("LAB-HGR-001");
         assertThat(response.requesterName()).isEqualTo("dr.mbala");
         assertThat(response.code()).startsWith("LAB-");
+        assertThat(response.analysisCode()).startsWith("ANL-");
     }
 }

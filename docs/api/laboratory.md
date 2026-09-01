@@ -44,7 +44,7 @@ jamais automatiquement vers un laboratoire provincial de référence.
   retourne le suivi paginé de chaque demande, de ses échantillons et de son
   résultat.
 - `POST /api/v1/laboratory/patient-passages/{passageId}/analysis-requests`
-  crée une demande avec un code généré par le service.
+  crée une demande avec les codes de demande et d’analyse générés par le service.
 - `POST /api/v1/laboratory/patient-passages/{passageId}/analysis-requests/{requestCode}/specimens`
   réceptionne un échantillon de cette demande.
 - `POST /api/v1/laboratory/patient-passages/{passageId}/analysis-requests/{requestCode}/results`

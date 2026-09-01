@@ -156,7 +156,7 @@ public class LaboratoryApplicationService {
                 laboratoryCode,
                 passage.patientCode(),
                 passage.patientName(),
-                normalizeCode(request.analysisCode()),
+                generateAnalysisCode(),
                 request.analysisName().trim(),
                 trimToNull(requesterName),
                 Instant.now(),
@@ -387,6 +387,10 @@ public class LaboratoryApplicationService {
             }
         }
         throw new IllegalStateException("Impossible de générer un code unique de demande d'analyse.");
+    }
+
+    private String generateAnalysisCode() {
+        return "ANL-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
     }
 
     private String normalizeSearchFilter(String value) {

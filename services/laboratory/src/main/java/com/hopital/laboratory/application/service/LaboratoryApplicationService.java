@@ -166,20 +166,8 @@ public class LaboratoryApplicationService {
 
     @Transactional
     public SpecimenResponse receiveSpecimen(CreateSpecimenRequest request) {
-        String code = normalizeCode(request.code());
-        if (specimenRepository.existsByCodeIgnoreCase(code)) {
-            throw new DuplicateLaboratoryResourceException("L'échantillon", code);
-        }
         AnalysisRequestEntity analysisRequest = findAnalysisRequest(request.analysisRequestCode());
-        if (analysisRequest.getStatus() == AnalysisRequestStatus.RESULT_ENTERED
-                || analysisRequest.getStatus() == AnalysisRequestStatus.VALIDATED) {
-            throw new InvalidLaboratoryWorkflowException(
-                    "Un échantillon ne peut plus être ajouté après la saisie ou la validation du résultat.");
-        }
-        SpecimenEntity specimen = new SpecimenEntity(
-                UUID.randomUUID(), code, analysisRequest, request.specimenType(), request.collectedAt(), Instant.now());
-        analysisRequest.markSampleReceived();
-        return toResponse(specimenRepository.save(specimen));
+        return receiveSpecimenForRequest(analysisRequest, request);
     }
 
     @Transactional
@@ -288,15 +276,12 @@ public class LaboratoryApplicationService {
     }
 
     private SpecimenResponse receiveSpecimenForRequest(AnalysisRequestEntity analysisRequest, CreateSpecimenRequest request) {
-        String code = normalizeCode(request.code());
-        if (specimenRepository.existsByCodeIgnoreCase(code)) {
-            throw new DuplicateLaboratoryResourceException("L'échantillon", code);
-        }
         if (analysisRequest.getStatus() == AnalysisRequestStatus.RESULT_ENTERED
                 || analysisRequest.getStatus() == AnalysisRequestStatus.VALIDATED) {
             throw new InvalidLaboratoryWorkflowException(
                     "Un échantillon ne peut plus être ajouté après la saisie ou la validation du résultat.");
         }
+        String code = generateSpecimenCode();
         SpecimenEntity specimen = new SpecimenEntity(
                 UUID.randomUUID(), code, analysisRequest, request.specimenType(), request.collectedAt(), Instant.now());
         analysisRequest.markSampleReceived();
@@ -391,6 +376,16 @@ public class LaboratoryApplicationService {
 
     private String generateAnalysisCode() {
         return "ANL-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
+    }
+
+    private String generateSpecimenCode() {
+        for (int attempt = 0; attempt < 8; attempt++) {
+            String code = "ECH-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
+            if (!specimenRepository.existsByCodeIgnoreCase(code)) {
+                return code;
+            }
+        }
+        throw new IllegalStateException("Impossible de générer un code unique d'échantillon.");
     }
 
     private String normalizeSearchFilter(String value) {

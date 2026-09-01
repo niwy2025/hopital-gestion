@@ -8,7 +8,6 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 
 public record CreateSpecimenRequest(
-        @NotBlank @Size(max = 30) String code,
         @NotBlank @Size(max = 30) String analysisRequestCode,
         @NotNull SpecimenType specimenType,
         @NotNull @PastOrPresent Instant collectedAt) {

@@ -69,7 +69,7 @@ class LaboratoryApplicationServiceTest {
         when(analysisRequestRepository.existsByCodeIgnoreCase("REQ-001")).thenReturn(false);
         when(analysisRequestRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(analysisRequestRepository.findByCodeIgnoreCase("REQ-001")).thenReturn(Optional.of(analysisRequest));
-        when(specimenRepository.existsByCodeIgnoreCase("SPEC-001")).thenReturn(false);
+        when(specimenRepository.existsByCodeIgnoreCase(anyString())).thenReturn(false);
         when(specimenRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(analysisResultRepository.existsByCodeIgnoreCase("RES-001")).thenReturn(false);
         when(analysisResultRepository.existsByAnalysisRequest_Id(analysisRequest.getId())).thenReturn(false);
@@ -78,7 +78,7 @@ class LaboratoryApplicationServiceTest {
         var createdRequest = laboratoryApplicationService.createAnalysisRequest(new CreateAnalysisRequestRequest(
                 "req-001", LaboratoryType.HOSPITAL, "lab-hgr-001", "PAT-001", "Patient de test", "nfs", "Numération formule sanguine", "Dr. Mbala"));
         var specimen = laboratoryApplicationService.receiveSpecimen(new CreateSpecimenRequest(
-                "spec-001", "req-001", SpecimenType.BLOOD, Instant.now()));
+                "req-001", SpecimenType.BLOOD, Instant.now()));
         var result = laboratoryApplicationService.enterAnalysisResult(new CreateAnalysisResultRequest(
                 "res-001", "req-001", "12.4", "g/dL", "12 - 16", null));
         AnalysisResultEntity analysisResult = new AnalysisResultEntity(
@@ -98,6 +98,7 @@ class LaboratoryApplicationServiceTest {
         assertThat(createdRequest.laboratoryType()).isEqualTo(LaboratoryType.HOSPITAL);
         assertThat(createdRequest.laboratoryCode()).isEqualTo("LAB-HGR-001");
         assertThat(specimen.analysisRequestCode()).isEqualTo("REQ-001");
+        assertThat(specimen.code()).startsWith("ECH-");
         assertThat(result.status()).isEqualTo(AnalysisResultStatus.ENTERED);
         assertThat(validatedResult.status()).isEqualTo(AnalysisResultStatus.VALIDATED);
         assertThat(analysisRequest.getStatus()).isEqualTo(AnalysisRequestStatus.VALIDATED);

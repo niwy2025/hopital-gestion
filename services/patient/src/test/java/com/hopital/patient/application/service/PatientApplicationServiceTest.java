@@ -11,6 +11,8 @@ import com.hopital.patient.application.domain.EmergencyContactRelationship;
 import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
+import com.hopital.patient.application.domain.PatientDocumentType;
+import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
 import com.hopital.patient.application.dto.EmergencyContactRequest;
@@ -22,7 +24,9 @@ import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
+import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
+import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -41,6 +45,9 @@ class PatientApplicationServiceTest {
 
     @Mock
     private PatientRepository patientRepository;
+
+    @Mock
+    private PatientDocumentRepository patientDocumentRepository;
 
     @Mock
     private PatientPassageRepository patientPassageRepository;
@@ -224,6 +231,32 @@ class PatientApplicationServiceTest {
                 Gender.FEMALE), new DataAccessScope(false, "HP-GOMA"));
 
         assertThat(response.matches()).extracting(match -> match.id()).containsExactly(visiblePatient.getId());
+    }
+
+    @Test
+    void addsPatientDocumentAndRecordsItsOperator() {
+        PatientEntity patient = patient("HP-GOMA");
+        when(patientRepository.findById(patient.getId())).thenReturn(Optional.of(patient));
+        when(patientDocumentRepository.save(any(PatientDocumentEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = patientApplicationService.addDocument(
+                patient.getId(),
+                new CreatePatientDocumentRequest(
+                        PatientDocumentType.IDENTITY_CARD,
+                        "carte-identite.jpg",
+                        "image/jpeg",
+                        "aGVsbG8="),
+                new DataAccessScope(false, "HP-GOMA"),
+                auditActor());
+
+        assertThat(response.documentType()).isEqualTo(PatientDocumentType.IDENTITY_CARD);
+        assertThat(response.sizeBytes()).isEqualTo(5);
+        assertThat(response.createdByUsername()).isEqualTo("operateur.accueil");
+        assertThat(patient.getAuditEvents()).singleElement().satisfies(event -> {
+            assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.DOCUMENT_ADDED);
+            assertThat(event.getOperatorUsername()).isEqualTo("operateur.accueil");
+        });
     }
 
     private PatientEntity patient(String hospitalCode) {

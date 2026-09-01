@@ -4,15 +4,18 @@ import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.PatientAuditEventType;
+import com.hopital.patient.application.domain.PatientDocumentType;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.dto.CreatePatientRequest;
+import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
 import com.hopital.patient.application.dto.EmergencyContactResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
 import com.hopital.patient.application.dto.PatientAuditEventResponse;
+import com.hopital.patient.application.dto.PatientDocumentResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
@@ -22,17 +25,22 @@ import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.DuplicatePatientException;
+import com.hopital.patient.application.exception.InvalidPatientDocumentException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
+import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
+import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -43,15 +51,28 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class PatientApplicationService {
 
+    private static final int MAX_DOCUMENT_SIZE_BYTES = 2 * 1024 * 1024;
+    private static final Set<String> IMAGE_CONTENT_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
+    private static final Set<String> DOCUMENT_CONTENT_TYPES = Set.of(
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "image/jpeg",
+            "image/png",
+            "image/webp");
+
     private final PatientRepository patientRepository;
+    private final PatientDocumentRepository patientDocumentRepository;
     private final PatientPassageRepository patientPassageRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
 
     public PatientApplicationService(
             PatientRepository patientRepository,
+            PatientDocumentRepository patientDocumentRepository,
             PatientPassageRepository patientPassageRepository,
             HospitalReferenceClient hospitalReferenceClient) {
         this.patientRepository = patientRepository;
+        this.patientDocumentRepository = patientDocumentRepository;
         this.patientPassageRepository = patientPassageRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
     }
@@ -122,6 +143,34 @@ public class PatientApplicationService {
                 passages.getSize(),
                 passages.getTotalElements(),
                 passages.getTotalPages());
+    }
+
+    /**
+     * Documents are loaded separately from the patient dossier so base64 file contents never bloat
+     * the administrative record or the patient register.
+     */
+    public PageResponse<PatientDocumentResponse> searchDocuments(
+            UUID patientId,
+            int page,
+            int size,
+            String query,
+            PatientDocumentType documentType,
+            DataAccessScope accessScope) {
+        PatientEntity patient = getPatientForScope(patientId, accessScope);
+        var documents = patientDocumentRepository.search(
+                patient.getId(),
+                normalizeSearchFilter(query),
+                documentType,
+                PageRequest.of(
+                        Math.max(page, 0),
+                        Math.min(Math.max(size, 1), 100),
+                        Sort.by("createdAt").descending()));
+        return new PageResponse<>(
+                documents.getContent().stream().map(this::toDocument).toList(),
+                documents.getNumber(),
+                documents.getSize(),
+                documents.getTotalElements(),
+                documents.getTotalPages());
     }
 
     public PageResponse<PatientPassageSummaryResponse> searchPassageRegistry(
@@ -304,6 +353,55 @@ public class PatientApplicationService {
         return toDetails(patient);
     }
 
+    @Transactional
+    public PatientDocumentResponse addDocument(
+            UUID patientId,
+            CreatePatientDocumentRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        PatientEntity patient = getPatientForScope(patientId, accessScope);
+        DocumentContent content = validateDocument(request);
+        if (request.documentType() == PatientDocumentType.PROFILE_PHOTO) {
+            patientDocumentRepository.deleteByPatientIdAndDocumentType(patient.getId(), request.documentType());
+        }
+        Instant createdAt = Instant.now();
+        PatientDocumentEntity document = new PatientDocumentEntity(
+                UUID.randomUUID(),
+                patient.getId(),
+                request.documentType(),
+                request.fileName().trim(),
+                content.contentType(),
+                content.sizeBytes(),
+                content.contentBase64(),
+                createdAt,
+                auditActor.userId(),
+                auditActor.username());
+        PatientDocumentResponse response = toDocument(patientDocumentRepository.save(document));
+        patient.recordModification(
+                auditActor,
+                PatientAuditEventType.DOCUMENT_ADDED,
+                "Pièce ajoutée au dossier : " + documentTypeLabel(request.documentType()) + ".",
+                createdAt);
+        return response;
+    }
+
+    @Transactional
+    public void deleteDocument(
+            UUID patientId,
+            UUID documentId,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        PatientEntity patient = getPatientForScope(patientId, accessScope);
+        PatientDocumentEntity document = patientDocumentRepository.findByIdAndPatientId(documentId, patient.getId())
+                .orElseThrow(() -> new PatientNotFoundException(documentId.toString()));
+        patientDocumentRepository.delete(document);
+        patient.recordModification(
+                auditActor,
+                PatientAuditEventType.DOCUMENT_REMOVED,
+                "Pièce retirée du dossier : " + documentTypeLabel(document.getDocumentType()) + ".",
+                Instant.now());
+    }
+
     private PatientSummaryResponse toSummary(PatientEntity patient) {
         return new PatientSummaryResponse(
                 patient.getId(),
@@ -318,6 +416,18 @@ public class PatientApplicationService {
                 patient.getRegistrationHospitalCode(),
                 patient.isActive(),
                 patient.getCreatedAt());
+    }
+
+    private PatientDocumentResponse toDocument(PatientDocumentEntity document) {
+        return new PatientDocumentResponse(
+                document.getId(),
+                document.getDocumentType(),
+                document.getFileName(),
+                document.getContentType(),
+                document.getSizeBytes(),
+                document.getCreatedAt(),
+                document.getCreatedByUsername(),
+                document.getContentBase64());
     }
 
     private PatientResponse toDetails(PatientEntity patient) {
@@ -450,6 +560,51 @@ public class PatientApplicationService {
         return code.trim().toUpperCase(Locale.ROOT);
     }
 
+    private PatientEntity getPatientForScope(UUID patientId, DataAccessScope accessScope) {
+        PatientEntity patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
+        assertAccess(accessScope, patient.getRegistrationHospitalCode());
+        return patient;
+    }
+
+    private DocumentContent validateDocument(CreatePatientDocumentRequest request) {
+        String contentType = request.contentType().trim().toLowerCase(Locale.ROOT);
+        boolean imageOnly = request.documentType() == PatientDocumentType.PROFILE_PHOTO;
+        Set<String> acceptedContentTypes = imageOnly ? IMAGE_CONTENT_TYPES : DOCUMENT_CONTENT_TYPES;
+        if (!acceptedContentTypes.contains(contentType)) {
+            throw new InvalidPatientDocumentException(imageOnly
+                    ? "La photo du patient doit être au format JPEG, PNG ou WebP."
+                    : "Les documents doivent être au format PDF, Word, JPEG, PNG ou WebP.");
+        }
+
+        String contentBase64 = request.contentBase64().replaceAll("\\s", "");
+        if (contentBase64.startsWith("data:")) {
+            throw new InvalidPatientDocumentException("Le contenu du fichier est invalide.");
+        }
+        byte[] decoded;
+        try {
+            decoded = Base64.getDecoder().decode(contentBase64);
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidPatientDocumentException("Le contenu du fichier est invalide.");
+        }
+        if (decoded.length == 0 || decoded.length > MAX_DOCUMENT_SIZE_BYTES) {
+            throw new InvalidPatientDocumentException("Chaque fichier ne peut pas dépasser 2 Mo.");
+        }
+        return new DocumentContent(contentType, decoded.length, contentBase64);
+    }
+
+    private String documentTypeLabel(PatientDocumentType documentType) {
+        return switch (documentType) {
+            case PROFILE_PHOTO -> "photo du patient";
+            case IDENTITY_CARD -> "carte d’identité";
+            case PASSPORT -> "passeport";
+            case BIRTH_CERTIFICATE -> "acte de naissance";
+            case HEALTH_INSURANCE -> "assurance ou prise en charge";
+            case REFERRAL_LETTER -> "lettre de référence";
+            case OTHER -> "autre pièce";
+        };
+    }
+
     private HospitalReferenceClient.HospitalReference resolvePassageHospital(
             UUID requestedHospitalId,
             DataAccessScope accessScope) {
@@ -521,5 +676,8 @@ public class PatientApplicationService {
                 passage.getClosedAt(),
                 passage.getCreatedByUsername(),
                 passage.getClosedByUsername());
+    }
+
+    private record DocumentContent(String contentType, int sizeBytes, String contentBase64) {
     }
 }

@@ -28,6 +28,8 @@ hospital:
     base-url: ${AUTH_SERVICE_BASE_URL:http://auth-service:8081}
   organization-service:
     base-url: ${ORGANIZATION_SERVICE_BASE_URL:http://organization-service:8084}
+  personnel-service:
+    base-url: ${PERSONNEL_SERVICE_BASE_URL:http://personnel-service:8087}
 
 management:
   metrics:

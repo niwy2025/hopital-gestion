@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.hopital.personnel.application.domain.Gender;
 import com.hopital.personnel.application.domain.PersonnelCategory;
 import com.hopital.personnel.application.domain.PersonnelAssignmentScope;
+import com.hopital.personnel.application.domain.PersonnelAssignmentStatus;
 import com.hopital.personnel.application.domain.PersonnelDocumentType;
 import com.hopital.personnel.application.dto.CreatePersonnelDocumentRequest;
 import com.hopital.personnel.application.dto.CreatePersonnelAssignmentRequest;
@@ -17,6 +18,7 @@ import com.hopital.personnel.application.dto.CreatePersonnelRequest;
 import com.hopital.personnel.application.dto.PersonnelDocumentResponse;
 import com.hopital.personnel.application.dto.PersonnelAssignmentResponse;
 import com.hopital.personnel.application.dto.PersonnelAccessScopeResponse;
+import com.hopital.personnel.application.dto.PersonnelCareReferenceResponse;
 import com.hopital.personnel.application.dto.PersonnelResponse;
 import com.hopital.personnel.infra.integration.account.AccountReferenceClient;
 import com.hopital.personnel.infra.persistence.entity.PersonnelDocumentEntity;
@@ -27,6 +29,7 @@ import com.hopital.personnel.infra.persistence.repository.PersonnelAssignmentRep
 import com.hopital.personnel.infra.persistence.repository.PersonnelRepository;
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +37,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
 
 @ExtendWith(MockitoExtension.class)
 class PersonnelApplicationServiceTest {
@@ -216,6 +220,37 @@ class PersonnelApplicationServiceTest {
         assertThat(scope.personnelId()).isEqualTo(personnelId);
         assertThat(scope.hospitalId()).isEqualTo(hospitalId);
         assertThat(scope.laboratoryCode()).isEqualTo("LAB-HGR-01");
+    }
+
+    @Test
+    void returnsOnlyActivePersonnelAssignedToTheSelectedHospitalForCare() {
+        UUID hospitalId = UUID.randomUUID();
+        PersonnelEntity personnel = activePersonnel(UUID.randomUUID());
+        when(personnelRepository.searchActiveCarePersonnel(eq(hospitalId), eq("Amina"),
+                eq(PersonnelAssignmentStatus.ACTIVE), any()))
+                .thenReturn(new PageImpl<>(List.of(personnel)));
+
+        var page = personnelApplicationService.searchCarePersonnel(hospitalId, 0, 20, "Amina");
+
+        assertThat(page.items()).singleElement().satisfies(option -> {
+            assertThat(option.id()).isEqualTo(personnel.getId());
+            assertThat(option.employeeNumber()).isEqualTo("MED-001");
+            assertThat(option.jobTitle()).isEqualTo("Médecin chef");
+        });
+    }
+
+    @Test
+    void resolvesAnActivePersonnelAssignmentForCare() {
+        UUID hospitalId = UUID.randomUUID();
+        PersonnelEntity personnel = activePersonnel(UUID.randomUUID());
+        when(personnelRepository.findById(personnel.getId())).thenReturn(Optional.of(personnel));
+        when(personnelAssignmentRepository.existsByPersonnelIdAndHospitalIdAndStatus(
+                personnel.getId(), hospitalId, PersonnelAssignmentStatus.ACTIVE)).thenReturn(true);
+
+        PersonnelCareReferenceResponse reference = personnelApplicationService.resolveCarePersonnel(personnel.getId(), hospitalId);
+
+        assertThat(reference.id()).isEqualTo(personnel.getId());
+        assertThat(reference.lastName()).isEqualTo("Kasongo");
     }
 
     private PersonnelEntity activePersonnel(UUID personnelId) {

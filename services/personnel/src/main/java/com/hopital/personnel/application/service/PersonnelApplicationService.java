@@ -11,6 +11,7 @@ import com.hopital.personnel.application.dto.PageResponse;
 import com.hopital.personnel.application.dto.PersonnelDetailsResponse;
 import com.hopital.personnel.application.dto.PersonnelAssignmentResponse;
 import com.hopital.personnel.application.dto.PersonnelAccessScopeResponse;
+import com.hopital.personnel.application.dto.PersonnelCareReferenceResponse;
 import com.hopital.personnel.application.dto.PersonnelDocumentResponse;
 import com.hopital.personnel.application.dto.PersonnelResponse;
 import com.hopital.personnel.application.dto.UpdatePersonnelRequest;
@@ -102,6 +103,36 @@ public class PersonnelApplicationService {
         return personnelRepository.findByAccountId(accountId)
                 .map(this::toResponse)
                 .orElseThrow(() -> new PersonnelNotFoundException("associé au compte " + accountId));
+    }
+
+    /**
+     * Searches only active agents who have at least one active assignment in
+     * the requested hospital. It is used by clinical modules, not as a general
+     * personnel register.
+     */
+    public PageResponse<PersonnelCareReferenceResponse> searchCarePersonnel(
+            UUID hospitalId, int page, int size, String query) {
+        var results = personnelRepository.searchActiveCarePersonnel(
+                hospitalId,
+                normalizeSearchFilter(query),
+                PersonnelAssignmentStatus.ACTIVE,
+                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
+                        Sort.by("lastName").ascending().and(Sort.by("firstName").ascending())));
+        return new PageResponse<>(
+                results.getContent().stream().map(this::toCareReference).toList(),
+                results.getNumber(), results.getSize(), results.getTotalElements(), results.getTotalPages());
+    }
+
+    /** Validates that an agent may be named responsible for work in the hospital. */
+    public PersonnelCareReferenceResponse resolveCarePersonnel(UUID personnelId, UUID hospitalId) {
+        PersonnelEntity personnel = getPersonnel(personnelId);
+        if (!personnel.isActive() || !personnelAssignmentRepository
+                .existsByPersonnelIdAndHospitalIdAndStatus(
+                        personnelId, hospitalId, PersonnelAssignmentStatus.ACTIVE)) {
+            throw new InvalidPersonnelReferenceException(
+                    "Le personnel sélectionné n’est pas actif ou n’est pas affecté à cet hôpital.");
+        }
+        return toCareReference(personnel);
     }
 
     /**
@@ -346,6 +377,17 @@ public class PersonnelApplicationService {
                 personnel.getAccountId(),
                 personnel.isActive(),
                 personnel.getCreatedAt());
+    }
+
+    private PersonnelCareReferenceResponse toCareReference(PersonnelEntity personnel) {
+        return new PersonnelCareReferenceResponse(
+                personnel.getId(),
+                personnel.getEmployeeNumber(),
+                personnel.getFirstName(),
+                personnel.getLastName(),
+                personnel.getMiddleName(),
+                personnel.getCategory(),
+                personnel.getJobTitle());
     }
 
     private PersonnelDetailsResponse toDetailsResponse(

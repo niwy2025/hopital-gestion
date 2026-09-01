@@ -9,5 +9,6 @@ public record CreatePatientPassageRequest(
         UUID hospitalId,
         @NotNull PatientPassageType type,
         @Size(max = 150) String serviceName,
-        @Size(max = 500) String reason) {
+        @Size(max = 500) String reason,
+        UUID responsiblePersonnelId) {
 }

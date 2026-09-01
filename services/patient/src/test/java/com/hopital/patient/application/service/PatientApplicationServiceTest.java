@@ -15,6 +15,7 @@ import com.hopital.patient.application.domain.PatientDocumentType;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
+import com.hopital.patient.application.dto.AssignPatientPassageResponsiblePersonnelRequest;
 import com.hopital.patient.application.dto.EmergencyContactRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientResponse;
@@ -22,6 +23,7 @@ import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
+import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
@@ -54,6 +56,9 @@ class PatientApplicationServiceTest {
 
     @Mock
     private HospitalReferenceClient hospitalReferenceClient;
+
+    @Mock
+    private PersonnelReferenceClient personnelReferenceClient;
 
     @InjectMocks
     private PatientApplicationService patientApplicationService;
@@ -164,7 +169,7 @@ class PatientApplicationServiceTest {
 
         PatientPassageResponse response = patientApplicationService.createPassage(
                 patient.getId(),
-                new CreatePatientPassageRequest(null, PatientPassageType.CONSULTATION, "Accueil", "Consultation générale"),
+                new CreatePatientPassageRequest(null, PatientPassageType.CONSULTATION, "Accueil", "Consultation générale", null),
                 new DataAccessScope(false, hospitalId, "HP-GOMA"),
                 auditActor());
 
@@ -173,6 +178,31 @@ class PatientApplicationServiceTest {
         assertThat(response.hospitalCode()).isEqualTo("HP-GOMA");
         assertThat(response.status()).isEqualTo(PatientPassageStatus.OPEN);
         assertThat(response.createdByUsername()).isEqualTo("operateur.accueil");
+    }
+
+    @Test
+    void assignsAnActiveHospitalPersonnelToAnOpenPassage() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260901-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
+        UUID personnelId = UUID.randomUUID();
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+        when(personnelReferenceClient.resolveActivePersonnelForHospital(personnelId, patient.getRegistrationHospitalId()))
+                .thenReturn(new PersonnelReferenceClient.PersonnelReference(
+                        personnelId, "MED-001", "Amina", "Kasongo", "Mbuyi", "DOCTOR", "Médecin traitant"));
+
+        PatientPassageResponse response = patientApplicationService.assignPassageResponsiblePersonnel(
+                patient.getId(),
+                passage.getId(),
+                new AssignPatientPassageResponsiblePersonnelRequest(personnelId),
+                new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
+                auditActor());
+
+        assertThat(response.responsiblePersonnelId()).isEqualTo(personnelId);
+        assertThat(response.responsiblePersonnelEmployeeNumber()).isEqualTo("MED-001");
+        assertThat(response.responsiblePersonnelName()).isEqualTo("Kasongo Amina Mbuyi");
+        assertThat(response.responsibleAssignedByUsername()).isEqualTo("operateur.accueil");
     }
 
     @Test

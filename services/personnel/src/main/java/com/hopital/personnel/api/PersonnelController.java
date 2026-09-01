@@ -6,6 +6,7 @@ import com.hopital.personnel.application.dto.ClosePersonnelAssignmentRequest;
 import com.hopital.personnel.application.dto.CreatePersonnelRequest;
 import com.hopital.personnel.application.dto.PageResponse;
 import com.hopital.personnel.application.dto.PersonnelAssignmentResponse;
+import com.hopital.personnel.application.dto.PersonnelCareReferenceResponse;
 import com.hopital.personnel.application.dto.PersonnelDetailsResponse;
 import com.hopital.personnel.application.dto.PersonnelDocumentResponse;
 import com.hopital.personnel.application.dto.PersonnelResponse;
@@ -46,6 +47,15 @@ public class PersonnelController {
             @RequestParam(name = "hospitalId", required = false) String hospitalId,
             @RequestParam(name = "active", required = false) Boolean active) {
         return ResponseEntity.ok(personnelApplicationService.searchPersonnel(page, size, query, hospitalId, active));
+    }
+
+    @GetMapping("/care-options/search")
+    public ResponseEntity<PageResponse<PersonnelCareReferenceResponse>> searchCarePersonnel(
+            @RequestParam(name = "hospitalId") UUID hospitalId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query) {
+        return ResponseEntity.ok(personnelApplicationService.searchCarePersonnel(hospitalId, page, size, query));
     }
 
     @GetMapping("/{personnelId}")

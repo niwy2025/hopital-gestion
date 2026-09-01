@@ -18,6 +18,7 @@ défaut `http://localhost:8888`.
 | `GET` | `/api/v1/patients/{patientId}/passages?page=0&size=20` | Consulte l’historique des passages d’un dossier. |
 | `POST` | `/api/v1/patients` | Crée un dossier patient. |
 | `POST` | `/api/v1/patients/{patientId}/passages` | Enregistre une arrivée dans le parcours du patient. |
+| `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/responsible-personnel` | Affecte le personnel responsable d’un passage en cours. |
 | `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/status` | Termine ou annule un passage en cours. |
 | `PATCH` | `/api/v1/patients/{patientId}/status` | Active ou désactive un dossier. |
 
@@ -33,8 +34,19 @@ identifie un seul passage, indépendamment du numéro de dossier du patient.
 
 Un passage débute avec le statut `OPEN`, puis peut être `CLOSED` ou
 `CANCELLED`. La fiche conserve l'hôpital, le service ou l'unité, le motif, le
-patient concerné et les opérateurs d'ouverture et de clôture. Le personnel de
-prise en charge sera associé dans l'étape clinique suivante.
+patient concerné et les opérateurs d'ouverture et de clôture. Le personnel
+responsable est facultatif à l'ouverture, mais il doit être actif et avoir une
+affectation active dans le même hôpital. Son matricule, son nom, sa fonction et
+l'opérateur qui l'a affecté sont conservés dans le passage pour l'historique.
+
+Un passage ne peut pas être terminé sans personnel responsable. Celui-ci peut
+être fourni à la création avec `responsiblePersonnelId` ou affecté ensuite :
+
+```json
+{
+  "personnelId": "00000000-0000-0000-0000-000000000000"
+}
+```
 
 Avant la clôture définitive, les futures opérations seront rattachées au même
 passage : consultation et actes, analyses et résultats, ordonnances et

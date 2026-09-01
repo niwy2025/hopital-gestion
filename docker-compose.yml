@@ -421,10 +421,13 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hospital_patient
       SPRING_DATASOURCE_USERNAME: ${HOSPITAL_DB_USER:-hospital}
       SPRING_DATASOURCE_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital_password}
+      PERSONNEL_SERVICE_BASE_URL: http://personnel-service:8087
     depends_on:
       postgres:
         condition: service_healthy
       organization-service:
+        condition: service_started
+      personnel-service:
         condition: service_started
     networks: [hospital-network]
 

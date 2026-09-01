@@ -17,5 +17,11 @@ public record PatientPassageResponse(
         Instant arrivedAt,
         Instant closedAt,
         String createdByUsername,
-        String closedByUsername) {
+        String closedByUsername,
+        UUID responsiblePersonnelId,
+        String responsiblePersonnelEmployeeNumber,
+        String responsiblePersonnelName,
+        String responsiblePersonnelJobTitle,
+        Instant responsibleAssignedAt,
+        String responsibleAssignedByUsername) {
 }

@@ -5,6 +5,8 @@ import com.hopital.patient.application.exception.DuplicatePatientException;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.InvalidRegistrationHospitalException;
 import com.hopital.patient.application.exception.InvalidPatientDocumentException;
+import com.hopital.patient.application.exception.InvalidResponsiblePersonnelException;
+import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -38,6 +40,20 @@ public class PatientExceptionHandler {
     @ExceptionHandler(InvalidPatientDocumentException.class)
     ResponseEntity<ApiError> handleInvalidDocument(InvalidPatientDocumentException exception, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "PATIENT_DOCUMENT_INVALID", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidResponsiblePersonnelException.class)
+    ResponseEntity<ApiError> handleInvalidResponsiblePersonnel(
+            InvalidResponsiblePersonnelException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, "RESPONSIBLE_PERSONNEL_INVALID", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidPatientPassageStateException.class)
+    ResponseEntity<ApiError> handleInvalidPassageState(
+            InvalidPatientPassageStateException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.CONFLICT, "PASSAGE_STATE_INVALID", exception.getMessage(), request);
     }
 
     @ExceptionHandler(DataAccessDeniedException.class)

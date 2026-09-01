@@ -5,6 +5,7 @@ import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.domain.PatientDocumentType;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
+import com.hopital.patient.application.dto.AssignPatientPassageResponsiblePersonnelRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
@@ -183,6 +184,20 @@ public class PatientController {
             @Valid @RequestBody UpdatePatientPassageStatusRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(patientApplicationService.updatePassageStatus(
+                patientId,
+                passageId,
+                request,
+                accessScope(jwt),
+                auditActor(jwt)));
+    }
+
+    @PatchMapping("/{patientId}/passages/{passageId}/responsible-personnel")
+    public ResponseEntity<PatientPassageResponse> assignPassageResponsiblePersonnel(
+            @PathVariable("patientId") UUID patientId,
+            @PathVariable("passageId") UUID passageId,
+            @Valid @RequestBody AssignPatientPassageResponsiblePersonnelRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(patientApplicationService.assignPassageResponsiblePersonnel(
                 patientId,
                 passageId,
                 request,

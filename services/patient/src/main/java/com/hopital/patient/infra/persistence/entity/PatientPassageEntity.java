@@ -67,6 +67,27 @@ public class PatientPassageEntity {
     @Column(name = "closed_by_username", length = 150)
     private String closedByUsername;
 
+    @Column(name = "responsible_personnel_id")
+    private UUID responsiblePersonnelId;
+
+    @Column(name = "responsible_personnel_employee_number", length = 40)
+    private String responsiblePersonnelEmployeeNumber;
+
+    @Column(name = "responsible_personnel_name", length = 250)
+    private String responsiblePersonnelName;
+
+    @Column(name = "responsible_personnel_job_title", length = 150)
+    private String responsiblePersonnelJobTitle;
+
+    @Column(name = "responsible_assigned_at")
+    private Instant responsibleAssignedAt;
+
+    @Column(name = "responsible_assigned_by_user_id", length = 100)
+    private String responsibleAssignedByUserId;
+
+    @Column(name = "responsible_assigned_by_username", length = 150)
+    private String responsibleAssignedByUsername;
+
     protected PatientPassageEntity() {
     }
 
@@ -108,6 +129,22 @@ public class PatientPassageEntity {
         this.closedByUsername = actor.username();
     }
 
+    public void assignResponsiblePersonnel(
+            UUID personnelId,
+            String employeeNumber,
+            String fullName,
+            String jobTitle,
+            AuditActor actor,
+            Instant assignedAt) {
+        this.responsiblePersonnelId = personnelId;
+        this.responsiblePersonnelEmployeeNumber = employeeNumber;
+        this.responsiblePersonnelName = fullName;
+        this.responsiblePersonnelJobTitle = jobTitle;
+        this.responsibleAssignedAt = assignedAt;
+        this.responsibleAssignedByUserId = actor.userId();
+        this.responsibleAssignedByUsername = actor.username();
+    }
+
     public UUID getId() { return id; }
     public String getCode() { return code; }
     public PatientEntity getPatient() { return patient; }
@@ -121,4 +158,10 @@ public class PatientPassageEntity {
     public Instant getClosedAt() { return closedAt; }
     public String getCreatedByUsername() { return createdByUsername; }
     public String getClosedByUsername() { return closedByUsername; }
+    public UUID getResponsiblePersonnelId() { return responsiblePersonnelId; }
+    public String getResponsiblePersonnelEmployeeNumber() { return responsiblePersonnelEmployeeNumber; }
+    public String getResponsiblePersonnelName() { return responsiblePersonnelName; }
+    public String getResponsiblePersonnelJobTitle() { return responsiblePersonnelJobTitle; }
+    public Instant getResponsibleAssignedAt() { return responsibleAssignedAt; }
+    public String getResponsibleAssignedByUsername() { return responsibleAssignedByUsername; }
 }

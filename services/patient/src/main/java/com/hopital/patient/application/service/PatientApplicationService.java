@@ -10,6 +10,7 @@ import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
+import com.hopital.patient.application.dto.AssignPatientPassageResponsiblePersonnelRequest;
 import com.hopital.patient.application.dto.EmergencyContactResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
@@ -26,8 +27,10 @@ import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.DuplicatePatientException;
 import com.hopital.patient.application.exception.InvalidPatientDocumentException;
+import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
+import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
@@ -65,16 +68,19 @@ public class PatientApplicationService {
     private final PatientDocumentRepository patientDocumentRepository;
     private final PatientPassageRepository patientPassageRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
+    private final PersonnelReferenceClient personnelReferenceClient;
 
     public PatientApplicationService(
             PatientRepository patientRepository,
             PatientDocumentRepository patientDocumentRepository,
             PatientPassageRepository patientPassageRepository,
-            HospitalReferenceClient hospitalReferenceClient) {
+            HospitalReferenceClient hospitalReferenceClient,
+            PersonnelReferenceClient personnelReferenceClient) {
         this.patientRepository = patientRepository;
         this.patientDocumentRepository = patientDocumentRepository;
         this.patientPassageRepository = patientPassageRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
+        this.personnelReferenceClient = personnelReferenceClient;
     }
 
     /** Compatibility endpoint for existing dependent forms. New registry screens use the paginated search endpoint. */
@@ -295,6 +301,9 @@ public class PatientApplicationService {
                 trimToNull(request.reason()),
                 auditActor,
                 Instant.now());
+        if (request.responsiblePersonnelId() != null) {
+            assignResponsiblePersonnel(passage, request.responsiblePersonnelId(), auditActor);
+        }
         return toPassage(patientPassageRepository.save(passage));
     }
 
@@ -339,9 +348,34 @@ public class PatientApplicationService {
             throw new PatientNotFoundException(passageId.toString());
         }
         assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
+        if (request.status() == PatientPassageStatus.CLOSED && passage.getResponsiblePersonnelId() == null) {
+            throw new InvalidPatientPassageStateException(
+                    "Un personnel responsable doit être affecté avant de terminer le passage.");
+        }
         if (passage.getStatus() != request.status()) {
             passage.changeStatus(request.status(), auditActor, Instant.now());
         }
+        return toPassage(passage);
+    }
+
+    @Transactional
+    public PatientPassageResponse assignPassageResponsiblePersonnel(
+            UUID patientId,
+            UUID passageId,
+            AssignPatientPassageResponsiblePersonnelRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        PatientPassageEntity passage = patientPassageRepository.findById(passageId)
+                .orElseThrow(() -> new PatientNotFoundException(passageId.toString()));
+        if (!passage.getPatient().getId().equals(patientId)) {
+            throw new PatientNotFoundException(passageId.toString());
+        }
+        assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
+        if (passage.getStatus() != PatientPassageStatus.OPEN) {
+            throw new InvalidPatientPassageStateException(
+                    "Le personnel responsable ne peut être modifié que sur un passage en cours.");
+        }
+        assignResponsiblePersonnel(passage, request.personnelId(), auditActor);
         return toPassage(passage);
     }
 
@@ -665,7 +699,13 @@ public class PatientApplicationService {
                 passage.getArrivedAt(),
                 passage.getClosedAt(),
                 passage.getCreatedByUsername(),
-                passage.getClosedByUsername());
+                passage.getClosedByUsername(),
+                passage.getResponsiblePersonnelId(),
+                passage.getResponsiblePersonnelEmployeeNumber(),
+                passage.getResponsiblePersonnelName(),
+                passage.getResponsiblePersonnelJobTitle(),
+                passage.getResponsibleAssignedAt(),
+                passage.getResponsibleAssignedByUsername());
     }
 
     private PatientPassageSummaryResponse toPassageSummary(PatientPassageEntity passage) {
@@ -687,7 +727,31 @@ public class PatientApplicationService {
                 passage.getArrivedAt(),
                 passage.getClosedAt(),
                 passage.getCreatedByUsername(),
-                passage.getClosedByUsername());
+                passage.getClosedByUsername(),
+                passage.getResponsiblePersonnelId(),
+                passage.getResponsiblePersonnelEmployeeNumber(),
+                passage.getResponsiblePersonnelName(),
+                passage.getResponsiblePersonnelJobTitle(),
+                passage.getResponsibleAssignedAt(),
+                passage.getResponsibleAssignedByUsername());
+    }
+
+    private void assignResponsiblePersonnel(
+            PatientPassageEntity passage,
+            UUID personnelId,
+            AuditActor auditActor) {
+        PersonnelReferenceClient.PersonnelReference personnel = personnelReferenceClient
+                .resolveActivePersonnelForHospital(personnelId, passage.getHospitalId());
+        String fullName = java.util.stream.Stream.of(personnel.lastName(), personnel.firstName(), personnel.middleName())
+                .filter(value -> value != null && !value.isBlank())
+                .collect(java.util.stream.Collectors.joining(" "));
+        passage.assignResponsiblePersonnel(
+                personnel.id(),
+                personnel.employeeNumber(),
+                fullName,
+                personnel.jobTitle(),
+                auditActor,
+                Instant.now());
     }
 
     private record DocumentContent(String contentType, int sizeBytes, String contentBase64) {

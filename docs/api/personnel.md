@@ -35,6 +35,10 @@ Catégories actuellement prévues : `DOCTOR`, `NURSE`, `MIDWIFE`,
 
 - `GET /api/v1/personnel/search?page=0&size=20&query=&hospitalId=&active=true`
   fournit une liste paginée, recherchable et filtrable.
+- `GET /api/v1/personnel/care-options/search?hospitalId={uuid}&page=0&size=20&query=`
+  fournit uniquement les agents actifs ayant une affectation active dans cet
+  hôpital. Cette liste paginée est utilisée pour choisir le responsable d’un
+  passage patient.
 - `GET /api/v1/personnel/{personnelId}` retourne la fiche complète, y compris
   les pièces de son dossier documentaire. Les listes de recherche ne chargent
   jamais ces fichiers.

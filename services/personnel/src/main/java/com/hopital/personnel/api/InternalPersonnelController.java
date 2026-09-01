@@ -1,6 +1,7 @@
 package com.hopital.personnel.api;
 
 import com.hopital.personnel.application.dto.PersonnelAccessScopeResponse;
+import com.hopital.personnel.application.dto.PersonnelCareReferenceResponse;
 import com.hopital.personnel.application.service.PersonnelApplicationService;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -23,5 +24,12 @@ public class InternalPersonnelController {
     @GetMapping("/accounts/{accountId}/access-scope")
     public ResponseEntity<PersonnelAccessScopeResponse> resolveAccessScope(@PathVariable("accountId") UUID accountId) {
         return ResponseEntity.ok(personnelApplicationService.resolveAccessScope(accountId));
+    }
+
+    @GetMapping("/{personnelId}/hospitals/{hospitalId}/care-reference")
+    public ResponseEntity<PersonnelCareReferenceResponse> resolveCarePersonnel(
+            @PathVariable("personnelId") UUID personnelId,
+            @PathVariable("hospitalId") UUID hospitalId) {
+        return ResponseEntity.ok(personnelApplicationService.resolveCarePersonnel(personnelId, hospitalId));
     }
 }

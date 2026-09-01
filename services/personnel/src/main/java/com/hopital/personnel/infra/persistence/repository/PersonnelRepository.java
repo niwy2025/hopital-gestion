@@ -1,5 +1,6 @@
 package com.hopital.personnel.infra.persistence.repository;
 
+import com.hopital.personnel.application.domain.PersonnelAssignmentStatus;
 import com.hopital.personnel.infra.persistence.entity.PersonnelEntity;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,6 +39,30 @@ public interface PersonnelRepository extends JpaRepository<PersonnelEntity, UUID
             @Param("query") String query,
             @Param("hospitalId") UUID hospitalId,
             @Param("active") Boolean active,
+            Pageable pageable);
+
+    @Query("""
+            SELECT personnel
+            FROM PersonnelEntity personnel
+            WHERE personnel.active = TRUE
+              AND EXISTS (
+                    SELECT assignment.id
+                    FROM PersonnelAssignmentEntity assignment
+                    WHERE assignment.personnelId = personnel.id
+                      AND assignment.hospitalId = :hospitalId
+                      AND assignment.status = :assignmentStatus
+              )
+              AND (:query = ''
+                    OR LOWER(personnel.employeeNumber) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(personnel.firstName) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(personnel.lastName) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(COALESCE(personnel.middleName, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(personnel.jobTitle) LIKE LOWER(CONCAT('%', :query, '%')))
+            """)
+    Page<PersonnelEntity> searchActiveCarePersonnel(
+            @Param("hospitalId") UUID hospitalId,
+            @Param("query") String query,
+            @Param("assignmentStatus") PersonnelAssignmentStatus assignmentStatus,
             Pageable pageable);
 
     Optional<PersonnelEntity> findById(UUID id);

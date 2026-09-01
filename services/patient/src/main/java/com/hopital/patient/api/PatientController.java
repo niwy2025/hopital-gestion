@@ -4,6 +4,8 @@ import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.domain.PatientDocumentType;
+import com.hopital.patient.application.domain.ClinicalEntryType;
+import com.hopital.patient.application.domain.ClinicalOrientation;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.AssignPatientPassageResponsiblePersonnelRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
@@ -13,14 +15,14 @@ import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
-import com.hopital.patient.application.dto.PatientPassageClinicalRecordResponse;
+import com.hopital.patient.application.dto.PatientPassageClinicalEntryResponse;
 import com.hopital.patient.application.dto.PatientDocumentResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
-import com.hopital.patient.application.dto.UpsertPatientPassageClinicalRecordRequest;
+import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
 import com.hopital.patient.application.service.PatientApplicationService;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.infra.integration.auth.AuthAccessScopeClient;
@@ -167,23 +169,27 @@ public class PatientController {
                 auditActor(jwt)));
     }
 
-    @GetMapping("/{patientId}/passages/{passageId}/clinical-record")
-    public ResponseEntity<PatientPassageClinicalRecordResponse> getClinicalRecord(
+    @GetMapping("/{patientId}/passages/{passageId}/clinical-entries/search")
+    public ResponseEntity<PageResponse<PatientPassageClinicalEntryResponse>> searchClinicalEntries(
             @PathVariable("patientId") UUID patientId,
             @PathVariable("passageId") UUID passageId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "entryType", required = false) ClinicalEntryType entryType,
+            @RequestParam(name = "orientation", required = false) ClinicalOrientation orientation,
             @AuthenticationPrincipal Jwt jwt) {
-        return patientApplicationService.getClinicalRecord(patientId, passageId, accessScope(jwt))
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.noContent().build());
+        return ResponseEntity.ok(patientApplicationService.searchClinicalEntries(
+                patientId, passageId, page, size, query, entryType, orientation, accessScope(jwt)));
     }
 
-    @PutMapping("/{patientId}/passages/{passageId}/clinical-record")
-    public ResponseEntity<PatientPassageClinicalRecordResponse> upsertClinicalRecord(
+    @PostMapping("/{patientId}/passages/{passageId}/clinical-entries")
+    public ResponseEntity<PatientPassageClinicalEntryResponse> addClinicalEntry(
             @PathVariable("patientId") UUID patientId,
             @PathVariable("passageId") UUID passageId,
-            @Valid @RequestBody UpsertPatientPassageClinicalRecordRequest request,
+            @Valid @RequestBody CreatePatientPassageClinicalEntryRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(patientApplicationService.upsertClinicalRecord(
+        return ResponseEntity.status(HttpStatus.CREATED).body(patientApplicationService.addClinicalEntry(
                 patientId,
                 passageId,
                 request,

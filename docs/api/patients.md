@@ -19,8 +19,8 @@ défaut `http://localhost:8888`.
 | `POST` | `/api/v1/patients` | Crée un dossier patient. |
 | `POST` | `/api/v1/patients/{patientId}/passages` | Enregistre une arrivée dans le parcours du patient. |
 | `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/responsible-personnel` | Affecte le personnel responsable d’un passage en cours. |
-| `GET` | `/api/v1/patients/{patientId}/passages/{passageId}/clinical-record` | Consulte le suivi clinique du passage ; renvoie `204` s’il n’a pas encore été saisi. |
-| `PUT` | `/api/v1/patients/{patientId}/passages/{passageId}/clinical-record` | Crée ou met à jour le suivi clinique d’un passage en cours. |
+| `GET` | `/api/v1/patients/{patientId}/passages/{passageId}/clinical-entries/search?page=0&size=20&query=toux&entryType=CLINICAL_EVOLUTION&orientation=LABORATORY` | Consulte le journal clinique paginé d’un passage. |
+| `POST` | `/api/v1/patients/{patientId}/passages/{passageId}/clinical-entries` | Ajoute une évolution clinique à un passage en cours. |
 | `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/status` | Termine ou annule un passage en cours. |
 | `PATCH` | `/api/v1/patients/{patientId}/status` | Active ou désactive un dossier. |
 
@@ -56,20 +56,22 @@ un administrateur peut gérer tous les passages. La fiche détaillée retourne l
 booléen `canManageStatus`, calculé côté serveur pour l'utilisateur connecté ;
 la même règle est à nouveau vérifiée lors de la modification du statut.
 
-## Suivi clinique
+## Journal clinique
 
-Un seul suivi clinique est conservé par passage. Il contient les constatations,
-le diagnostic ou l’hypothèse, la conduite à tenir, l’orientation et une date de
-contrôle éventuelle. Ainsi, une nouvelle venue du même patient ouvre un nouveau
-suivi sans modifier l’historique du précédent passage.
+Un passage possède un journal de plusieurs évolutions cliniques. Chaque note
+contient les constatations, le diagnostic ou l’hypothèse, la conduite à tenir,
+l’orientation et une date de contrôle éventuelle. Elle est ajoutée à
+l’historique, sans jamais écraser les notes précédentes.
 
-La saisie et la modification sont réservées au personnel responsable du
-passage, ou à un administrateur, tant que le passage est `OPEN`. Les auteurs et
-dates de création et de dernière modification sont conservés. Chaque mise à
-jour est aussi inscrite dans la traçabilité du dossier patient.
+L’ajout est réservé au personnel responsable du passage, ou à un administrateur,
+tant que le passage est `OPEN`. Chaque évolution est datée et signée ; elle est
+aussi inscrite dans la traçabilité du dossier patient. Le journal est consultable
+par les utilisateurs ayant accès au passage, avec pagination, recherche, filtre
+par nature de note et filtre par orientation.
 
 ```json
 {
+  "entryType": "CLINICAL_EVOLUTION",
   "clinicalFindings": "Toux persistante, température à 38,5 °C.",
   "diagnosis": "Infection respiratoire à confirmer",
   "carePlan": "Hydratation, surveillance et bilan complémentaire.",

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
 import com.hopital.patient.application.domain.AuditActor;
+import com.hopital.patient.application.domain.ClinicalEntryType;
 import com.hopital.patient.application.domain.ClinicalOrientation;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.EmergencyContactRelationship;
@@ -24,17 +25,17 @@ import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
-import com.hopital.patient.application.dto.UpsertPatientPassageClinicalRecordRequest;
+import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
-import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalRecordEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
-import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalRecordRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
@@ -62,7 +63,7 @@ class PatientApplicationServiceTest {
     private PatientPassageRepository patientPassageRepository;
 
     @Mock
-    private PatientPassageClinicalRecordRepository patientPassageClinicalRecordRepository;
+    private PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository;
 
     @Mock
     private HospitalReferenceClient hospitalReferenceClient;
@@ -258,7 +259,7 @@ class PatientApplicationServiceTest {
     }
 
     @Test
-    void savesClinicalRecordOnlyForTheResponsiblePersonnelOnAnOpenPassage() {
+    void appendsClinicalEntryOnlyForTheResponsiblePersonnelOnAnOpenPassage() {
         PatientEntity patient = patient("HP-GOMA");
         UUID responsiblePersonnelId = UUID.randomUUID();
         PatientPassageEntity passage = new PatientPassageEntity(
@@ -267,14 +268,14 @@ class PatientApplicationServiceTest {
         passage.assignResponsiblePersonnel(
                 responsiblePersonnelId, "MED-001", "Kasongo Amina", "Médecin traitant", auditActor(), Instant.now());
         when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
-        when(patientPassageClinicalRecordRepository.findByPassageId(passage.getId())).thenReturn(Optional.empty());
-        when(patientPassageClinicalRecordRepository.save(any(PatientPassageClinicalRecordEntity.class)))
+        when(patientPassageClinicalEntryRepository.save(any(PatientPassageClinicalEntryEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        var response = patientApplicationService.upsertClinicalRecord(
+        var response = patientApplicationService.addClinicalEntry(
                 patient.getId(),
                 passage.getId(),
-                new UpsertPatientPassageClinicalRecordRequest(
+                new CreatePatientPassageClinicalEntryRequest(
+                        ClinicalEntryType.INITIAL_ASSESSMENT,
                         "Toux persistante, température à 38,5 °C.",
                         "Infection respiratoire à confirmer",
                         "Hydratation, surveillance et bilan complémentaire.",
@@ -284,10 +285,53 @@ class PatientApplicationServiceTest {
                 auditActor());
 
         assertThat(response.passageId()).isEqualTo(passage.getId());
+        assertThat(response.entryType()).isEqualTo(ClinicalEntryType.INITIAL_ASSESSMENT);
         assertThat(response.orientation()).isEqualTo(ClinicalOrientation.LABORATORY);
-        assertThat(response.updatedByUsername()).isEqualTo("operateur.accueil");
+        assertThat(response.recordedByUsername()).isEqualTo("operateur.accueil");
         assertThat(patient.getAuditEvents()).singleElement().satisfies(event ->
-                assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.CLINICAL_RECORD_UPDATED));
+                assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.CLINICAL_ENTRY_ADDED));
+    }
+
+    @Test
+    void searchesClinicalJournalWithServerSideFilters() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260901-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
+        PatientPassageClinicalEntryEntity entry = new PatientPassageClinicalEntryEntity(
+                UUID.randomUUID(),
+                passage.getId(),
+                ClinicalEntryType.CLINICAL_EVOLUTION,
+                "La fièvre diminue après surveillance.",
+                null,
+                "Poursuivre l'hydratation.",
+                ClinicalOrientation.FOLLOW_UP,
+                null,
+                auditActor(),
+                Instant.now());
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+        when(patientPassageClinicalEntryRepository.search(
+                org.mockito.ArgumentMatchers.eq(passage.getId()),
+                org.mockito.ArgumentMatchers.eq("fièvre"),
+                org.mockito.ArgumentMatchers.eq(ClinicalEntryType.CLINICAL_EVOLUTION),
+                org.mockito.ArgumentMatchers.eq(ClinicalOrientation.FOLLOW_UP),
+                any())).thenReturn(new PageImpl<>(List.of(entry)));
+
+        var response = patientApplicationService.searchClinicalEntries(
+                patient.getId(),
+                passage.getId(),
+                0,
+                20,
+                "fièvre",
+                ClinicalEntryType.CLINICAL_EVOLUTION,
+                ClinicalOrientation.FOLLOW_UP,
+                new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"));
+
+        assertThat(response.items()).singleElement().satisfies(item -> {
+            assertThat(item.id()).isEqualTo(entry.getId());
+            assertThat(item.entryType()).isEqualTo(ClinicalEntryType.CLINICAL_EVOLUTION);
+            assertThat(item.orientation()).isEqualTo(ClinicalOrientation.FOLLOW_UP);
+        });
     }
 
     @Test

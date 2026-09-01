@@ -1,6 +1,8 @@
 package com.hopital.patient.application.service;
 
 import com.hopital.patient.application.domain.AuditActor;
+import com.hopital.patient.application.domain.ClinicalEntryType;
+import com.hopital.patient.application.domain.ClinicalOrientation;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.PatientAuditEventType;
@@ -10,6 +12,7 @@ import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
+import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
 import com.hopital.patient.application.dto.AssignPatientPassageResponsiblePersonnelRequest;
 import com.hopital.patient.application.dto.EmergencyContactResponse;
 import com.hopital.patient.application.dto.PageResponse;
@@ -20,9 +23,8 @@ import com.hopital.patient.application.dto.PatientDocumentResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
-import com.hopital.patient.application.dto.PatientPassageClinicalRecordResponse;
+import com.hopital.patient.application.dto.PatientPassageClinicalEntryResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
-import com.hopital.patient.application.dto.UpsertPatientPassageClinicalRecordRequest;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
@@ -36,9 +38,9 @@ import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
-import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalRecordEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
-import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalRecordRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
@@ -71,7 +73,7 @@ public class PatientApplicationService {
     private final PatientRepository patientRepository;
     private final PatientDocumentRepository patientDocumentRepository;
     private final PatientPassageRepository patientPassageRepository;
-    private final PatientPassageClinicalRecordRepository patientPassageClinicalRecordRepository;
+    private final PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
     private final PersonnelReferenceClient personnelReferenceClient;
 
@@ -79,13 +81,13 @@ public class PatientApplicationService {
             PatientRepository patientRepository,
             PatientDocumentRepository patientDocumentRepository,
             PatientPassageRepository patientPassageRepository,
-            PatientPassageClinicalRecordRepository patientPassageClinicalRecordRepository,
+            PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository,
             HospitalReferenceClient hospitalReferenceClient,
             PersonnelReferenceClient personnelReferenceClient) {
         this.patientRepository = patientRepository;
         this.patientDocumentRepository = patientDocumentRepository;
         this.patientPassageRepository = patientPassageRepository;
-        this.patientPassageClinicalRecordRepository = patientPassageClinicalRecordRepository;
+        this.patientPassageClinicalEntryRepository = patientPassageClinicalEntryRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
         this.personnelReferenceClient = personnelReferenceClient;
     }
@@ -233,23 +235,40 @@ public class PatientApplicationService {
     }
 
     /**
-     * The clinical record belongs to the passage rather than to the patient identity.
-     * This preserves a clear history when the same patient returns later for another care episode.
+     * Returns the chronological journal for one care episode without exposing entries from another passage.
      */
-    public java.util.Optional<PatientPassageClinicalRecordResponse> getClinicalRecord(
+    public PageResponse<PatientPassageClinicalEntryResponse> searchClinicalEntries(
             UUID patientId,
             UUID passageId,
+            int page,
+            int size,
+            String query,
+            ClinicalEntryType entryType,
+            ClinicalOrientation orientation,
             DataAccessScope accessScope) {
         PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
-        return patientPassageClinicalRecordRepository.findByPassageId(passage.getId())
-                .map(this::toClinicalRecord);
+        var entries = patientPassageClinicalEntryRepository.search(
+                passage.getId(),
+                normalizeSearchFilter(query),
+                entryType,
+                orientation,
+                PageRequest.of(
+                        Math.max(page, 0),
+                        Math.min(Math.max(size, 1), 100),
+                        Sort.by("recordedAt").descending()));
+        return new PageResponse<>(
+                entries.getContent().stream().map(this::toClinicalEntry).toList(),
+                entries.getNumber(),
+                entries.getSize(),
+                entries.getTotalElements(),
+                entries.getTotalPages());
     }
 
     @Transactional
-    public PatientPassageClinicalRecordResponse upsertClinicalRecord(
+    public PatientPassageClinicalEntryResponse addClinicalEntry(
             UUID patientId,
             UUID passageId,
-            UpsertPatientPassageClinicalRecordRequest request,
+            CreatePatientPassageClinicalEntryRequest request,
             DataAccessScope accessScope,
             AuditActor auditActor) {
         PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
@@ -260,36 +279,23 @@ public class PatientApplicationService {
         }
 
         Instant recordedAt = Instant.now();
-        PatientPassageClinicalRecordEntity record = patientPassageClinicalRecordRepository
-                .findByPassageId(passage.getId())
-                .map(existing -> {
-                    existing.update(
-                            request.clinicalFindings().trim(),
-                            trimToNull(request.diagnosis()),
-                            trimToNull(request.carePlan()),
-                            request.orientation(),
-                            request.followUpOn(),
-                            auditActor,
-                            recordedAt);
-                    return existing;
-                })
-                .orElseGet(() -> new PatientPassageClinicalRecordEntity(
-                        UUID.randomUUID(),
-                        passage.getId(),
-                        request.clinicalFindings().trim(),
-                        trimToNull(request.diagnosis()),
-                        trimToNull(request.carePlan()),
-                        request.orientation(),
-                        request.followUpOn(),
-                        auditActor,
-                        recordedAt));
-
-        PatientPassageClinicalRecordResponse response = toClinicalRecord(
-                patientPassageClinicalRecordRepository.save(record));
+        PatientPassageClinicalEntryEntity entry = new PatientPassageClinicalEntryEntity(
+                UUID.randomUUID(),
+                passage.getId(),
+                request.entryType(),
+                request.clinicalFindings().trim(),
+                trimToNull(request.diagnosis()),
+                trimToNull(request.carePlan()),
+                request.orientation(),
+                request.followUpOn(),
+                auditActor,
+                recordedAt);
+        PatientPassageClinicalEntryResponse response = toClinicalEntry(
+                patientPassageClinicalEntryRepository.save(entry));
         passage.getPatient().recordModification(
                 auditActor,
-                PatientAuditEventType.CLINICAL_RECORD_UPDATED,
-                "Suivi clinique du passage " + passage.getCode() + " mis à jour.",
+                PatientAuditEventType.CLINICAL_ENTRY_ADDED,
+                "Évolution clinique ajoutée au passage " + passage.getCode() + ".",
                 recordedAt);
         return response;
     }
@@ -833,19 +839,18 @@ public class PatientApplicationService {
                 canManageStatus);
     }
 
-    private PatientPassageClinicalRecordResponse toClinicalRecord(PatientPassageClinicalRecordEntity record) {
-        return new PatientPassageClinicalRecordResponse(
-                record.getId(),
-                record.getPassageId(),
-                record.getClinicalFindings(),
-                record.getDiagnosis(),
-                record.getCarePlan(),
-                record.getOrientation(),
-                record.getFollowUpOn(),
-                record.getCreatedAt(),
-                record.getCreatedByUsername(),
-                record.getUpdatedAt(),
-                record.getUpdatedByUsername());
+    private PatientPassageClinicalEntryResponse toClinicalEntry(PatientPassageClinicalEntryEntity entry) {
+        return new PatientPassageClinicalEntryResponse(
+                entry.getId(),
+                entry.getPassageId(),
+                entry.getEntryType(),
+                entry.getClinicalFindings(),
+                entry.getDiagnosis(),
+                entry.getCarePlan(),
+                entry.getOrientation(),
+                entry.getFollowUpOn(),
+                entry.getRecordedAt(),
+                entry.getRecordedByUsername());
     }
 
     private void assignResponsiblePersonnel(

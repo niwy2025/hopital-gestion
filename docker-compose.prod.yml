@@ -15,8 +15,9 @@ services:
 
   postgres:
     # Accès d'administration local uniquement. Utilisez un tunnel SSH pour
-    # DBeaver ; PostgreSQL ne doit jamais être publié directement sur Internet.
-    ports: !override ["127.0.0.1:${POSTGRES_HOST_PORT:-54320}:5432"]
+    # DBeaver par défaut. POSTGRES_BIND_ADDRESS peut être fixé à 0.0.0.0
+    # uniquement si le pare-feu limite le port à une adresse IP d'administration.
+    ports: !override ["${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_HOST_PORT:-54320}:5432"]
     restart: unless-stopped
 
   kafka:

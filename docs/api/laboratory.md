@@ -16,16 +16,18 @@ lié à un hôpital, ou `REFERENCE` pour un laboratoire provincial de référenc
 
 ```json
 {
-  "code": "REQ-001",
   "laboratoryType": "HOSPITAL",
   "laboratoryCode": "LAB-HGR-001",
   "patientReference": "PAT-001",
   "patientName": "Patient de démonstration",
-  "analysisCode": "NFS",
   "analysisName": "Numération formule sanguine",
   "requesterName": "Dr. Mbala"
 }
 ```
+
+Les identifiants de traçabilité sont générés par le service : `LAB-…` pour la
+demande, `ANL-…` pour l’analyse, `ECH-…` pour chaque échantillon et `RES-…`
+pour le résultat. Ils ne sont jamais fournis par le navigateur.
 
 Après réception d’un échantillon, le statut `SAMPLE_RECEIVED` signifie que le
 dossier patient est au laboratoire et en attente de résultat. Le futur service
@@ -69,3 +71,25 @@ Les endpoints `GET /api/v1/laboratory/specimens/search` et
 
 Un résultat ne peut être saisi qu’après réception d’un échantillon et un
 résultat validé ne peut pas être validé une seconde fois.
+
+Exemple de réception d’échantillon :
+
+```json
+{
+  "analysisRequestCode": "LAB-D9D23E25F084",
+  "specimenType": "BLOOD",
+  "collectedAt": "2026-09-01T14:30:00Z"
+}
+```
+
+Exemple de saisie de résultat :
+
+```json
+{
+  "analysisRequestCode": "LAB-D9D23E25F084",
+  "resultValue": "12.4",
+  "unit": "g/dL",
+  "referenceRange": "12 - 16",
+  "comment": null
+}
+```

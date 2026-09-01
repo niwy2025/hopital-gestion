@@ -14,7 +14,6 @@ import com.hopital.laboratory.application.dto.PageResponse;
 import com.hopital.laboratory.application.dto.PatientPassageLaboratoryRequestResponse;
 import com.hopital.laboratory.application.dto.SpecimenResponse;
 import com.hopital.laboratory.application.dto.ValidateAnalysisResultRequest;
-import com.hopital.laboratory.application.exception.DuplicateLaboratoryResourceException;
 import com.hopital.laboratory.application.exception.InvalidLaboratoryWorkflowException;
 import com.hopital.laboratory.application.exception.LaboratoryResourceNotFoundException;
 import com.hopital.laboratory.infra.persistence.entity.AnalysisRequestEntity;
@@ -113,18 +112,14 @@ public class LaboratoryApplicationService {
 
     @Transactional
     public AnalysisRequestResponse createAnalysisRequest(CreateAnalysisRequestRequest request) {
-        String code = normalizeCode(request.code());
-        if (analysisRequestRepository.existsByCodeIgnoreCase(code)) {
-            throw new DuplicateLaboratoryResourceException("La demande d'analyse", code);
-        }
         AnalysisRequestEntity analysisRequest = new AnalysisRequestEntity(
                 UUID.randomUUID(),
-                code,
+                generateAnalysisRequestCode(),
                 request.laboratoryType(),
                 normalizeCode(request.laboratoryCode()),
                 request.patientReference().trim(),
                 request.patientName().trim(),
-                normalizeCode(request.analysisCode()),
+                generateAnalysisCode(),
                 request.analysisName().trim(),
                 trimToNull(request.requesterName()),
                 Instant.now());
@@ -185,29 +180,8 @@ public class LaboratoryApplicationService {
 
     @Transactional
     public AnalysisResultResponse enterAnalysisResult(CreateAnalysisResultRequest request) {
-        String code = normalizeCode(request.code());
-        if (analysisResultRepository.existsByCodeIgnoreCase(code)) {
-            throw new DuplicateLaboratoryResourceException("Le résultat", code);
-        }
         AnalysisRequestEntity analysisRequest = findAnalysisRequest(request.analysisRequestCode());
-        if (analysisRequest.getStatus() != AnalysisRequestStatus.SAMPLE_RECEIVED) {
-            throw new InvalidLaboratoryWorkflowException(
-                    "Le résultat ne peut être saisi qu'après la réception d'un échantillon.");
-        }
-        if (analysisResultRepository.existsByAnalysisRequest_Id(analysisRequest.getId())) {
-            throw new InvalidLaboratoryWorkflowException("Un résultat existe déjà pour cette demande d'analyse.");
-        }
-        AnalysisResultEntity analysisResult = new AnalysisResultEntity(
-                UUID.randomUUID(),
-                code,
-                analysisRequest,
-                request.resultValue().trim(),
-                trimToNull(request.unit()),
-                trimToNull(request.referenceRange()),
-                trimToNull(request.comment()),
-                Instant.now());
-        analysisRequest.markResultEntered();
-        return toResponse(analysisResultRepository.save(analysisResult));
+        return enterResultForRequest(analysisRequest, request);
     }
 
     @Transactional
@@ -289,10 +263,6 @@ public class LaboratoryApplicationService {
     }
 
     private AnalysisResultResponse enterResultForRequest(AnalysisRequestEntity analysisRequest, CreateAnalysisResultRequest request) {
-        String code = normalizeCode(request.code());
-        if (analysisResultRepository.existsByCodeIgnoreCase(code)) {
-            throw new DuplicateLaboratoryResourceException("Le résultat", code);
-        }
         if (analysisRequest.getStatus() != AnalysisRequestStatus.SAMPLE_RECEIVED) {
             throw new InvalidLaboratoryWorkflowException(
                     "Le résultat ne peut être saisi qu'après la réception d'un échantillon.");
@@ -300,6 +270,7 @@ public class LaboratoryApplicationService {
         if (analysisResultRepository.existsByAnalysisRequest_Id(analysisRequest.getId())) {
             throw new InvalidLaboratoryWorkflowException("Un résultat existe déjà pour cette demande d'analyse.");
         }
+        String code = generateAnalysisResultCode();
         AnalysisResultEntity analysisResult = new AnalysisResultEntity(
                 UUID.randomUUID(),
                 code,
@@ -386,6 +357,16 @@ public class LaboratoryApplicationService {
             }
         }
         throw new IllegalStateException("Impossible de générer un code unique d'échantillon.");
+    }
+
+    private String generateAnalysisResultCode() {
+        for (int attempt = 0; attempt < 8; attempt++) {
+            String code = "RES-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
+            if (!analysisResultRepository.existsByCodeIgnoreCase(code)) {
+                return code;
+            }
+        }
+        throw new IllegalStateException("Impossible de générer un code unique de résultat d'analyse.");
     }
 
     private String normalizeSearchFilter(String value) {

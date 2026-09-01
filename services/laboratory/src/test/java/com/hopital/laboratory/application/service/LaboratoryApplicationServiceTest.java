@@ -66,21 +66,21 @@ class LaboratoryApplicationServiceTest {
                 "Numération formule sanguine",
                 "Dr. Mbala",
                 Instant.now());
-        when(analysisRequestRepository.existsByCodeIgnoreCase("REQ-001")).thenReturn(false);
+        when(analysisRequestRepository.existsByCodeIgnoreCase(anyString())).thenReturn(false);
         when(analysisRequestRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(analysisRequestRepository.findByCodeIgnoreCase("REQ-001")).thenReturn(Optional.of(analysisRequest));
         when(specimenRepository.existsByCodeIgnoreCase(anyString())).thenReturn(false);
         when(specimenRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(analysisResultRepository.existsByCodeIgnoreCase("RES-001")).thenReturn(false);
+        when(analysisResultRepository.existsByCodeIgnoreCase(anyString())).thenReturn(false);
         when(analysisResultRepository.existsByAnalysisRequest_Id(analysisRequest.getId())).thenReturn(false);
         when(analysisResultRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         var createdRequest = laboratoryApplicationService.createAnalysisRequest(new CreateAnalysisRequestRequest(
-                "req-001", LaboratoryType.HOSPITAL, "lab-hgr-001", "PAT-001", "Patient de test", "nfs", "Numération formule sanguine", "Dr. Mbala"));
+                LaboratoryType.HOSPITAL, "lab-hgr-001", "PAT-001", "Patient de test", "Numération formule sanguine", "Dr. Mbala"));
         var specimen = laboratoryApplicationService.receiveSpecimen(new CreateSpecimenRequest(
                 "req-001", SpecimenType.BLOOD, Instant.now()));
         var result = laboratoryApplicationService.enterAnalysisResult(new CreateAnalysisResultRequest(
-                "res-001", "req-001", "12.4", "g/dL", "12 - 16", null));
+                "req-001", "12.4", "g/dL", "12 - 16", null));
         AnalysisResultEntity analysisResult = new AnalysisResultEntity(
                 UUID.randomUUID(),
                 "RES-001",
@@ -95,11 +95,14 @@ class LaboratoryApplicationServiceTest {
                 "res-001", new ValidateAnalysisResultRequest("biologiste"));
 
         assertThat(createdRequest.status()).isEqualTo(AnalysisRequestStatus.REQUESTED);
+        assertThat(createdRequest.code()).startsWith("LAB-");
+        assertThat(createdRequest.analysisCode()).startsWith("ANL-");
         assertThat(createdRequest.laboratoryType()).isEqualTo(LaboratoryType.HOSPITAL);
         assertThat(createdRequest.laboratoryCode()).isEqualTo("LAB-HGR-001");
         assertThat(specimen.analysisRequestCode()).isEqualTo("REQ-001");
         assertThat(specimen.code()).startsWith("ECH-");
         assertThat(result.status()).isEqualTo(AnalysisResultStatus.ENTERED);
+        assertThat(result.code()).startsWith("RES-");
         assertThat(validatedResult.status()).isEqualTo(AnalysisResultStatus.VALIDATED);
         assertThat(analysisRequest.getStatus()).isEqualTo(AnalysisRequestStatus.VALIDATED);
     }
@@ -108,11 +111,10 @@ class LaboratoryApplicationServiceTest {
     void rejectsAResultBeforeASpecimenIsReceived() {
         AnalysisRequestEntity analysisRequest = new AnalysisRequestEntity(
                 UUID.randomUUID(), "REQ-001", LaboratoryType.REFERENCE, "LRP-KIN", "PAT-001", "Patient", "NFS", "NFS", null, Instant.now());
-        when(analysisResultRepository.existsByCodeIgnoreCase("RES-001")).thenReturn(false);
         when(analysisRequestRepository.findByCodeIgnoreCase("REQ-001")).thenReturn(Optional.of(analysisRequest));
 
         assertThatThrownBy(() -> laboratoryApplicationService.enterAnalysisResult(new CreateAnalysisResultRequest(
-                "res-001", "req-001", "12.4", null, null, null)))
+                "req-001", "12.4", null, null, null)))
                 .isInstanceOf(InvalidLaboratoryWorkflowException.class)
                 .hasMessageContaining("après la réception");
     }

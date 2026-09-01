@@ -6,6 +6,7 @@ import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.domain.PatientDocumentType;
 import com.hopital.patient.application.domain.ClinicalEntryType;
 import com.hopital.patient.application.domain.ClinicalOrientation;
+import com.hopital.patient.application.domain.PrescriptionSource;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.AssignPatientPassageResponsiblePersonnelRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
@@ -23,6 +24,8 @@ import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
+import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
+import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
 import com.hopital.patient.application.service.PatientApplicationService;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.infra.integration.auth.AuthAccessScopeClient;
@@ -196,6 +199,29 @@ public class PatientController {
                 request,
                 accessScope(jwt),
                 auditActor(jwt)));
+    }
+
+    @GetMapping("/{patientId}/passages/{passageId}/prescriptions/search")
+    public ResponseEntity<PageResponse<PatientPassagePrescriptionResponse>> searchPrescriptions(
+            @PathVariable("patientId") UUID patientId,
+            @PathVariable("passageId") UUID passageId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "source", required = false) PrescriptionSource source,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(patientApplicationService.searchPrescriptions(
+                patientId, passageId, page, size, query, source, accessScope(jwt)));
+    }
+
+    @PostMapping("/{patientId}/passages/{passageId}/prescriptions")
+    public ResponseEntity<PatientPassagePrescriptionResponse> addPrescription(
+            @PathVariable("patientId") UUID patientId,
+            @PathVariable("passageId") UUID passageId,
+            @Valid @RequestBody CreatePatientPassagePrescriptionRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(patientApplicationService.addPrescription(
+                patientId, passageId, request, accessScope(jwt), auditActor(jwt)));
     }
 
     @PutMapping("/{patientId}")

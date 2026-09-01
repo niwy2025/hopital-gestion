@@ -9,6 +9,8 @@ import com.hopital.patient.application.domain.PatientAuditEventType;
 import com.hopital.patient.application.domain.PatientDocumentType;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
+import com.hopital.patient.application.domain.PrescriptionSource;
+import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
@@ -25,6 +27,8 @@ import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
 import com.hopital.patient.application.dto.PatientPassageClinicalEntryResponse;
 import com.hopital.patient.application.dto.PatientPassageLaboratoryReferenceResponse;
+import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
+import com.hopital.patient.application.dto.PrescriptionItemResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
@@ -33,6 +37,7 @@ import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.DuplicatePatientException;
 import com.hopital.patient.application.exception.InvalidPatientDocumentException;
 import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
+import com.hopital.patient.application.exception.InvalidPrescriptionException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
@@ -40,16 +45,23 @@ import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionItemEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionItemRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
@@ -75,6 +87,8 @@ public class PatientApplicationService {
     private final PatientDocumentRepository patientDocumentRepository;
     private final PatientPassageRepository patientPassageRepository;
     private final PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository;
+    private final PatientPassagePrescriptionRepository patientPassagePrescriptionRepository;
+    private final PatientPassagePrescriptionItemRepository patientPassagePrescriptionItemRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
     private final PersonnelReferenceClient personnelReferenceClient;
 
@@ -83,12 +97,16 @@ public class PatientApplicationService {
             PatientDocumentRepository patientDocumentRepository,
             PatientPassageRepository patientPassageRepository,
             PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository,
+            PatientPassagePrescriptionRepository patientPassagePrescriptionRepository,
+            PatientPassagePrescriptionItemRepository patientPassagePrescriptionItemRepository,
             HospitalReferenceClient hospitalReferenceClient,
             PersonnelReferenceClient personnelReferenceClient) {
         this.patientRepository = patientRepository;
         this.patientDocumentRepository = patientDocumentRepository;
         this.patientPassageRepository = patientPassageRepository;
         this.patientPassageClinicalEntryRepository = patientPassageClinicalEntryRepository;
+        this.patientPassagePrescriptionRepository = patientPassagePrescriptionRepository;
+        this.patientPassagePrescriptionItemRepository = patientPassagePrescriptionItemRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
         this.personnelReferenceClient = personnelReferenceClient;
     }
@@ -297,6 +315,49 @@ public class PatientApplicationService {
                 entries.getTotalPages());
     }
 
+    /**
+     * Returns the orders for one care episode. Medication lines are loaded only
+     * for the current page, so a long patient history stays paginated.
+     */
+    public PageResponse<PatientPassagePrescriptionResponse> searchPrescriptions(
+            UUID patientId,
+            UUID passageId,
+            int page,
+            int size,
+            String query,
+            PrescriptionSource source,
+            DataAccessScope accessScope) {
+        PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
+        var prescriptions = patientPassagePrescriptionRepository.search(
+                passage.getId(),
+                normalizeSearchFilter(query),
+                source,
+                PageRequest.of(
+                        Math.max(page, 0),
+                        Math.min(Math.max(size, 1), 100),
+                        Sort.by("createdAt").descending()));
+        List<UUID> prescriptionIds = prescriptions.getContent().stream()
+                .map(PatientPassagePrescriptionEntity::getId)
+                .toList();
+        Map<UUID, List<PatientPassagePrescriptionItemEntity>> itemsByPrescription = new HashMap<>();
+        if (!prescriptionIds.isEmpty()) {
+            for (PatientPassagePrescriptionItemEntity item : patientPassagePrescriptionItemRepository
+                    .findAllByPrescription_IdInOrderByDisplayOrderAsc(prescriptionIds)) {
+                itemsByPrescription.computeIfAbsent(item.getPrescription().getId(), ignored -> new ArrayList<>()).add(item);
+            }
+        }
+        return new PageResponse<>(
+                prescriptions.getContent().stream()
+                        .map(prescription -> toPrescription(
+                                prescription,
+                                itemsByPrescription.getOrDefault(prescription.getId(), List.of())))
+                        .toList(),
+                prescriptions.getNumber(),
+                prescriptions.getSize(),
+                prescriptions.getTotalElements(),
+                prescriptions.getTotalPages());
+    }
+
     @Transactional
     public PatientPassageClinicalEntryResponse addClinicalEntry(
             UUID patientId,
@@ -331,6 +392,70 @@ public class PatientApplicationService {
                 "Évolution clinique ajoutée au passage " + passage.getCode() + ".",
                 recordedAt);
         return response;
+    }
+
+    @Transactional
+    public PatientPassagePrescriptionResponse addPrescription(
+            UUID patientId,
+            UUID passageId,
+            CreatePatientPassagePrescriptionRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
+        if (passage.getStatus() != PatientPassageStatus.OPEN) {
+            throw new InvalidPatientPassageStateException(
+                    "Une ordonnance ne peut être ajoutée que sur un passage en cours.");
+        }
+        if (request.source() == PrescriptionSource.MEDICAL) {
+            // Une prescription clinique doit être portée par le professionnel responsable
+            // du passage (l'administrateur provincial reste l'exception contrôlée).
+            assertCanManagePassageStatus(accessScope, passage);
+        }
+        String externalPrescriberName = request.source() == PrescriptionSource.EXTERNAL_PAPER
+                ? trimToNull(request.externalPrescriberName())
+                : null;
+        if (request.source() == PrescriptionSource.EXTERNAL_PAPER && externalPrescriberName == null) {
+            throw new InvalidPrescriptionException("Le prescripteur indiqué sur l'ordonnance externe est obligatoire.");
+        }
+
+        Instant createdAt = Instant.now();
+        PatientPassagePrescriptionEntity prescription = patientPassagePrescriptionRepository.save(
+                new PatientPassagePrescriptionEntity(
+                        UUID.randomUUID(),
+                        nextPrescriptionCode(),
+                        passage,
+                        request.source(),
+                        externalPrescriberName,
+                        request.source() == PrescriptionSource.EXTERNAL_PAPER
+                                ? trimToNull(request.externalReference())
+                                : null,
+                        trimToNull(request.notes()),
+                        auditActor,
+                        createdAt));
+        List<PatientPassagePrescriptionItemEntity> items = new ArrayList<>();
+        for (int index = 0; index < request.items().size(); index++) {
+            var item = request.items().get(index);
+            items.add(new PatientPassagePrescriptionItemEntity(
+                    UUID.randomUUID(),
+                    prescription,
+                    item.medicineName().trim(),
+                    trimToNull(item.dosage()),
+                    trimToNull(item.administrationRoute()),
+                    trimToNull(item.frequency()),
+                    trimToNull(item.duration()),
+                    trimToNull(item.quantity()),
+                    trimToNull(item.instructions()),
+                    index));
+        }
+        List<PatientPassagePrescriptionItemEntity> savedItems = patientPassagePrescriptionItemRepository.saveAll(items);
+        passage.getPatient().recordModification(
+                auditActor,
+                PatientAuditEventType.PRESCRIPTION_ADDED,
+                request.source() == PrescriptionSource.MEDICAL
+                        ? "Ordonnance médicale ajoutée au passage " + passage.getCode() + "."
+                        : "Ordonnance externe enregistrée au passage " + passage.getCode() + ".",
+                createdAt);
+        return toPrescription(prescription, savedItems);
     }
 
     public PatientDuplicateCheckResponse checkDuplicates(
@@ -655,6 +780,17 @@ public class PatientApplicationService {
         throw new IllegalStateException("Impossible de générer un numéro de passage unique.");
     }
 
+    private String nextPrescriptionCode() {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String code = "ORD-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "-"
+                    + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
+            if (!patientPassagePrescriptionRepository.existsByCodeIgnoreCase(code)) {
+                return code;
+            }
+        }
+        throw new IllegalStateException("Impossible de générer un code d'ordonnance unique.");
+    }
+
     private void assertNoDuplicate(CreatePatientRequest request) {
         if (!findDuplicateCandidates(
                 request.firstName(),
@@ -884,6 +1020,32 @@ public class PatientApplicationService {
                 entry.getFollowUpOn(),
                 entry.getRecordedAt(),
                 entry.getRecordedByUsername());
+    }
+
+    private PatientPassagePrescriptionResponse toPrescription(
+            PatientPassagePrescriptionEntity prescription,
+            List<PatientPassagePrescriptionItemEntity> items) {
+        return new PatientPassagePrescriptionResponse(
+                prescription.getId(),
+                prescription.getCode(),
+                prescription.getPassage().getId(),
+                prescription.getSource(),
+                prescription.getStatus(),
+                prescription.getExternalPrescriberName(),
+                prescription.getExternalReference(),
+                prescription.getNotes(),
+                prescription.getCreatedAt(),
+                prescription.getCreatedByUsername(),
+                items.stream().map(item -> new PrescriptionItemResponse(
+                        item.getId(),
+                        item.getMedicineName(),
+                        item.getDosage(),
+                        item.getAdministrationRoute(),
+                        item.getFrequency(),
+                        item.getDuration(),
+                        item.getQuantity(),
+                        item.getInstructions(),
+                        item.getDisplayOrder())).toList());
     }
 
     private void assignResponsiblePersonnel(

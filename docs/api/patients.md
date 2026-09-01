@@ -21,6 +21,8 @@ défaut `http://localhost:8888`.
 | `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/responsible-personnel` | Affecte le personnel responsable d’un passage en cours. |
 | `GET` | `/api/v1/patients/{patientId}/passages/{passageId}/clinical-entries/search?page=0&size=20&query=toux&entryType=CLINICAL_EVOLUTION&orientation=LABORATORY` | Consulte le journal clinique paginé d’un passage. |
 | `POST` | `/api/v1/patients/{patientId}/passages/{passageId}/clinical-entries` | Ajoute une évolution clinique à un passage en cours. |
+| `GET` | `/api/v1/patients/{patientId}/passages/{passageId}/prescriptions/search?page=0&size=20&query=amoxicilline&source=MEDICAL` | Consulte les ordonnances paginées d’un passage. |
+| `POST` | `/api/v1/patients/{patientId}/passages/{passageId}/prescriptions` | Ajoute une ordonnance médicale ou enregistre une ordonnance externe. |
 | `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/status` | Termine ou annule un passage en cours. |
 | `PATCH` | `/api/v1/patients/{patientId}/status` | Active ou désactive un dossier. |
 
@@ -79,6 +81,41 @@ par nature de note et filtre par orientation.
   "followUpOn": "2026-09-04"
 }
 ```
+
+## Ordonnances et pharmacie
+
+Une ordonnance est toujours liée à un passage `OPEN`. Son code `ORD-YYYYMMDD-XXXXXXXX`
+est généré par le serveur ; l’interface ne le demande jamais à l’utilisateur.
+
+Le personnel responsable du passage — en pratique le médecin en charge — ou un
+administrateur peut créer une ordonnance `MEDICAL`. Celle-ci est signée par
+l’auteur connecté. Le rôle `PHARMACIST` peut enregistrer une ordonnance
+`EXTERNAL_PAPER` présentée par le patient, en indiquant obligatoirement le nom
+du prescripteur externe. Ces deux origines restent distinctes pour la
+traçabilité et ne permettent pas d’attribuer au pharmacien une prescription
+médicale qu’il n’a pas établie.
+
+```json
+{
+  "source": "MEDICAL",
+  "notes": "À prendre après le repas.",
+  "items": [
+    {
+      "medicineName": "Amoxicilline",
+      "dosage": "500 mg",
+      "administrationRoute": "Voie orale",
+      "frequency": "3 fois par jour",
+      "duration": "7 jours",
+      "quantity": "21 gélules",
+      "instructions": "Terminer le traitement."
+    }
+  ]
+}
+```
+
+Chaque ordonnance débute à l’état `PENDING_DISPENSING`. La délivrance, le
+catalogue et le stock seront ajoutés au module Pharmacie et changeront cet état
+sans modifier la prescription initiale.
 
 Avant la clôture définitive, les futures opérations seront rattachées au même
 passage : consultation et actes, analyses et résultats, ordonnances et

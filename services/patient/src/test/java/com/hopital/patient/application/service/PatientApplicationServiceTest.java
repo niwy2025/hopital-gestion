@@ -15,6 +15,7 @@ import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.domain.PatientDocumentType;
+import com.hopital.patient.application.domain.PrescriptionSource;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
@@ -26,6 +27,8 @@ import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
+import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
+import com.hopital.patient.application.dto.PrescriptionItemRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
@@ -36,6 +39,8 @@ import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryE
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionItemRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
@@ -64,6 +69,12 @@ class PatientApplicationServiceTest {
 
     @Mock
     private PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository;
+
+    @Mock
+    private PatientPassagePrescriptionRepository patientPassagePrescriptionRepository;
+
+    @Mock
+    private PatientPassagePrescriptionItemRepository patientPassagePrescriptionItemRepository;
 
     @Mock
     private HospitalReferenceClient hospitalReferenceClient;
@@ -332,6 +343,39 @@ class PatientApplicationServiceTest {
             assertThat(item.entryType()).isEqualTo(ClinicalEntryType.CLINICAL_EVOLUTION);
             assertThat(item.orientation()).isEqualTo(ClinicalOrientation.FOLLOW_UP);
         });
+    }
+
+    @Test
+    void recordsAnExternalPrescriptionWithoutImpersonatingAPlatformDoctor() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260901-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.PHARMACY, "Pharmacie hospitalière", null, auditActor(), Instant.now());
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+        when(patientPassagePrescriptionRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
+        when(patientPassagePrescriptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(patientPassagePrescriptionItemRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = patientApplicationService.addPrescription(
+                patient.getId(),
+                passage.getId(),
+                new CreatePatientPassagePrescriptionRequest(
+                        PrescriptionSource.EXTERNAL_PAPER,
+                        "Dr. Mavungu",
+                        "ORD-PAPIER-54",
+                        "Ordonnance apportée par le patient.",
+                        List.of(new PrescriptionItemRequest(
+                                "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null))),
+                new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
+                auditActor());
+
+        assertThat(response.code()).startsWith("ORD-");
+        assertThat(response.source()).isEqualTo(PrescriptionSource.EXTERNAL_PAPER);
+        assertThat(response.externalPrescriberName()).isEqualTo("Dr. Mavungu");
+        assertThat(response.items()).singleElement().satisfies(item ->
+                assertThat(item.medicineName()).isEqualTo("Amoxicilline"));
+        assertThat(patient.getAuditEvents()).singleElement().satisfies(event ->
+                assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.PRESCRIPTION_ADDED));
     }
 
     @Test

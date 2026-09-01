@@ -188,6 +188,9 @@ services:
         if ! /opt/keycloak/bin/kcadm.sh get roles/HR_MANAGER -r hospital >/dev/null 2>&1; then
           /opt/keycloak/bin/kcadm.sh create roles -r hospital -s name=HR_MANAGER -s 'description=Personnel management'
         fi
+        if ! /opt/keycloak/bin/kcadm.sh get roles/PHARMACIST -r hospital >/dev/null 2>&1; then
+          /opt/keycloak/bin/kcadm.sh create roles -r hospital -s name=PHARMACIST -s 'description=Pharmacist'
+        fi
         client_id=$$(/opt/keycloak/bin/kcadm.sh get clients -r hospital -q clientId=hospital-services --fields id --format csv | tr -d '\"\r\n')
         /opt/keycloak/bin/kcadm.sh update clients/$$client_id -r hospital \
           -s directAccessGrantsEnabled=true \

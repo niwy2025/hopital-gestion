@@ -36,6 +36,7 @@
       { "name": "ADMIN", "description": "Hospital platform administrator" },
       { "name": "DOCTOR", "description": "Medical practitioner" },
       { "name": "NURSE", "description": "Nursing staff" },
+      { "name": "PHARMACIST", "description": "Pharmacist" },
       { "name": "RECEPTIONIST", "description": "Admissions and front desk" },
       { "name": "HR_MANAGER", "description": "Personnel management" },
       { "name": "PATIENT", "description": "Patient portal user" }

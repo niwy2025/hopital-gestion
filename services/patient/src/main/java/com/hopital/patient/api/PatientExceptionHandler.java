@@ -7,6 +7,7 @@ import com.hopital.patient.application.exception.InvalidRegistrationHospitalExce
 import com.hopital.patient.application.exception.InvalidPatientDocumentException;
 import com.hopital.patient.application.exception.InvalidResponsiblePersonnelException;
 import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
+import com.hopital.patient.application.exception.InvalidPrescriptionException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -54,6 +55,13 @@ public class PatientExceptionHandler {
             InvalidPatientPassageStateException exception,
             HttpServletRequest request) {
         return error(HttpStatus.CONFLICT, "PASSAGE_STATE_INVALID", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidPrescriptionException.class)
+    ResponseEntity<ApiError> handleInvalidPrescription(
+            InvalidPrescriptionException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, "PRESCRIPTION_INVALID", exception.getMessage(), request);
     }
 
     @ExceptionHandler(DataAccessDeniedException.class)

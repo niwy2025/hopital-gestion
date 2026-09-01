@@ -42,6 +42,16 @@ Exemple de création :
 Pour une mise à jour, le champ `password` est facultatif. Lorsqu'il est absent,
 le mot de passe actuel est conservé.
 
+## Rôles de prescription et de pharmacie
+
+- **Médecin** : crée les ordonnances médicales de ses patients.
+- **Pharmacien·ne** : consulte les ordonnances et enregistre une ordonnance
+  externe présentée sur papier ; la délivrance des médicaments sera rattachée à
+  cette ordonnance dans le module Pharmacie.
+
+L’ordonnance externe reste donc identifiable dans l’audit et ne se fait jamais
+passer pour une prescription rédigée par un médecin de la plateforme.
+
 ## Photo de profil
 
 La fiche `GET /api/v1/accounts/{accountId}` retourne la photo uniquement pour

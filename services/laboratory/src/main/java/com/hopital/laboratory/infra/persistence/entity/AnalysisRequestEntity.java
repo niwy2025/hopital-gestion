@@ -34,6 +34,9 @@ public class AnalysisRequestEntity {
     @Column(name = "patient_name", nullable = false, length = 200)
     private String patientName;
 
+    @Column(name = "patient_passage_id")
+    private UUID patientPassageId;
+
     @Column(name = "analysis_code", nullable = false, length = 50)
     private String analysisCode;
 
@@ -64,12 +67,39 @@ public class AnalysisRequestEntity {
             String analysisName,
             String requesterName,
             Instant createdAt) {
+        this(
+                id,
+                code,
+                laboratoryType,
+                laboratoryCode,
+                patientReference,
+                patientName,
+                analysisCode,
+                analysisName,
+                requesterName,
+                createdAt,
+                null);
+    }
+
+    public AnalysisRequestEntity(
+            UUID id,
+            String code,
+            LaboratoryType laboratoryType,
+            String laboratoryCode,
+            String patientReference,
+            String patientName,
+            String analysisCode,
+            String analysisName,
+            String requesterName,
+            Instant createdAt,
+            UUID patientPassageId) {
         this.id = id;
         this.code = code;
         this.laboratoryType = laboratoryType;
         this.laboratoryCode = laboratoryCode;
         this.patientReference = patientReference;
         this.patientName = patientName;
+        this.patientPassageId = patientPassageId;
         this.analysisCode = analysisCode;
         this.analysisName = analysisName;
         this.requesterName = requesterName;
@@ -99,6 +129,10 @@ public class AnalysisRequestEntity {
 
     public String getPatientName() {
         return patientName;
+    }
+
+    public UUID getPatientPassageId() {
+        return patientPassageId;
     }
 
     public String getAnalysisCode() {

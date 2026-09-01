@@ -8,5 +8,6 @@ public record HospitalAccessReferenceResponse(
         UUID hospitalId,
         String hospitalCode,
         boolean active,
-        List<String> hospitalLaboratoryCodes) {
+        List<String> hospitalLaboratoryCodes,
+        List<HospitalLaboratoryAccessReference> hospitalLaboratories) {
 }

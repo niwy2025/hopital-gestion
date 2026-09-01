@@ -25,6 +25,10 @@ spring:
 hospital:
   auth-service:
     base-url: ${AUTH_SERVICE_BASE_URL:http://auth-service:8081}
+  organization-service:
+    base-url: ${ORGANIZATION_SERVICE_BASE_URL:http://organization-service:8084}
+  patient-service:
+    base-url: ${PATIENT_SERVICE_BASE_URL:http://patient-service:8086}
 
 management:
   metrics:

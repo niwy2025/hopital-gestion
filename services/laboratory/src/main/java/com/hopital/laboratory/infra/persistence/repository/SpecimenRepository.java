@@ -2,6 +2,7 @@ package com.hopital.laboratory.infra.persistence.repository;
 
 import com.hopital.laboratory.infra.persistence.entity.SpecimenEntity;
 import java.util.List;
+import java.util.Collection;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +15,8 @@ public interface SpecimenRepository extends JpaRepository<SpecimenEntity, UUID> 
     boolean existsByCodeIgnoreCase(String code);
 
     List<SpecimenEntity> findAllByOrderByReceivedAtDesc();
+
+    List<SpecimenEntity> findAllByAnalysisRequest_IdInOrderByReceivedAtDesc(Collection<UUID> analysisRequestIds);
 
     @Query("""
             SELECT specimen

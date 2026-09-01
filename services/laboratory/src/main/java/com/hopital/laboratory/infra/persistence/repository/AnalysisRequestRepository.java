@@ -1,6 +1,7 @@
 package com.hopital.laboratory.infra.persistence.repository;
 
 import com.hopital.laboratory.infra.persistence.entity.AnalysisRequestEntity;
+import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,8 @@ public interface AnalysisRequestRepository extends JpaRepository<AnalysisRequest
     boolean existsByCodeIgnoreCase(String code);
 
     Optional<AnalysisRequestEntity> findByCodeIgnoreCase(String code);
+
+    Optional<AnalysisRequestEntity> findByCodeIgnoreCaseAndPatientPassageId(String code, UUID patientPassageId);
 
     List<AnalysisRequestEntity> findAllByOrderByCreatedAtDesc();
 
@@ -36,4 +39,21 @@ public interface AnalysisRequestRepository extends JpaRepository<AnalysisRequest
     default Page<AnalysisRequestEntity> search(String query, Pageable pageable) {
         return search(query, true, List.of("_"), pageable);
     }
+
+    @Query("""
+            SELECT analysisRequest
+            FROM AnalysisRequestEntity analysisRequest
+            WHERE analysisRequest.patientPassageId = :passageId
+              AND (:query = ''
+                    OR LOWER(analysisRequest.code) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(analysisRequest.analysisCode) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(analysisRequest.analysisName) LIKE LOWER(CONCAT('%', :query, '%'))
+                    OR LOWER(COALESCE(analysisRequest.requesterName, '')) LIKE LOWER(CONCAT('%', :query, '%')))
+              AND (:status IS NULL OR analysisRequest.status = :status)
+            """)
+    Page<AnalysisRequestEntity> searchByPatientPassageId(
+            @Param("passageId") UUID passageId,
+            @Param("query") String query,
+            @Param("status") AnalysisRequestStatus status,
+            Pageable pageable);
 }

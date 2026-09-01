@@ -24,6 +24,7 @@ import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
 import com.hopital.patient.application.dto.PatientPassageClinicalEntryResponse;
+import com.hopital.patient.application.dto.PatientPassageLaboratoryReferenceResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
@@ -232,6 +233,29 @@ public class PatientApplicationService {
                 .orElseThrow(() -> new PatientNotFoundException(passageId.toString()));
         assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
         return toPassageSummary(passage, canManagePassageStatus(accessScope, passage));
+    }
+
+    /**
+     * Returns only the data required to bind a laboratory request to a care
+     * episode. This method is called through the private container network.
+     */
+    public PatientPassageLaboratoryReferenceResponse resolvePassageForLaboratory(UUID passageId) {
+        PatientPassageEntity passage = patientPassageRepository.findById(passageId)
+                .orElseThrow(() -> new PatientNotFoundException(passageId.toString()));
+        PatientEntity patient = passage.getPatient();
+        String patientName = java.util.stream.Stream.of(patient.getLastName(), patient.getFirstName(), patient.getMiddleName())
+                .filter(value -> value != null && !value.isBlank())
+                .collect(java.util.stream.Collectors.joining(" "));
+        return new PatientPassageLaboratoryReferenceResponse(
+                passage.getId(),
+                passage.getCode(),
+                patient.getId(),
+                patient.getCode(),
+                patientName,
+                passage.getHospitalId(),
+                passage.getHospitalCode(),
+                passage.getServiceName(),
+                passage.getStatus());
     }
 
     /**

@@ -3,6 +3,7 @@ package com.hopital.laboratory.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
@@ -11,6 +12,7 @@ import com.hopital.laboratory.application.domain.LaboratoryType;
 import com.hopital.laboratory.application.domain.SpecimenType;
 import com.hopital.laboratory.application.dto.CreateAnalysisRequestRequest;
 import com.hopital.laboratory.application.dto.CreateAnalysisResultRequest;
+import com.hopital.laboratory.application.dto.CreatePatientPassageAnalysisRequest;
 import com.hopital.laboratory.application.dto.CreateSpecimenRequest;
 import com.hopital.laboratory.application.dto.ValidateAnalysisResultRequest;
 import com.hopital.laboratory.application.exception.InvalidLaboratoryWorkflowException;
@@ -19,6 +21,8 @@ import com.hopital.laboratory.infra.persistence.entity.AnalysisResultEntity;
 import com.hopital.laboratory.infra.persistence.repository.AnalysisRequestRepository;
 import com.hopital.laboratory.infra.persistence.repository.AnalysisResultRepository;
 import com.hopital.laboratory.infra.persistence.repository.SpecimenRepository;
+import com.hopital.laboratory.infra.integration.organization.HospitalLaboratoryReferenceClient;
+import com.hopital.laboratory.infra.integration.patient.PatientPassageReferenceClient;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +43,12 @@ class LaboratoryApplicationServiceTest {
 
     @Mock
     private AnalysisResultRepository analysisResultRepository;
+
+    @Mock
+    private PatientPassageReferenceClient patientPassageReferenceClient;
+
+    @Mock
+    private HospitalLaboratoryReferenceClient hospitalLaboratoryReferenceClient;
 
     @InjectMocks
     private LaboratoryApplicationService laboratoryApplicationService;
@@ -104,5 +114,45 @@ class LaboratoryApplicationServiceTest {
                 "res-001", "req-001", "12.4", null, null, null)))
                 .isInstanceOf(InvalidLaboratoryWorkflowException.class)
                 .hasMessageContaining("après la réception");
+    }
+
+    @Test
+    void bindsAPassageRequestToItsActiveHospitalLaboratory() {
+        UUID passageId = UUID.randomUUID();
+        UUID hospitalId = UUID.randomUUID();
+        when(patientPassageReferenceClient.resolve(passageId)).thenReturn(
+                new PatientPassageReferenceClient.PatientPassageReference(
+                        passageId,
+                        "PASS-001",
+                        UUID.randomUUID(),
+                        "PAT-001",
+                        "Patient de test",
+                        hospitalId,
+                        "HGR-001",
+                        "Médecine interne",
+                        "OPEN"));
+        when(hospitalLaboratoryReferenceClient.resolveActiveHospital(hospitalId)).thenReturn(
+                new HospitalLaboratoryReferenceClient.HospitalReference(
+                        hospitalId,
+                        "HGR-001",
+                        true,
+                        java.util.List.of("LAB-HGR-001"),
+                        java.util.List.of(new HospitalLaboratoryReferenceClient.HospitalLaboratoryReference(
+                                "LAB-HGR-001", "Laboratoire HGR"))));
+        when(analysisRequestRepository.existsByCodeIgnoreCase(anyString())).thenReturn(false);
+        when(analysisRequestRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = laboratoryApplicationService.createPatientPassageAnalysisRequest(
+                passageId,
+                new CreatePatientPassageAnalysisRequest("lab-hgr-001", "nfs", "Numération formule sanguine"),
+                "dr.mbala");
+
+        assertThat(response.patientPassageId()).isEqualTo(passageId);
+        assertThat(response.patientReference()).isEqualTo("PAT-001");
+        assertThat(response.patientName()).isEqualTo("Patient de test");
+        assertThat(response.laboratoryType()).isEqualTo(LaboratoryType.HOSPITAL);
+        assertThat(response.laboratoryCode()).isEqualTo("LAB-HGR-001");
+        assertThat(response.requesterName()).isEqualTo("dr.mbala");
+        assertThat(response.code()).startsWith("LAB-");
     }
 }

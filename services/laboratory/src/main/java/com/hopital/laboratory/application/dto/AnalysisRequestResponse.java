@@ -16,5 +16,6 @@ public record AnalysisRequestResponse(
         String analysisName,
         String requesterName,
         AnalysisRequestStatus status,
-        Instant createdAt) {
+        Instant createdAt,
+        UUID patientPassageId) {
 }

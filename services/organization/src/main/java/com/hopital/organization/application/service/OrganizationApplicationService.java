@@ -12,6 +12,7 @@ import com.hopital.organization.application.dto.HealthZoneResponse;
 import com.hopital.organization.application.dto.HealthAreaResponse;
 import com.hopital.organization.application.dto.HospitalResponse;
 import com.hopital.organization.application.dto.HospitalAccessReferenceResponse;
+import com.hopital.organization.application.dto.HospitalLaboratoryAccessReference;
 import com.hopital.organization.application.dto.HospitalLaboratoryResponse;
 import com.hopital.organization.application.dto.LaboratoryStructureResponse;
 import com.hopital.organization.application.dto.PageResponse;
@@ -120,12 +121,15 @@ public class OrganizationApplicationService {
     public HospitalAccessReferenceResponse resolveHospitalAccessReference(UUID hospitalId) {
         HospitalEntity hospital = hospitalRepository.findById(hospitalId)
                 .orElseThrow(() -> new OrganizationNotFoundException("hôpital", hospitalId.toString()));
-        List<String> laboratoryCodes = hospitalLaboratoryRepository
+        List<HospitalLaboratoryEntity> hospitalLaboratories = hospitalLaboratoryRepository
                 .findAllByHospital_IdAndActiveTrueOrderByNameAsc(hospitalId)
-                .stream()
-                .map(HospitalLaboratoryEntity::getCode)
+                .stream().toList();
+        List<String> laboratoryCodes = hospitalLaboratories.stream().map(HospitalLaboratoryEntity::getCode).toList();
+        List<HospitalLaboratoryAccessReference> laboratories = hospitalLaboratories.stream()
+                .map(laboratory -> new HospitalLaboratoryAccessReference(laboratory.getCode(), laboratory.getName()))
                 .toList();
-        return new HospitalAccessReferenceResponse(hospital.getId(), hospital.getCode(), hospital.isActive(), laboratoryCodes);
+        return new HospitalAccessReferenceResponse(
+                hospital.getId(), hospital.getCode(), hospital.isActive(), laboratoryCodes, laboratories);
     }
 
     public List<ReferenceLaboratoryResponse> listReferenceLaboratories() {

@@ -2,6 +2,7 @@ package com.hopital.laboratory.infra.persistence.repository;
 
 import com.hopital.laboratory.infra.persistence.entity.AnalysisResultEntity;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -19,6 +20,8 @@ public interface AnalysisResultRepository extends JpaRepository<AnalysisResultEn
     Optional<AnalysisResultEntity> findByCodeIgnoreCase(String code);
 
     List<AnalysisResultEntity> findAllByOrderByEnteredAtDesc();
+
+    List<AnalysisResultEntity> findAllByAnalysisRequest_IdIn(Collection<UUID> analysisRequestIds);
 
     @Query("""
             SELECT analysisResult

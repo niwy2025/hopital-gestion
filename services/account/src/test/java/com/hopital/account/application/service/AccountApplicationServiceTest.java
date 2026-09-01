@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.hopital.account.application.dto.CreateAccountRequest;
 import com.hopital.account.application.dto.CredentialsValidationRequest;
 import com.hopital.account.application.dto.RoleResponse;
+import com.hopital.account.application.dto.UpdateOwnAccountRequest;
 import com.hopital.account.application.domain.AccountCreatedEvent;
 import com.hopital.account.infra.persistence.entity.AccountEntity;
 import com.hopital.account.infra.persistence.entity.PermissionEntity;
@@ -155,5 +156,42 @@ class AccountApplicationServiceTest {
 
         assertThat(response.authenticated()).isTrue();
         assertThat(response.account().hospitalId()).isNull();
+    }
+
+    @Test
+    void updatesOnlyTheConnectedAccountPersonalProfile() {
+        UUID accountId = UUID.randomUUID();
+        UUID hospitalId = UUID.randomUUID();
+        RoleEntity nurseRole = new RoleEntity(UUID.randomUUID(), "NURSE", "Infirmier·ère", Set.of());
+        AccountEntity account = new AccountEntity(
+                accountId,
+                "alice",
+                "alice@hopital.local",
+                "Alice",
+                "old-hash",
+                hospitalId,
+                null,
+                null,
+                Set.of(nurseRole));
+        when(accountRepository.findByUsernameIgnoreCase("alice")).thenReturn(Optional.of(account));
+        when(accountRepository.existsByEmailIgnoreCaseAndIdNot("alice.nouvelle@hopital.local", accountId)).thenReturn(false);
+        when(passwordEncoder.matches("ancien-mot-de-passe", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("nouveau-mot-de-passe")).thenReturn("new-hash");
+        when(rolePermissionService.toResponse(nurseRole)).thenReturn(new RoleResponse("NURSE", "Infirmier·ère", Set.of()));
+
+        var response = accountApplicationService.updateOwnAccount("alice", new UpdateOwnAccountRequest(
+                "alice.nouvelle@hopital.local",
+                "Alice Nouvelle",
+                "ancien-mot-de-passe",
+                "nouveau-mot-de-passe",
+                null,
+                null,
+                false));
+
+        assertThat(response.username()).isEqualTo("alice");
+        assertThat(response.email()).isEqualTo("alice.nouvelle@hopital.local");
+        assertThat(response.displayName()).isEqualTo("Alice Nouvelle");
+        assertThat(response.hospitalId()).isEqualTo(hospitalId.toString());
+        assertThat(account.getPasswordHash()).isEqualTo("new-hash");
     }
 }

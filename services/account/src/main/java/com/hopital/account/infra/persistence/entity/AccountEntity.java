@@ -124,6 +124,12 @@ public class AccountEntity {
         this.roles = new HashSet<>(roles);
     }
 
+    /** Updates only data that an account owner may change personally. */
+    public void updateOwnProfile(String email, String displayName) {
+        this.email = email;
+        this.displayName = displayName;
+    }
+
     /**
      * Updates only the operational perimeter of a connected account. This is used by personnel
      * assignments without letting another service change the account identity, credentials or roles.

@@ -9,10 +9,12 @@ import com.hopital.account.application.dto.PageResponse;
 import com.hopital.account.application.dto.RoleResponse;
 import com.hopital.account.application.dto.UpdateAccountRequest;
 import com.hopital.account.application.dto.UpdateAccountHospitalAssignmentRequest;
+import com.hopital.account.application.dto.UpdateOwnAccountRequest;
 import com.hopital.account.application.domain.AccountCreatedEvent;
 import com.hopital.account.application.exception.DuplicateAccountException;
 import com.hopital.account.application.exception.InvalidHospitalAssignmentException;
 import com.hopital.account.application.exception.InvalidProfilePhotoException;
+import com.hopital.account.application.exception.InvalidCurrentPasswordException;
 import com.hopital.account.application.exception.AccountNotFoundException;
 import com.hopital.account.infra.persistence.entity.AccountEntity;
 import com.hopital.account.infra.persistence.repository.AccountRepository;
@@ -95,6 +97,12 @@ public class AccountApplicationService {
                 .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
     }
 
+    public AccountDetailsResponse findOwnAccount(String username) {
+        return accountRepository.findByUsernameIgnoreCase(username)
+                .map(this::toDetailsResponse)
+                .orElseThrow(() -> new AccountNotFoundException(username));
+    }
+
     public AccountResponse findSummaryById(UUID accountId) {
         return accountRepository.findById(accountId)
                 .map(this::toResponse)
@@ -135,6 +143,35 @@ public class AccountApplicationService {
                 rolePermissionService.resolveRoles(request.roles()));
         if (request.password() != null && !request.password().isBlank()) {
             account.changePassword(passwordEncoder.encode(request.password()));
+        }
+        if (request.removeProfilePhoto()) {
+            account.removeProfilePhoto();
+        } else {
+            ProfilePhoto profilePhoto = parseProfilePhoto(request.profilePhotoBase64(), request.profilePhotoContentType());
+            if (profilePhoto != null) {
+                account.changeProfilePhoto(profilePhoto.base64(), profilePhoto.contentType());
+            }
+        }
+        return toDetailsResponse(account);
+    }
+
+    @Transactional
+    public AccountDetailsResponse updateOwnAccount(String username, UpdateOwnAccountRequest request) {
+        AccountEntity account = accountRepository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new AccountNotFoundException(username));
+        String email = request.email().trim();
+        if (accountRepository.existsByEmailIgnoreCaseAndIdNot(email, account.getId())) {
+            throw new DuplicateAccountException("l’adresse e-mail", email);
+        }
+
+        account.updateOwnProfile(email, request.displayName().trim());
+        if (request.newPassword() != null && !request.newPassword().isBlank()) {
+            if (request.currentPassword() == null
+                    || request.currentPassword().isBlank()
+                    || !passwordEncoder.matches(request.currentPassword(), account.getPasswordHash())) {
+                throw new InvalidCurrentPasswordException();
+            }
+            account.changePassword(passwordEncoder.encode(request.newPassword()));
         }
         if (request.removeProfilePhoto()) {
             account.removeProfilePhoto();

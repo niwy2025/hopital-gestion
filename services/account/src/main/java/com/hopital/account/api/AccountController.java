@@ -6,6 +6,7 @@ import com.hopital.account.application.dto.CreateAccountRequest;
 import com.hopital.account.application.dto.PageResponse;
 import com.hopital.account.application.dto.RoleResponse;
 import com.hopital.account.application.dto.UpdateAccountRequest;
+import com.hopital.account.application.dto.UpdateOwnAccountRequest;
 import com.hopital.account.application.service.AccountApplicationService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -20,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 @RestController
 @RequestMapping("/api/v1/accounts")
@@ -70,5 +73,25 @@ public class AccountController {
     @GetMapping("/roles")
     public ResponseEntity<Set<RoleResponse>> listRoles() {
         return ResponseEntity.ok(accountApplicationService.listRoles());
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<AccountDetailsResponse> findOwnAccount(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(accountApplicationService.findOwnAccount(username(jwt)));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<AccountDetailsResponse> updateOwnAccount(
+            @Valid @RequestBody UpdateOwnAccountRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(accountApplicationService.updateOwnAccount(username(jwt), request));
+    }
+
+    private String username(Jwt jwt) {
+        String username = jwt.getClaimAsString("preferred_username");
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Le jeton ne contient pas d’identifiant utilisateur.");
+        }
+        return username;
     }
 }

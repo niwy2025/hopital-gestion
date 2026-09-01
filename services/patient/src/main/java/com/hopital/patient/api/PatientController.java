@@ -80,9 +80,10 @@ public class PatientController {
             @RequestParam(name = "hospitalId", required = false) UUID hospitalId,
             @RequestParam(name = "type", required = false) PatientPassageType type,
             @RequestParam(name = "status", required = false) PatientPassageStatus status,
+            @RequestParam(name = "assignedToMe", defaultValue = "false") boolean assignedToMe,
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(patientApplicationService.searchPassageRegistry(
-                page, size, query, hospitalId, type, status, accessScope(jwt)));
+                page, size, query, hospitalId, type, status, assignedToMe, accessScope(jwt)));
     }
 
     @GetMapping("/passages/{passageId}")

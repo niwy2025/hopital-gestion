@@ -348,7 +348,7 @@ class PatientApplicationServiceTest {
                 "Consultation générale",
                 auditActor(),
                 Instant.now());
-        when(patientPassageRepository.searchRegistry(any(), any(), any(), any(), any(), any()))
+        when(patientPassageRepository.searchRegistry(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(passage)));
 
         var response = patientApplicationService.searchPassageRegistry(
@@ -358,6 +358,7 @@ class PatientApplicationServiceTest {
                 UUID.randomUUID(),
                 PatientPassageType.CONSULTATION,
                 PatientPassageStatus.OPEN,
+                false,
                 new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"));
 
         assertThat(response.items()).singleElement().satisfies(item -> {
@@ -372,6 +373,7 @@ class PatientApplicationServiceTest {
                 org.mockito.ArgumentMatchers.eq("Amina"),
                 org.mockito.ArgumentMatchers.eq(PatientPassageType.CONSULTATION),
                 org.mockito.ArgumentMatchers.eq(PatientPassageStatus.OPEN),
+                org.mockito.ArgumentMatchers.isNull(),
                 any());
     }
 

@@ -196,6 +196,7 @@ public class PatientApplicationService {
             UUID hospitalId,
             PatientPassageType type,
             PatientPassageStatus status,
+            boolean assignedToMe,
             DataAccessScope accessScope) {
         String scopeHospitalCode = "";
         if (!accessScope.provinceWide()) {
@@ -205,18 +206,26 @@ public class PatientApplicationService {
             scopeHospitalCode = accessScope.hospitalCode();
         }
 
+        PageRequest pageRequest = PageRequest.of(
+                Math.max(page, 0),
+                Math.min(Math.max(size, 1), 100),
+                Sort.by("arrivedAt").descending());
+        if (assignedToMe && accessScope.personnelId() == null) {
+            return new PageResponse<>(List.of(), pageRequest.getPageNumber(), pageRequest.getPageSize(), 0, 0);
+        }
+
         var passages = patientPassageRepository.searchRegistry(
                 scopeHospitalCode,
                 accessScope.provinceWide() ? hospitalId : null,
                 normalizeSearchFilter(query),
                 type,
                 status,
-                PageRequest.of(
-                        Math.max(page, 0),
-                        Math.min(Math.max(size, 1), 100),
-                        Sort.by("arrivedAt").descending()));
+                assignedToMe ? accessScope.personnelId() : null,
+                pageRequest);
         return new PageResponse<>(
-                passages.getContent().stream().map(passage -> toPassageSummary(passage, false)).toList(),
+                passages.getContent().stream()
+                        .map(passage -> toPassageSummary(passage, assignedToMe && canManagePassageStatus(accessScope, passage)))
+                        .toList(),
                 passages.getNumber(),
                 passages.getSize(),
                 passages.getTotalElements(),

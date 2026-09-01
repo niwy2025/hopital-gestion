@@ -12,7 +12,7 @@ défaut `http://localhost:8888`.
 | --- | --- | --- |
 | `GET` | `/api/v1/patients` | Liste les dossiers patients. |
 | `GET` | `/api/v1/patients/search?page=0&size=20&query=amina&hospitalId={uuid}` | Recherche paginée par code, identité ou hôpital d'enregistrement. |
-| `GET` | `/api/v1/patients/passages/search?page=0&size=20&query=amina&hospitalId={uuid}&type=CONSULTATION&status=OPEN` | Registre paginé des passages visibles dans le périmètre de l’utilisateur. |
+| `GET` | `/api/v1/patients/passages/search?page=0&size=20&query=amina&hospitalId={uuid}&type=CONSULTATION&status=OPEN&assignedToMe=true` | Registre paginé des passages visibles dans le périmètre de l’utilisateur. Avec `assignedToMe=true`, il ne contient que les passages confiés au personnel connecté. |
 | `GET` | `/api/v1/patients/passages/{passageId}` | Consulte la fiche administrative d’un passage précis. |
 | `GET` | `/api/v1/patients/{patientId}` | Consulte la fiche complète d’un patient. |
 | `GET` | `/api/v1/patients/{patientId}/passages?page=0&size=20` | Consulte l’historique des passages d’un dossier. |

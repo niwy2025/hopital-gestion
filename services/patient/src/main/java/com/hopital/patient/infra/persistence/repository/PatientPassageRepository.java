@@ -48,6 +48,7 @@ public interface PatientPassageRepository extends JpaRepository<PatientPassageEn
                     OR LOWER(COALESCE(passage.reason, '')) LIKE LOWER(CONCAT('%', :query, '%')))
               AND (:type IS NULL OR passage.type = :type)
               AND (:status IS NULL OR passage.status = :status)
+              AND (:responsiblePersonnelId IS NULL OR passage.responsiblePersonnelId = :responsiblePersonnelId)
             """)
     Page<PatientPassageEntity> searchRegistry(
             @Param("scopeHospitalCode") String scopeHospitalCode,
@@ -55,5 +56,6 @@ public interface PatientPassageRepository extends JpaRepository<PatientPassageEn
             @Param("query") String query,
             @Param("type") PatientPassageType type,
             @Param("status") PatientPassageStatus status,
+            @Param("responsiblePersonnelId") UUID responsiblePersonnelId,
             Pageable pageable);
 }

@@ -19,6 +19,8 @@ défaut `http://localhost:8888`.
 | `POST` | `/api/v1/patients` | Crée un dossier patient. |
 | `POST` | `/api/v1/patients/{patientId}/passages` | Enregistre une arrivée dans le parcours du patient. |
 | `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/responsible-personnel` | Affecte le personnel responsable d’un passage en cours. |
+| `GET` | `/api/v1/patients/{patientId}/passages/{passageId}/clinical-record` | Consulte le suivi clinique du passage ; renvoie `204` s’il n’a pas encore été saisi. |
+| `PUT` | `/api/v1/patients/{patientId}/passages/{passageId}/clinical-record` | Crée ou met à jour le suivi clinique d’un passage en cours. |
 | `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/status` | Termine ou annule un passage en cours. |
 | `PATCH` | `/api/v1/patients/{patientId}/status` | Active ou désactive un dossier. |
 
@@ -53,6 +55,28 @@ connexion. Un autre soignant du même hôpital conserve la consultation seule ;
 un administrateur peut gérer tous les passages. La fiche détaillée retourne le
 booléen `canManageStatus`, calculé côté serveur pour l'utilisateur connecté ;
 la même règle est à nouveau vérifiée lors de la modification du statut.
+
+## Suivi clinique
+
+Un seul suivi clinique est conservé par passage. Il contient les constatations,
+le diagnostic ou l’hypothèse, la conduite à tenir, l’orientation et une date de
+contrôle éventuelle. Ainsi, une nouvelle venue du même patient ouvre un nouveau
+suivi sans modifier l’historique du précédent passage.
+
+La saisie et la modification sont réservées au personnel responsable du
+passage, ou à un administrateur, tant que le passage est `OPEN`. Les auteurs et
+dates de création et de dernière modification sont conservés. Chaque mise à
+jour est aussi inscrite dans la traçabilité du dossier patient.
+
+```json
+{
+  "clinicalFindings": "Toux persistante, température à 38,5 °C.",
+  "diagnosis": "Infection respiratoire à confirmer",
+  "carePlan": "Hydratation, surveillance et bilan complémentaire.",
+  "orientation": "LABORATORY",
+  "followUpOn": "2026-09-04"
+}
+```
 
 Avant la clôture définitive, les futures opérations seront rattachées au même
 passage : consultation et actes, analyses et résultats, ordonnances et

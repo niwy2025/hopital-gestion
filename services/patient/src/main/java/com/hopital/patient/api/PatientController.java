@@ -13,12 +13,14 @@ import com.hopital.patient.application.dto.PatientDuplicateCheckResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
+import com.hopital.patient.application.dto.PatientPassageClinicalRecordResponse;
 import com.hopital.patient.application.dto.PatientDocumentResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.PageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
+import com.hopital.patient.application.dto.UpsertPatientPassageClinicalRecordRequest;
 import com.hopital.patient.application.service.PatientApplicationService;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.infra.integration.auth.AuthAccessScopeClient;
@@ -160,6 +162,30 @@ public class PatientController {
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.status(HttpStatus.CREATED).body(patientApplicationService.createPassage(
                 patientId,
+                request,
+                accessScope(jwt),
+                auditActor(jwt)));
+    }
+
+    @GetMapping("/{patientId}/passages/{passageId}/clinical-record")
+    public ResponseEntity<PatientPassageClinicalRecordResponse> getClinicalRecord(
+            @PathVariable("patientId") UUID patientId,
+            @PathVariable("passageId") UUID passageId,
+            @AuthenticationPrincipal Jwt jwt) {
+        return patientApplicationService.getClinicalRecord(patientId, passageId, accessScope(jwt))
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @PutMapping("/{patientId}/passages/{passageId}/clinical-record")
+    public ResponseEntity<PatientPassageClinicalRecordResponse> upsertClinicalRecord(
+            @PathVariable("patientId") UUID patientId,
+            @PathVariable("passageId") UUID passageId,
+            @Valid @RequestBody UpsertPatientPassageClinicalRecordRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(patientApplicationService.upsertClinicalRecord(
+                patientId,
+                passageId,
                 request,
                 accessScope(jwt),
                 auditActor(jwt)));

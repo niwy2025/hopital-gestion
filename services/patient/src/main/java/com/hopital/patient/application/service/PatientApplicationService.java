@@ -20,7 +20,9 @@ import com.hopital.patient.application.dto.PatientDocumentResponse;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
+import com.hopital.patient.application.dto.PatientPassageClinicalRecordResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
+import com.hopital.patient.application.dto.UpsertPatientPassageClinicalRecordRequest;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
@@ -34,7 +36,9 @@ import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalRecordEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalRecordRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
@@ -67,6 +71,7 @@ public class PatientApplicationService {
     private final PatientRepository patientRepository;
     private final PatientDocumentRepository patientDocumentRepository;
     private final PatientPassageRepository patientPassageRepository;
+    private final PatientPassageClinicalRecordRepository patientPassageClinicalRecordRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
     private final PersonnelReferenceClient personnelReferenceClient;
 
@@ -74,11 +79,13 @@ public class PatientApplicationService {
             PatientRepository patientRepository,
             PatientDocumentRepository patientDocumentRepository,
             PatientPassageRepository patientPassageRepository,
+            PatientPassageClinicalRecordRepository patientPassageClinicalRecordRepository,
             HospitalReferenceClient hospitalReferenceClient,
             PersonnelReferenceClient personnelReferenceClient) {
         this.patientRepository = patientRepository;
         this.patientDocumentRepository = patientDocumentRepository;
         this.patientPassageRepository = patientPassageRepository;
+        this.patientPassageClinicalRecordRepository = patientPassageClinicalRecordRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
         this.personnelReferenceClient = personnelReferenceClient;
     }
@@ -223,6 +230,68 @@ public class PatientApplicationService {
                 .orElseThrow(() -> new PatientNotFoundException(passageId.toString()));
         assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
         return toPassageSummary(passage, canManagePassageStatus(accessScope, passage));
+    }
+
+    /**
+     * The clinical record belongs to the passage rather than to the patient identity.
+     * This preserves a clear history when the same patient returns later for another care episode.
+     */
+    public java.util.Optional<PatientPassageClinicalRecordResponse> getClinicalRecord(
+            UUID patientId,
+            UUID passageId,
+            DataAccessScope accessScope) {
+        PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
+        return patientPassageClinicalRecordRepository.findByPassageId(passage.getId())
+                .map(this::toClinicalRecord);
+    }
+
+    @Transactional
+    public PatientPassageClinicalRecordResponse upsertClinicalRecord(
+            UUID patientId,
+            UUID passageId,
+            UpsertPatientPassageClinicalRecordRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
+        assertCanManagePassageStatus(accessScope, passage);
+        if (passage.getStatus() != PatientPassageStatus.OPEN) {
+            throw new InvalidPatientPassageStateException(
+                    "Le suivi clinique ne peut être modifié que sur un passage en cours.");
+        }
+
+        Instant recordedAt = Instant.now();
+        PatientPassageClinicalRecordEntity record = patientPassageClinicalRecordRepository
+                .findByPassageId(passage.getId())
+                .map(existing -> {
+                    existing.update(
+                            request.clinicalFindings().trim(),
+                            trimToNull(request.diagnosis()),
+                            trimToNull(request.carePlan()),
+                            request.orientation(),
+                            request.followUpOn(),
+                            auditActor,
+                            recordedAt);
+                    return existing;
+                })
+                .orElseGet(() -> new PatientPassageClinicalRecordEntity(
+                        UUID.randomUUID(),
+                        passage.getId(),
+                        request.clinicalFindings().trim(),
+                        trimToNull(request.diagnosis()),
+                        trimToNull(request.carePlan()),
+                        request.orientation(),
+                        request.followUpOn(),
+                        auditActor,
+                        recordedAt));
+
+        PatientPassageClinicalRecordResponse response = toClinicalRecord(
+                patientPassageClinicalRecordRepository.save(record));
+        passage.getPatient().recordModification(
+                auditActor,
+                PatientAuditEventType.CLINICAL_RECORD_UPDATED,
+                "Suivi clinique du passage " + passage.getCode() + " mis à jour.",
+                recordedAt);
+        return response;
     }
 
     public PatientDuplicateCheckResponse checkDuplicates(
@@ -687,6 +756,19 @@ public class PatientApplicationService {
         }
     }
 
+    private PatientPassageEntity getPassageForPatientScope(
+            UUID patientId,
+            UUID passageId,
+            DataAccessScope accessScope) {
+        PatientPassageEntity passage = patientPassageRepository.findById(passageId)
+                .orElseThrow(() -> new PatientNotFoundException(passageId.toString()));
+        if (!passage.getPatient().getId().equals(patientId)) {
+            throw new PatientNotFoundException(passageId.toString());
+        }
+        assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
+        return passage;
+    }
+
     private void assertCanManagePassageStatus(DataAccessScope accessScope, PatientPassageEntity passage) {
         if (!canManagePassageStatus(accessScope, passage)) {
             throw new DataAccessDeniedException(
@@ -749,6 +831,21 @@ public class PatientApplicationService {
                 passage.getResponsibleAssignedAt(),
                 passage.getResponsibleAssignedByUsername(),
                 canManageStatus);
+    }
+
+    private PatientPassageClinicalRecordResponse toClinicalRecord(PatientPassageClinicalRecordEntity record) {
+        return new PatientPassageClinicalRecordResponse(
+                record.getId(),
+                record.getPassageId(),
+                record.getClinicalFindings(),
+                record.getDiagnosis(),
+                record.getCarePlan(),
+                record.getOrientation(),
+                record.getFollowUpOn(),
+                record.getCreatedAt(),
+                record.getCreatedByUsername(),
+                record.getUpdatedAt(),
+                record.getUpdatedByUsername());
     }
 
     private void assignResponsiblePersonnel(

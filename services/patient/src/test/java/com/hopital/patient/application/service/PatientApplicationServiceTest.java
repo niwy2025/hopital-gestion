@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
 import com.hopital.patient.application.domain.AuditActor;
+import com.hopital.patient.application.domain.ClinicalOrientation;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.EmergencyContactRelationship;
 import com.hopital.patient.application.domain.Gender;
@@ -23,14 +24,17 @@ import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
+import com.hopital.patient.application.dto.UpsertPatientPassageClinicalRecordRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalRecordEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalRecordRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
@@ -56,6 +60,9 @@ class PatientApplicationServiceTest {
 
     @Mock
     private PatientPassageRepository patientPassageRepository;
+
+    @Mock
+    private PatientPassageClinicalRecordRepository patientPassageClinicalRecordRepository;
 
     @Mock
     private HospitalReferenceClient hospitalReferenceClient;
@@ -248,6 +255,39 @@ class PatientApplicationServiceTest {
                 auditActor()))
                 .isInstanceOf(DataAccessDeniedException.class)
                 .hasMessageContaining("personnel responsable");
+    }
+
+    @Test
+    void savesClinicalRecordOnlyForTheResponsiblePersonnelOnAnOpenPassage() {
+        PatientEntity patient = patient("HP-GOMA");
+        UUID responsiblePersonnelId = UUID.randomUUID();
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260901-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
+        passage.assignResponsiblePersonnel(
+                responsiblePersonnelId, "MED-001", "Kasongo Amina", "Médecin traitant", auditActor(), Instant.now());
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+        when(patientPassageClinicalRecordRepository.findByPassageId(passage.getId())).thenReturn(Optional.empty());
+        when(patientPassageClinicalRecordRepository.save(any(PatientPassageClinicalRecordEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = patientApplicationService.upsertClinicalRecord(
+                patient.getId(),
+                passage.getId(),
+                new UpsertPatientPassageClinicalRecordRequest(
+                        "Toux persistante, température à 38,5 °C.",
+                        "Infection respiratoire à confirmer",
+                        "Hydratation, surveillance et bilan complémentaire.",
+                        ClinicalOrientation.LABORATORY,
+                        LocalDate.of(2026, 9, 4)),
+                new DataAccessScope(false, false, responsiblePersonnelId, patient.getRegistrationHospitalId(), "HP-GOMA"),
+                auditActor());
+
+        assertThat(response.passageId()).isEqualTo(passage.getId());
+        assertThat(response.orientation()).isEqualTo(ClinicalOrientation.LABORATORY);
+        assertThat(response.updatedByUsername()).isEqualTo("operateur.accueil");
+        assertThat(patient.getAuditEvents()).singleElement().satisfies(event ->
+                assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.CLINICAL_RECORD_UPDATED));
     }
 
     @Test

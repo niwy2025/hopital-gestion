@@ -217,6 +217,32 @@ class PatientApplicationServiceTest {
     }
 
     @Test
+    void returnsPassageDetailsOnlyInsideTheOperatorScope() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(),
+                "PAS-20260901-ABCD1234",
+                patient,
+                patient.getRegistrationHospitalId(),
+                "HP-GOMA",
+                PatientPassageType.CONSULTATION,
+                "Accueil et triage",
+                "Consultation générale",
+                auditActor(),
+                Instant.now());
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+
+        var response = patientApplicationService.getPassage(
+                passage.getId(), new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"));
+
+        assertThat(response.id()).isEqualTo(passage.getId());
+        assertThat(response.code()).isEqualTo("PAS-20260901-ABCD1234");
+        assertThat(response.patientId()).isEqualTo(patient.getId());
+        assertThat(response.patientCode()).isEqualTo("PAT-0001");
+        assertThat(response.serviceName()).isEqualTo("Accueil et triage");
+    }
+
+    @Test
     void returnsOnlyDuplicateCandidatesVisibleInTheCallerScope() {
         PatientEntity visiblePatient = patient("HP-GOMA");
         PatientEntity hiddenPatient = patient("HP-BUKAVU");

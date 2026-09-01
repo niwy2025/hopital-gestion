@@ -80,6 +80,13 @@ public class PatientController {
                 page, size, query, hospitalId, type, status, accessScope(jwt)));
     }
 
+    @GetMapping("/passages/{passageId}")
+    public ResponseEntity<PatientPassageSummaryResponse> getPassage(
+            @PathVariable("passageId") UUID passageId,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(patientApplicationService.getPassage(passageId, accessScope(jwt)));
+    }
+
     @PostMapping("/duplicate-check")
     public ResponseEntity<PatientDuplicateCheckResponse> checkDuplicates(
             @Valid @RequestBody PatientDuplicateCheckRequest request,

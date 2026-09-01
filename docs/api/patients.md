@@ -13,15 +13,34 @@ défaut `http://localhost:8888`.
 | `GET` | `/api/v1/patients` | Liste les dossiers patients. |
 | `GET` | `/api/v1/patients/search?page=0&size=20&query=amina&hospitalId={uuid}` | Recherche paginée par code, identité ou hôpital d'enregistrement. |
 | `GET` | `/api/v1/patients/passages/search?page=0&size=20&query=amina&hospitalId={uuid}&type=CONSULTATION&status=OPEN` | Registre paginé des passages visibles dans le périmètre de l’utilisateur. |
+| `GET` | `/api/v1/patients/passages/{passageId}` | Consulte la fiche administrative d’un passage précis. |
 | `GET` | `/api/v1/patients/{patientId}` | Consulte la fiche complète d’un patient. |
 | `GET` | `/api/v1/patients/{patientId}/passages?page=0&size=20` | Consulte l’historique des passages d’un dossier. |
 | `POST` | `/api/v1/patients` | Crée un dossier patient. |
 | `POST` | `/api/v1/patients/{patientId}/passages` | Enregistre une arrivée dans le parcours du patient. |
+| `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/status` | Termine ou annule un passage en cours. |
 | `PATCH` | `/api/v1/patients/{patientId}/status` | Active ou désactive un dossier. |
 
 Les listes destinées à l'interface utilisent l'endpoint `search`. `page` est
 indexé à partir de `0`, `size` accepte au plus `100` éléments et la réponse
 contient `items`, `page`, `size`, `totalElements` et `totalPages`.
+
+## Passage hospitalier
+
+Chaque arrivée génère côté serveur un code unique au format
+`PAS-YYYYMMDD-XXXXXXXX`. Ce code est recherché directement dans le registre et
+identifie un seul passage, indépendamment du numéro de dossier du patient.
+
+Un passage débute avec le statut `OPEN`, puis peut être `CLOSED` ou
+`CANCELLED`. La fiche conserve l'hôpital, le service ou l'unité, le motif, le
+patient concerné et les opérateurs d'ouverture et de clôture. Le personnel de
+prise en charge sera associé dans l'étape clinique suivante.
+
+Avant la clôture définitive, les futures opérations seront rattachées au même
+passage : consultation et actes, analyses et résultats, ordonnances et
+délivrances de pharmacie, lignes de facture, paiements et solde. Le module de
+comptabilité ajoutera le contrôle bloquant des frais non régularisés avant une
+clôture.
 
 ## Créer un patient
 

@@ -207,6 +207,18 @@ public class PatientApplicationService {
                 passages.getTotalPages());
     }
 
+    /**
+     * Returns the administrative view of one passage. The passage identifier is
+     * globally unique, but access is still constrained to the caller's hospital
+     * (or to the whole province for authorized administrators).
+     */
+    public PatientPassageSummaryResponse getPassage(UUID passageId, DataAccessScope accessScope) {
+        PatientPassageEntity passage = patientPassageRepository.findById(passageId)
+                .orElseThrow(() -> new PatientNotFoundException(passageId.toString()));
+        assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
+        return toPassageSummary(passage);
+    }
+
     public PatientDuplicateCheckResponse checkDuplicates(
             PatientDuplicateCheckRequest request,
             DataAccessScope accessScope) {

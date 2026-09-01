@@ -14,6 +14,7 @@ import com.hopital.laboratory.application.dto.HospitalLaboratoryOptionResponse;
 import com.hopital.laboratory.application.dto.PageResponse;
 import com.hopital.laboratory.application.dto.PatientPassageLaboratoryRequestResponse;
 import com.hopital.laboratory.application.dto.SpecimenResponse;
+import com.hopital.laboratory.application.dto.SpecimenDetailResponse;
 import com.hopital.laboratory.application.dto.ValidateAnalysisResultRequest;
 import com.hopital.laboratory.application.exception.InvalidLaboratoryWorkflowException;
 import com.hopital.laboratory.application.exception.LaboratoryResourceNotFoundException;
@@ -73,18 +74,18 @@ public class LaboratoryApplicationService {
 
     public AnalysisRequestDetailResponse getAnalysisRequestDetail(String analysisRequestCode) {
         AnalysisRequestEntity request = findAnalysisRequest(analysisRequestCode);
-        List<SpecimenResponse> specimens = specimenRepository
-                .findAllByAnalysisRequest_IdInOrderByReceivedAtDesc(List.of(request.getId()))
-                .stream()
-                .map(this::toResponse)
-                .toList();
-        AnalysisResultResponse result = analysisResultRepository
-                .findAllByAnalysisRequest_IdIn(List.of(request.getId()))
-                .stream()
-                .findFirst()
-                .map(this::toResponse)
-                .orElse(null);
-        return new AnalysisRequestDetailResponse(toResponse(request), specimens, result);
+        return toAnalysisRequestDetailResponse(request);
+    }
+
+    public SpecimenDetailResponse getSpecimenDetail(String specimenCode) {
+        SpecimenEntity specimen = specimenRepository.findByCodeIgnoreCase(normalizeCode(specimenCode))
+                .orElseThrow(() -> new LaboratoryResourceNotFoundException("L'échantillon", specimenCode));
+        AnalysisRequestDetailResponse requestDetail = toAnalysisRequestDetailResponse(specimen.getAnalysisRequest());
+        return new SpecimenDetailResponse(
+                toResponse(specimen),
+                requestDetail.request(),
+                requestDetail.specimens(),
+                requestDetail.result());
     }
 
     public List<HospitalLaboratoryOptionResponse> listHospitalLaboratoriesForPassage(UUID passageId) {
@@ -255,6 +256,21 @@ public class LaboratoryApplicationService {
     private AnalysisRequestEntity findPatientPassageAnalysisRequest(UUID passageId, String requestCode) {
         return analysisRequestRepository.findByCodeIgnoreCaseAndPatientPassageId(normalizeCode(requestCode), passageId)
                 .orElseThrow(() -> new LaboratoryResourceNotFoundException("La demande d'analyse", requestCode));
+    }
+
+    private AnalysisRequestDetailResponse toAnalysisRequestDetailResponse(AnalysisRequestEntity request) {
+        List<SpecimenResponse> specimens = specimenRepository
+                .findAllByAnalysisRequest_IdInOrderByReceivedAtDesc(List.of(request.getId()))
+                .stream()
+                .map(this::toResponse)
+                .toList();
+        AnalysisResultResponse result = analysisResultRepository
+                .findAllByAnalysisRequest_IdIn(List.of(request.getId()))
+                .stream()
+                .findFirst()
+                .map(this::toResponse)
+                .orElse(null);
+        return new AnalysisRequestDetailResponse(toResponse(request), specimens, result);
     }
 
     private PatientPassageReferenceClient.PatientPassageReference resolveOpenPassage(UUID passageId) {

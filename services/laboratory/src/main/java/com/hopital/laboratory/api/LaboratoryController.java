@@ -12,6 +12,7 @@ import com.hopital.laboratory.application.dto.HospitalLaboratoryOptionResponse;
 import com.hopital.laboratory.application.dto.PageResponse;
 import com.hopital.laboratory.application.dto.PatientPassageLaboratoryRequestResponse;
 import com.hopital.laboratory.application.dto.SpecimenResponse;
+import com.hopital.laboratory.application.dto.SpecimenDetailResponse;
 import com.hopital.laboratory.application.dto.ValidateAnalysisResultRequest;
 import com.hopital.laboratory.application.service.LaboratoryApplicationService;
 import jakarta.validation.Valid;
@@ -104,6 +105,12 @@ public class LaboratoryController {
             @RequestParam(name = "size", defaultValue = "20") int size,
             @RequestParam(name = "query", required = false) String query) {
         return ResponseEntity.ok(laboratoryApplicationService.searchSpecimens(page, size, query));
+    }
+
+    @GetMapping("/specimens/{specimenCode}")
+    public ResponseEntity<SpecimenDetailResponse> getSpecimenDetail(
+            @PathVariable("specimenCode") String specimenCode) {
+        return ResponseEntity.ok(laboratoryApplicationService.getSpecimenDetail(specimenCode));
     }
 
     @PostMapping("/specimens")

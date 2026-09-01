@@ -62,6 +62,7 @@ pas les substituer dans la requête.
 ## Échantillons, résultats et validation
 
 - `GET` / `POST /api/v1/laboratory/specimens`
+- `GET /api/v1/laboratory/specimens/{specimenCode}` : détail d’un échantillon, de sa demande et de la suite de son traitement.
 - `GET` / `POST /api/v1/laboratory/analysis-results`
 - `PATCH /api/v1/laboratory/analysis-results/{code}/validation`
 

@@ -18,12 +18,14 @@ import com.hopital.laboratory.application.dto.ValidateAnalysisResultRequest;
 import com.hopital.laboratory.application.exception.InvalidLaboratoryWorkflowException;
 import com.hopital.laboratory.infra.persistence.entity.AnalysisRequestEntity;
 import com.hopital.laboratory.infra.persistence.entity.AnalysisResultEntity;
+import com.hopital.laboratory.infra.persistence.entity.SpecimenEntity;
 import com.hopital.laboratory.infra.persistence.repository.AnalysisRequestRepository;
 import com.hopital.laboratory.infra.persistence.repository.AnalysisResultRepository;
 import com.hopital.laboratory.infra.persistence.repository.SpecimenRepository;
 import com.hopital.laboratory.infra.integration.organization.HospitalLaboratoryReferenceClient;
 import com.hopital.laboratory.infra.integration.patient.PatientPassageReferenceClient;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -117,6 +119,40 @@ class LaboratoryApplicationServiceTest {
                 "req-001", "12.4", null, null, null)))
                 .isInstanceOf(InvalidLaboratoryWorkflowException.class)
                 .hasMessageContaining("après la réception");
+    }
+
+    @Test
+    void returnsTheSampleWithItsRequestAndWorkflow() {
+        AnalysisRequestEntity analysisRequest = new AnalysisRequestEntity(
+                UUID.randomUUID(),
+                "LAB-001",
+                LaboratoryType.HOSPITAL,
+                "LAB-HGR-001",
+                "PAT-001",
+                "Patient de test",
+                "ANL-001",
+                "Numération formule sanguine",
+                "Dr. Mbala",
+                Instant.now());
+        SpecimenEntity specimen = new SpecimenEntity(
+                UUID.randomUUID(),
+                "ECH-001",
+                analysisRequest,
+                SpecimenType.BLOOD,
+                Instant.now().minusSeconds(600),
+                Instant.now());
+        when(specimenRepository.findByCodeIgnoreCase("ECH-001")).thenReturn(Optional.of(specimen));
+        when(specimenRepository.findAllByAnalysisRequest_IdInOrderByReceivedAtDesc(List.of(analysisRequest.getId())))
+                .thenReturn(List.of(specimen));
+        when(analysisResultRepository.findAllByAnalysisRequest_IdIn(List.of(analysisRequest.getId())))
+                .thenReturn(List.of());
+
+        var detail = laboratoryApplicationService.getSpecimenDetail("ech-001");
+
+        assertThat(detail.specimen().code()).isEqualTo("ECH-001");
+        assertThat(detail.request().code()).isEqualTo("LAB-001");
+        assertThat(detail.specimens()).singleElement().extracting(item -> item.code()).isEqualTo("ECH-001");
+        assertThat(detail.result()).isNull();
     }
 
     @Test

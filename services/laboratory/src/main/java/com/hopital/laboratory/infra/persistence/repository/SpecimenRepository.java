@@ -3,6 +3,7 @@ package com.hopital.laboratory.infra.persistence.repository;
 import com.hopital.laboratory.infra.persistence.entity.SpecimenEntity;
 import java.util.List;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +14,8 @@ import org.springframework.data.repository.query.Param;
 public interface SpecimenRepository extends JpaRepository<SpecimenEntity, UUID> {
 
     boolean existsByCodeIgnoreCase(String code);
+
+    Optional<SpecimenEntity> findByCodeIgnoreCase(String code);
 
     List<SpecimenEntity> findAllByOrderByReceivedAtDesc();
 

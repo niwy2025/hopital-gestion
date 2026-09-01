@@ -1,6 +1,7 @@
 package com.hopital.patient.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
@@ -21,6 +22,8 @@ import com.hopital.patient.application.dto.PatientDuplicateCheckRequest;
 import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
+import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
+import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
@@ -203,6 +206,48 @@ class PatientApplicationServiceTest {
         assertThat(response.responsiblePersonnelEmployeeNumber()).isEqualTo("MED-001");
         assertThat(response.responsiblePersonnelName()).isEqualTo("Kasongo Amina Mbuyi");
         assertThat(response.responsibleAssignedByUsername()).isEqualTo("operateur.accueil");
+    }
+
+    @Test
+    void letsTheResponsiblePersonnelCloseTheirOwnPassage() {
+        PatientEntity patient = patient("HP-GOMA");
+        UUID responsiblePersonnelId = UUID.randomUUID();
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260901-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
+        passage.assignResponsiblePersonnel(
+                responsiblePersonnelId, "MED-001", "Kasongo Amina", "Médecin traitant", auditActor(), Instant.now());
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+
+        PatientPassageResponse response = patientApplicationService.updatePassageStatus(
+                patient.getId(),
+                passage.getId(),
+                new UpdatePatientPassageStatusRequest(PatientPassageStatus.CLOSED),
+                new DataAccessScope(false, false, responsiblePersonnelId, patient.getRegistrationHospitalId(), "HP-GOMA"),
+                auditActor());
+
+        assertThat(response.status()).isEqualTo(PatientPassageStatus.CLOSED);
+        assertThat(response.closedByUsername()).isEqualTo("operateur.accueil");
+    }
+
+    @Test
+    void refusesStatusChangesFromPersonnelNotResponsibleForThePassage() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260901-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
+        passage.assignResponsiblePersonnel(
+                UUID.randomUUID(), "MED-001", "Kasongo Amina", "Médecin traitant", auditActor(), Instant.now());
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+
+        assertThatThrownBy(() -> patientApplicationService.updatePassageStatus(
+                patient.getId(),
+                passage.getId(),
+                new UpdatePatientPassageStatusRequest(PatientPassageStatus.CANCELLED),
+                new DataAccessScope(false, false, UUID.randomUUID(), patient.getRegistrationHospitalId(), "HP-GOMA"),
+                auditActor()))
+                .isInstanceOf(DataAccessDeniedException.class)
+                .hasMessageContaining("personnel responsable");
     }
 
     @Test

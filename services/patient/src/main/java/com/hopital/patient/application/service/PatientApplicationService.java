@@ -206,7 +206,7 @@ public class PatientApplicationService {
                         Math.min(Math.max(size, 1), 100),
                         Sort.by("arrivedAt").descending()));
         return new PageResponse<>(
-                passages.getContent().stream().map(this::toPassageSummary).toList(),
+                passages.getContent().stream().map(passage -> toPassageSummary(passage, false)).toList(),
                 passages.getNumber(),
                 passages.getSize(),
                 passages.getTotalElements(),
@@ -222,7 +222,7 @@ public class PatientApplicationService {
         PatientPassageEntity passage = patientPassageRepository.findById(passageId)
                 .orElseThrow(() -> new PatientNotFoundException(passageId.toString()));
         assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
-        return toPassageSummary(passage);
+        return toPassageSummary(passage, canManagePassageStatus(accessScope, passage));
     }
 
     public PatientDuplicateCheckResponse checkDuplicates(
@@ -348,6 +348,7 @@ public class PatientApplicationService {
             throw new PatientNotFoundException(passageId.toString());
         }
         assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
+        assertCanManagePassageStatus(accessScope, passage);
         if (request.status() == PatientPassageStatus.CLOSED && passage.getResponsiblePersonnelId() == null) {
             throw new InvalidPatientPassageStateException(
                     "Un personnel responsable doit être affecté avant de terminer le passage.");
@@ -686,6 +687,19 @@ public class PatientApplicationService {
         }
     }
 
+    private void assertCanManagePassageStatus(DataAccessScope accessScope, PatientPassageEntity passage) {
+        if (!canManagePassageStatus(accessScope, passage)) {
+            throw new DataAccessDeniedException(
+                    "Seul le personnel responsable ou un administrateur peut modifier le statut de ce passage.");
+        }
+    }
+
+    private boolean canManagePassageStatus(DataAccessScope accessScope, PatientPassageEntity passage) {
+        return accessScope.administrator()
+                || (accessScope.personnelId() != null
+                && accessScope.personnelId().equals(passage.getResponsiblePersonnelId()));
+    }
+
     private PatientPassageResponse toPassage(PatientPassageEntity passage) {
         return new PatientPassageResponse(
                 passage.getId(),
@@ -708,7 +722,7 @@ public class PatientApplicationService {
                 passage.getResponsibleAssignedByUsername());
     }
 
-    private PatientPassageSummaryResponse toPassageSummary(PatientPassageEntity passage) {
+    private PatientPassageSummaryResponse toPassageSummary(PatientPassageEntity passage, boolean canManageStatus) {
         PatientEntity patient = passage.getPatient();
         return new PatientPassageSummaryResponse(
                 passage.getId(),
@@ -733,7 +747,8 @@ public class PatientApplicationService {
                 passage.getResponsiblePersonnelName(),
                 passage.getResponsiblePersonnelJobTitle(),
                 passage.getResponsibleAssignedAt(),
-                passage.getResponsibleAssignedByUsername());
+                passage.getResponsibleAssignedByUsername(),
+                canManageStatus);
     }
 
     private void assignResponsiblePersonnel(

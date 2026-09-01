@@ -91,11 +91,11 @@ public class AuthApplicationService {
         }
         AccountResponse account = accountClient.findByIdentifier(username);
         if (isCentralAdministrator(account)) {
-            return DataAccessScopeResponse.provinceWideScope();
+            return DataAccessScopeResponse.provinceWideAdministratorScope();
         }
         PersonnelAccessScopeResponse personnelScope = personnelAccessClient.resolveActiveScope(account.id());
         if ("PROVINCIAL".equals(personnelScope.scope())) {
-            return DataAccessScopeResponse.provinceWideScope();
+            return DataAccessScopeResponse.provinceWidePersonnelScope(personnelScope.personnelId());
         }
         HospitalAccessReferenceResponse hospital = organizationAccessClient.resolveHospital(personnelScope.hospitalId());
         if ("HOSPITAL_LABORATORY".equals(personnelScope.scope())) {
@@ -105,6 +105,8 @@ public class AuthApplicationService {
             }
             return new DataAccessScopeResponse(
                     false,
+                    false,
+                    personnelScope.personnelId(),
                     hospital.hospitalId(),
                     hospital.hospitalCode(),
                     List.of(personnelScope.laboratoryCode()),
@@ -112,6 +114,8 @@ public class AuthApplicationService {
         }
         return new DataAccessScopeResponse(
                 false,
+                false,
+                personnelScope.personnelId(),
                 hospital.hospitalId(),
                 hospital.hospitalCode(),
                 hospital.hospitalLaboratoryCodes(),

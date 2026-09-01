@@ -48,6 +48,12 @@ Un passage ne peut pas être terminé sans personnel responsable. Celui-ci peut
 }
 ```
 
+Le personnel responsable peut terminer ou annuler son propre passage après
+connexion. Un autre soignant du même hôpital conserve la consultation seule ;
+un administrateur peut gérer tous les passages. La fiche détaillée retourne le
+booléen `canManageStatus`, calculé côté serveur pour l'utilisateur connecté ;
+la même règle est à nouveau vérifiée lors de la modification du statut.
+
 Avant la clôture définitive, les futures opérations seront rattachées au même
 passage : consultation et actes, analyses et résultats, ordonnances et
 délivrances de pharmacie, lignes de facture, paiements et solde. Le module de

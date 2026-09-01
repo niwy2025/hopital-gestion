@@ -32,5 +32,6 @@ public record PatientPassageSummaryResponse(
         String responsiblePersonnelName,
         String responsiblePersonnelJobTitle,
         Instant responsibleAssignedAt,
-        String responsibleAssignedByUsername) {
+        String responsibleAssignedByUsername,
+        boolean canManageStatus) {
 }

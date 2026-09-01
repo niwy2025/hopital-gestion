@@ -23,9 +23,19 @@ public class AuthAccessScopeClient {
         if (response == null) {
             throw new IllegalStateException("Le périmètre d'accès est indisponible.");
         }
-        return new DataAccessScope(response.provinceWide(), response.hospitalId(), response.hospitalCode());
+        return new DataAccessScope(
+                response.provinceWide(),
+                response.administrator(),
+                response.personnelId(),
+                response.hospitalId(),
+                response.hospitalCode());
     }
 
-    private record AuthAccessScopeResponse(boolean provinceWide, UUID hospitalId, String hospitalCode) {
+    private record AuthAccessScopeResponse(
+            boolean provinceWide,
+            boolean administrator,
+            UUID personnelId,
+            UUID hospitalId,
+            String hospitalCode) {
     }
 }

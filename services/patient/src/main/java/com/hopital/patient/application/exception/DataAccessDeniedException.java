@@ -5,4 +5,8 @@ public class DataAccessDeniedException extends RuntimeException {
     public DataAccessDeniedException() {
         super("Votre affectation ne permet pas d'accéder à ces données.");
     }
+
+    public DataAccessDeniedException(String message) {
+        super(message);
+    }
 }

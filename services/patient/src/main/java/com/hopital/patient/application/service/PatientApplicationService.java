@@ -638,7 +638,7 @@ public class PatientApplicationService {
                 new CreatePatientPassagePrescriptionRequest(
                         PrescriptionSource.EXTERNAL_PAPER,
                         request.externalPrescriberName(),
-                        request.externalReference(),
+                        null,
                         request.notes(),
                         request.items()),
                 accessScope,

@@ -436,7 +436,6 @@ class PatientApplicationServiceTest {
                         patient.getId(),
                         null,
                         "Dr. Mavungu",
-                        "ORD-PAPIER-54",
                         "Vente au comptoir.",
                         List.of(new PrescriptionItemRequest(
                                 "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null))),

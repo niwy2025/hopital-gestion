@@ -30,6 +30,7 @@ import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
 import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
 import com.hopital.patient.application.dto.CreatePrescriptionDispenseRequest;
+import com.hopital.patient.application.dto.CreatePharmacyExternalPrescriptionRequest;
 import com.hopital.patient.application.dto.PrescriptionItemRequest;
 import com.hopital.patient.application.dto.PrescriptionDispenseItemRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
@@ -55,6 +56,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -411,6 +413,40 @@ class PatientApplicationServiceTest {
                 assertThat(item.medicineName()).isEqualTo("Amoxicilline"));
         assertThat(patient.getAuditEvents()).singleElement().satisfies(event ->
                 assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.PRESCRIPTION_ADDED));
+    }
+
+    @Test
+    void createsThePharmacyPassageBeforeRecordingAnExternalPrescription() {
+        PatientEntity patient = patient("HP-GOMA");
+        AtomicReference<PatientPassageEntity> createdPassage = new AtomicReference<>();
+        when(patientRepository.findById(patient.getId())).thenReturn(Optional.of(patient));
+        when(patientPassageRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
+        when(patientPassageRepository.save(any())).thenAnswer(invocation -> {
+            PatientPassageEntity passage = invocation.getArgument(0);
+            createdPassage.set(passage);
+            return passage;
+        });
+        when(patientPassageRepository.findById(any())).thenAnswer(invocation -> Optional.of(createdPassage.get()));
+        when(patientPassagePrescriptionRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
+        when(patientPassagePrescriptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(patientPassagePrescriptionItemRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = patientApplicationService.createPharmacyExternalPrescription(
+                new CreatePharmacyExternalPrescriptionRequest(
+                        patient.getId(),
+                        null,
+                        "Dr. Mavungu",
+                        "ORD-PAPIER-54",
+                        "Vente au comptoir.",
+                        List.of(new PrescriptionItemRequest(
+                                "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null))),
+                new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
+                auditActor());
+
+        assertThat(createdPassage.get().getType()).isEqualTo(PatientPassageType.PHARMACY);
+        assertThat(createdPassage.get().getServiceName()).isEqualTo("Pharmacie hospitalière");
+        assertThat(response.source()).isEqualTo(PrescriptionSource.EXTERNAL_PAPER);
+        assertThat(response.externalPrescriberName()).isEqualTo("Dr. Mavungu");
     }
 
     @Test

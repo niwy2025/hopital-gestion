@@ -26,6 +26,7 @@ défaut `http://localhost:8888`.
 | `GET` | `/api/v1/patients/pharmacy/prescriptions/search?page=0&size=20&query=amoxicilline&status=PENDING_DISPENSING` | File paginée de la pharmacie, limitée à l’établissement du pharmacien. |
 | `GET` | `/api/v1/patients/pharmacy/prescriptions/{prescriptionId}` | Consulte l’ordonnance, ses médicaments et ses délivrances. |
 | `POST` | `/api/v1/patients/pharmacy/prescriptions/{prescriptionId}/dispenses` | Enregistre une délivrance complète ou partielle. |
+| `POST` | `/api/v1/patients/pharmacy/external-prescriptions` | Enregistre une ordonnance papier depuis la pharmacie et crée automatiquement le passage de vente correspondant. |
 | `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/status` | Termine ou annule un passage en cours. |
 | `PATCH` | `/api/v1/patients/{patientId}/status` | Active ou désactive un dossier. |
 

@@ -29,6 +29,7 @@ import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
 import com.hopital.patient.application.dto.PharmacyPrescriptionResponse;
 import com.hopital.patient.application.dto.PrescriptionDispenseResponse;
 import com.hopital.patient.application.dto.CreatePrescriptionDispenseRequest;
+import com.hopital.patient.application.dto.CreatePharmacyExternalPrescriptionRequest;
 import com.hopital.patient.application.service.PatientApplicationService;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.infra.integration.auth.AuthAccessScopeClient;
@@ -253,6 +254,14 @@ public class PatientController {
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.status(HttpStatus.CREATED).body(patientApplicationService.dispensePrescription(
                 prescriptionId, request, accessScope(jwt), auditActor(jwt)));
+    }
+
+    @PostMapping("/pharmacy/external-prescriptions")
+    public ResponseEntity<PatientPassagePrescriptionResponse> createPharmacyExternalPrescription(
+            @Valid @RequestBody CreatePharmacyExternalPrescriptionRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(patientApplicationService.createPharmacyExternalPrescription(
+                request, accessScope(jwt), auditActor(jwt)));
     }
 
     @PutMapping("/{patientId}")

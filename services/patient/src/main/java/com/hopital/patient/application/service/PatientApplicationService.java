@@ -13,6 +13,7 @@ import com.hopital.patient.application.domain.PrescriptionSource;
 import com.hopital.patient.application.domain.PrescriptionStatus;
 import com.hopital.patient.application.domain.PrescriptionDispenseCompletion;
 import com.hopital.patient.application.dto.CreatePrescriptionDispenseRequest;
+import com.hopital.patient.application.dto.CreatePharmacyExternalPrescriptionRequest;
 import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
@@ -606,6 +607,42 @@ public class PatientApplicationService {
                         : "Ordonnance externe enregistrée au passage " + passage.getCode() + ".",
                 createdAt);
         return toPrescription(prescription, savedItems);
+    }
+
+    /**
+     * Registers an external paper prescription at the pharmacy.
+     *
+     * <p>A pharmacy sale is still a traceable patient encounter. The passage
+     * is deliberately created by the backend, using the pharmacist's assigned
+     * hospital (or the hospital explicitly selected by a provincial admin),
+     * before the external prescription is attached to it.</p>
+     */
+    @Transactional
+    public PatientPassagePrescriptionResponse createPharmacyExternalPrescription(
+            CreatePharmacyExternalPrescriptionRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        PatientPassageResponse passage = createPassage(
+                request.patientId(),
+                new CreatePatientPassageRequest(
+                        request.hospitalId(),
+                        PatientPassageType.PHARMACY,
+                        "Pharmacie hospitalière",
+                        "Vente à la pharmacie – ordonnance externe",
+                        null),
+                accessScope,
+                auditActor);
+        return addPrescription(
+                request.patientId(),
+                passage.id(),
+                new CreatePatientPassagePrescriptionRequest(
+                        PrescriptionSource.EXTERNAL_PAPER,
+                        request.externalPrescriberName(),
+                        request.externalReference(),
+                        request.notes(),
+                        request.items()),
+                accessScope,
+                auditActor);
     }
 
     public PatientDuplicateCheckResponse checkDuplicates(

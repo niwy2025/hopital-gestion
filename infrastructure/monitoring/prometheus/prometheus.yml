@@ -52,6 +52,11 @@ scrape_configs:
     static_configs:
       - targets: ["patient-service:8086"]
 
+  - job_name: pharmacy-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["pharmacy-service:8089"]
+
   - job_name: personnel-service
     metrics_path: /actuator/prometheus
     static_configs:

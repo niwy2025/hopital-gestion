@@ -13,14 +13,14 @@ COPY services/patient/pom.xml services/patient/pom.xml
 COPY services/personnel/pom.xml services/personnel/pom.xml
 
 RUN --mount=type=cache,id=hopital-maven-repository,target=/root/.m2,sharing=locked \
-    mvn --batch-mode --no-transfer-progress -pl services/patient -am dependency:go-offline
+    mvn --batch-mode --no-transfer-progress -pl services/pharmacy -am dependency:go-offline
 
-COPY services/patient/src services/patient/src
+COPY services/pharmacy/src services/pharmacy/src
 RUN --mount=type=cache,id=hopital-maven-repository,target=/root/.m2,sharing=locked \
-    mvn --batch-mode --no-transfer-progress -pl services/patient -am package -DskipTests
+    mvn --batch-mode --no-transfer-progress -pl services/pharmacy -am package -DskipTests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /workspace/services/patient/target/*.jar app.jar
-EXPOSE 8086
+COPY --from=build /workspace/services/pharmacy/target/*.jar app.jar
+EXPOSE 8089
 ENTRYPOINT ["java", "-jar", "app.jar"]

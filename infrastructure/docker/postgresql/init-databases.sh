@@ -47,6 +47,7 @@ for database in \
   hospital_auth \
   hospital_organization \
   hospital_laboratory \
+  hospital_pharmacy \
   hospital_patient \
   hospital_personnel; do
   create_database "$database" "$HOSPITAL_DB_USER"

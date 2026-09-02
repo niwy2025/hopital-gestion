@@ -8,6 +8,7 @@ COPY services/account/pom.xml services/account/pom.xml
 COPY services/notification/pom.xml services/notification/pom.xml
 COPY services/organization/pom.xml services/organization/pom.xml
 COPY services/laboratory/pom.xml services/laboratory/pom.xml
+COPY services/pharmacy/pom.xml services/pharmacy/pom.xml
 COPY services/patient/pom.xml services/patient/pom.xml
 COPY services/personnel/pom.xml services/personnel/pom.xml
 

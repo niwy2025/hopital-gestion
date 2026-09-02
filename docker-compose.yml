@@ -59,6 +59,23 @@ services:
       retries: 10
     networks: [hospital-network]
 
+  pharmacy-db-init:
+    <<: *container-logging
+    image: postgres:16-alpine
+    container_name: pharmacy-db-init
+    command: ["bash", "/scripts/ensure-pharmacy-database.sh"]
+    environment:
+      POSTGRES_ADMIN_USER: ${POSTGRES_ADMIN_USER:-postgres}
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-postgres}
+      HOSPITAL_DB_USER: ${HOSPITAL_DB_USER:-hospital}
+    volumes:
+      - ./infrastructure/docker/postgresql/ensure-pharmacy-database.sh:/scripts/ensure-pharmacy-database.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [hospital-network]
+
   kong-migrations:
     <<: *container-logging
     image: kong:3.7
@@ -286,6 +303,7 @@ services:
       ORGANIZATION_SERVICE_URI: http://organization-service:8084
       LABORATORY_SERVICE_URI: http://laboratory-service:8085
       PATIENT_SERVICE_URI: http://patient-service:8086
+      PHARMACY_SERVICE_URI: http://pharmacy-service:8089
       PERSONNEL_SERVICE_URI: http://personnel-service:8087
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
@@ -296,6 +314,7 @@ services:
       - organization-service
       - laboratory-service
       - patient-service
+      - pharmacy-service
       - personnel-service
     ports:
       - "${HOSPITAL_API_GATEWAY_PORT:-8888}:8088"
@@ -433,6 +452,31 @@ services:
       organization-service:
         condition: service_started
       personnel-service:
+        condition: service_started
+    networks: [hospital-network]
+
+  pharmacy-service:
+    <<: *spring-service
+    image: pharmacy-service
+    build:
+      context: .
+      dockerfile: services/pharmacy/Dockerfile
+    container_name: pharmacy-service
+    environment:
+      <<: *spring-jvm
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hospital_pharmacy
+      SPRING_DATASOURCE_USERNAME: ${HOSPITAL_DB_USER:-hospital}
+      SPRING_DATASOURCE_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital_password}
+      AUTH_SERVICE_BASE_URL: http://auth-service:8081
+      ORGANIZATION_SERVICE_BASE_URL: http://organization-service:8084
+    depends_on:
+      pharmacy-db-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      organization-service:
         condition: service_started
     networks: [hospital-network]
 

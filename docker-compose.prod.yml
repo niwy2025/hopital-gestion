@@ -56,6 +56,10 @@ services:
     ports: !reset []
     restart: unless-stopped
 
+  pharmacy-service:
+    ports: !reset []
+    restart: unless-stopped
+
   personnel-service:
     ports: !reset []
     restart: unless-stopped

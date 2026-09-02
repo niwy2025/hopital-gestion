@@ -424,6 +424,10 @@ public class PatientApplicationService {
                 || prescription.getStatus() == PrescriptionStatus.CANCELLED) {
             throw new InvalidPrescriptionException("Cette ordonnance est déjà clôturée et ne peut plus être délivrée.");
         }
+        if (request.paidAmount() == null || request.paidAmount().signum() < 0
+                || request.currency() == null || request.paymentMethod() == null) {
+            throw new InvalidPrescriptionException("Le montant, la devise et le mode de paiement sont obligatoires.");
+        }
 
         List<PatientPassagePrescriptionItemEntity> prescriptionItems = patientPassagePrescriptionItemRepository
                 .findAllByPrescription_IdInOrderByDisplayOrderAsc(List.of(prescription.getId()));
@@ -489,6 +493,9 @@ public class PatientApplicationService {
                         request.complete()
                                 ? PrescriptionDispenseCompletion.COMPLETE
                                 : PrescriptionDispenseCompletion.PARTIAL,
+                        request.paidAmount(),
+                        request.currency(),
+                        request.paymentMethod(),
                         trimToNull(request.notes()),
                         auditActor,
                         dispensedAt));
@@ -1346,6 +1353,9 @@ public class PatientApplicationService {
                 dispense.getId(),
                 dispense.getCode(),
                 dispense.getCompletion(),
+                dispense.getPaidAmount(),
+                dispense.getCurrency(),
+                dispense.getPaymentMethod(),
                 dispense.getNotes(),
                 dispense.getDispensedAt(),
                 dispense.getDispensedByUsername(),

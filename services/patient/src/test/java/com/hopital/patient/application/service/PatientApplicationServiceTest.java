@@ -469,7 +469,10 @@ class PatientApplicationServiceTest {
 
         var response = patientApplicationService.dispensePrescription(
                 prescription.getId(),
-                new CreatePrescriptionDispenseRequest(true, "Traitement remis au patient.", List.of(
+                new CreatePrescriptionDispenseRequest(true, new java.math.BigDecimal("12500.00"),
+                        com.hopital.patient.application.domain.PaymentCurrency.CDF,
+                        com.hopital.patient.application.domain.PrescriptionPaymentMethod.CASH,
+                        "Traitement remis au patient.", List.of(
                         new PrescriptionDispenseItemRequest(prescriptionItem.getId(), "21 gélules"))),
                 new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
                 auditActor());

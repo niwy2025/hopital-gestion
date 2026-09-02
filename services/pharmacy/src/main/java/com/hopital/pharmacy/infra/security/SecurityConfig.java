@@ -25,8 +25,8 @@ public class SecurityConfig {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/**", "/internal/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/pharmacy/**").hasAnyRole("ADMIN", "PHARMACY_MANAGER")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/pharmacy/**").hasAnyRole("ADMIN", "PHARMACIST", "PHARMACY_MANAGER")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/pharmacy/**").hasAnyRole("ADMIN", "PHARMACY_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/pharmacy/**").hasAnyRole("ADMIN", "HOSPITAL_ADMIN", "PHARMACIST", "PHARMACY_ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
                 .build();

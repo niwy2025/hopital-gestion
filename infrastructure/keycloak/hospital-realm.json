@@ -37,7 +37,8 @@
       { "name": "DOCTOR", "description": "Medical practitioner" },
       { "name": "NURSE", "description": "Nursing staff" },
       { "name": "PHARMACIST", "description": "Pharmacist" },
-      { "name": "PHARMACY_MANAGER", "description": "Hospital pharmacy inventory manager" },
+      { "name": "HOSPITAL_ADMIN", "description": "Hospital administrator" },
+      { "name": "PHARMACY_ADMIN", "description": "Hospital pharmacy administrator" },
       { "name": "RECEPTIONIST", "description": "Admissions and front desk" },
       { "name": "HR_MANAGER", "description": "Personnel management" },
       { "name": "PATIENT", "description": "Patient portal user" }

@@ -1,6 +1,7 @@
 package com.hopital.laboratory.infra.persistence.entity;
 
 import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
+import com.hopital.laboratory.application.domain.AnalysisPriority;
 import com.hopital.laboratory.application.domain.LaboratoryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -37,6 +38,13 @@ public class AnalysisRequestEntity {
     @Column(name = "patient_passage_id")
     private UUID patientPassageId;
 
+    /** Hospital that created a referral to a provincial reference laboratory. */
+    @Column(name = "origin_hospital_id")
+    private UUID originHospitalId;
+
+    @Column(name = "origin_hospital_code", length = 30)
+    private String originHospitalCode;
+
     @Column(name = "analysis_code", nullable = false, length = 50)
     private String analysisCode;
 
@@ -45,6 +53,13 @@ public class AnalysisRequestEntity {
 
     @Column(name = "requester_name", length = 200)
     private String requesterName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AnalysisPriority priority;
+
+    @Column(name = "clinical_indication", length = 1000)
+    private String clinicalIndication;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -78,6 +93,10 @@ public class AnalysisRequestEntity {
                 analysisName,
                 requesterName,
                 createdAt,
+                null,
+                null,
+                null,
+                AnalysisPriority.ROUTINE,
                 null);
     }
 
@@ -93,6 +112,40 @@ public class AnalysisRequestEntity {
             String requesterName,
             Instant createdAt,
             UUID patientPassageId) {
+        this(
+                id,
+                code,
+                laboratoryType,
+                laboratoryCode,
+                patientReference,
+                patientName,
+                analysisCode,
+                analysisName,
+                requesterName,
+                createdAt,
+                patientPassageId,
+                null,
+                null,
+                AnalysisPriority.ROUTINE,
+                null);
+    }
+
+    public AnalysisRequestEntity(
+            UUID id,
+            String code,
+            LaboratoryType laboratoryType,
+            String laboratoryCode,
+            String patientReference,
+            String patientName,
+            String analysisCode,
+            String analysisName,
+            String requesterName,
+            Instant createdAt,
+            UUID patientPassageId,
+            UUID originHospitalId,
+            String originHospitalCode,
+            AnalysisPriority priority,
+            String clinicalIndication) {
         this.id = id;
         this.code = code;
         this.laboratoryType = laboratoryType;
@@ -100,9 +153,13 @@ public class AnalysisRequestEntity {
         this.patientReference = patientReference;
         this.patientName = patientName;
         this.patientPassageId = patientPassageId;
+        this.originHospitalId = originHospitalId;
+        this.originHospitalCode = originHospitalCode;
         this.analysisCode = analysisCode;
         this.analysisName = analysisName;
         this.requesterName = requesterName;
+        this.priority = priority;
+        this.clinicalIndication = clinicalIndication;
         this.status = AnalysisRequestStatus.REQUESTED;
         this.createdAt = createdAt;
     }
@@ -135,6 +192,14 @@ public class AnalysisRequestEntity {
         return patientPassageId;
     }
 
+    public UUID getOriginHospitalId() {
+        return originHospitalId;
+    }
+
+    public String getOriginHospitalCode() {
+        return originHospitalCode;
+    }
+
     public String getAnalysisCode() {
         return analysisCode;
     }
@@ -147,6 +212,14 @@ public class AnalysisRequestEntity {
         return requesterName;
     }
 
+    public AnalysisPriority getPriority() {
+        return priority;
+    }
+
+    public String getClinicalIndication() {
+        return clinicalIndication;
+    }
+
     public AnalysisRequestStatus getStatus() {
         return status;
     }
@@ -157,6 +230,18 @@ public class AnalysisRequestEntity {
 
     public void markSampleReceived() {
         this.status = AnalysisRequestStatus.SAMPLE_RECEIVED;
+    }
+
+    public void markSampleCollected() {
+        this.status = AnalysisRequestStatus.SAMPLE_COLLECTED;
+    }
+
+    public void markSampleInTransit() {
+        this.status = AnalysisRequestStatus.SAMPLE_IN_TRANSIT;
+    }
+
+    public void markRecollectionRequired() {
+        this.status = AnalysisRequestStatus.RECOLLECTION_REQUIRED;
     }
 
     public void markResultEntered() {

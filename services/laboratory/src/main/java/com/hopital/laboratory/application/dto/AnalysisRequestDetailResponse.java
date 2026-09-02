@@ -6,5 +6,6 @@ import java.util.List;
 public record AnalysisRequestDetailResponse(
         AnalysisRequestResponse request,
         List<SpecimenResponse> specimens,
-        AnalysisResultResponse result) {
+        AnalysisResultResponse result,
+        List<AnalysisRequestEventResponse> events) {
 }

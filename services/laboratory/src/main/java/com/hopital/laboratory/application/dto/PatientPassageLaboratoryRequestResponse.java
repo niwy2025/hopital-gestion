@@ -1,7 +1,9 @@
 package com.hopital.laboratory.application.dto;
 
 import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
+import com.hopital.laboratory.application.domain.AnalysisPriority;
 import com.hopital.laboratory.application.domain.AnalysisResultStatus;
+import com.hopital.laboratory.application.domain.LaboratoryType;
 import com.hopital.laboratory.application.domain.SpecimenStatus;
 import com.hopital.laboratory.application.domain.SpecimenType;
 import java.time.Instant;
@@ -13,10 +15,13 @@ public record PatientPassageLaboratoryRequestResponse(
         UUID id,
         UUID patientPassageId,
         String code,
+        LaboratoryType laboratoryType,
         String laboratoryCode,
         String analysisCode,
         String analysisName,
         String requesterName,
+        AnalysisPriority priority,
+        String clinicalIndication,
         AnalysisRequestStatus status,
         Instant createdAt,
         List<SpecimenTimelineResponse> specimens,
@@ -27,7 +32,13 @@ public record PatientPassageLaboratoryRequestResponse(
             SpecimenType specimenType,
             SpecimenStatus status,
             Instant collectedAt,
-            Instant receivedAt) {
+            String collectedBy,
+            Instant dispatchedAt,
+            String dispatchedBy,
+            String carrierName,
+            Instant receivedAt,
+            String receivedBy,
+            String rejectionReason) {
     }
 
     public record ResultTimelineResponse(

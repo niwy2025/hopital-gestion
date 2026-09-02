@@ -255,14 +255,14 @@ Le premier lot métier du système provincial est `organization-service`. Il
 structure les référentiels **province → zone de santé → hôpital public →
 laboratoire interne** et **province → laboratoire de référence → service, unité
 ou département**, puis expose ses opérations via l'API Gateway sous
-`/api/v1/organizations`. Une demande d’analyse indique le laboratoire exécutant
-(interne ou de référence) et son statut permet au futur dossier patient de
-signaler qu’il est en attente de résultat au laboratoire. Le registre des
+`/api/v1/organizations`. Une demande d’analyse créée depuis un passage patient
+peut être traitée en interne ou référée vers un laboratoire provincial :
+prélèvement, code de contenant, expédition, réception ou refus motivé, résultat
+et validation sont tous historisés. Le registre des
 patients est désormais porté par `patient-service` : il rattache chaque dossier
 à son hôpital d'enregistrement et fournit les patients sélectionnables lors
 d'une demande d'analyse. `personnel-service` gère maintenant les fiches,
-comptes associés, documents et affectations historisées des agents. La
-prochaine brique métier sera le parcours de soins : consultations, rendez-vous,
-admissions et prescriptions. La protection de ces opérations par les rôles
-administratifs Keycloak reste à activer : les endpoints ne doivent pas encore
-être considérés comme sécurisés en production.
+comptes associés, documents et affectations historisées des agents, y compris
+l’affectation à un laboratoire de référence. La protection par permissions et
+périmètres d’affectation est appliquée par les services ; l’interface ne fait
+que masquer les actions inutiles.

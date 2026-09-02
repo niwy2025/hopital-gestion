@@ -2,6 +2,7 @@ package com.hopital.laboratory.api;
 
 import com.hopital.laboratory.application.dto.ApiError;
 import com.hopital.laboratory.application.exception.DuplicateLaboratoryResourceException;
+import com.hopital.laboratory.application.exception.DataAccessDeniedException;
 import com.hopital.laboratory.application.exception.InvalidLaboratoryWorkflowException;
 import com.hopital.laboratory.application.exception.LaboratoryResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +33,12 @@ public class LaboratoryExceptionHandler {
     ResponseEntity<ApiError> handleWorkflow(
             InvalidLaboratoryWorkflowException exception, HttpServletRequest request) {
         return error(HttpStatus.CONFLICT, "LABORATORY_WORKFLOW_INVALID", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(DataAccessDeniedException.class)
+    ResponseEntity<ApiError> handleDataAccessDenied(
+            DataAccessDeniedException exception, HttpServletRequest request) {
+        return error(HttpStatus.FORBIDDEN, "LABORATORY_ACCESS_DENIED", exception.getMessage(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

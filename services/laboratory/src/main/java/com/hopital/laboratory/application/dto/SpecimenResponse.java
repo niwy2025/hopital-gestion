@@ -13,5 +13,14 @@ public record SpecimenResponse(
         SpecimenType specimenType,
         SpecimenStatus status,
         Instant collectedAt,
-        Instant receivedAt) {
+        String collectedBy,
+        String collectionNote,
+        Instant dispatchedAt,
+        String dispatchedBy,
+        String carrierName,
+        String dispatchNote,
+        Instant receivedAt,
+        String receivedBy,
+        String receptionCondition,
+        String rejectionReason) {
 }

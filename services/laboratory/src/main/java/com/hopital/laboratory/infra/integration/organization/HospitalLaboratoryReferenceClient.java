@@ -38,6 +38,22 @@ public class HospitalLaboratoryReferenceClient {
         }
     }
 
+    /** Returns the active provincial reference laboratories available to this hospital. */
+    public List<ReferenceLaboratoryReference> listActiveReferenceLaboratories(UUID hospitalId) {
+        try {
+            List<ReferenceLaboratoryReference> references = organizationClient.get()
+                    .uri("/internal/organizations/hospitals/{hospitalId}/reference-laboratories", hospitalId)
+                    .retrieve()
+                    .body(new org.springframework.core.ParameterizedTypeReference<>() { });
+            return references == null ? List.of() : references;
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().is4xxClientError()) {
+                throw new InvalidLaboratoryWorkflowException("L'hôpital rattaché à ce passage est introuvable.");
+            }
+            throw exception;
+        }
+    }
+
     public record HospitalReference(
             UUID hospitalId,
             String hospitalCode,
@@ -47,5 +63,8 @@ public class HospitalLaboratoryReferenceClient {
     }
 
     public record HospitalLaboratoryReference(String code, String name) {
+    }
+
+    public record ReferenceLaboratoryReference(String code, String name) {
     }
 }

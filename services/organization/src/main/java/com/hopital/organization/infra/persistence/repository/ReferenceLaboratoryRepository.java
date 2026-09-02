@@ -18,6 +18,8 @@ public interface ReferenceLaboratoryRepository extends JpaRepository<ReferenceLa
 
     List<ReferenceLaboratoryEntity> findAllByOrderByNameAsc();
 
+    List<ReferenceLaboratoryEntity> findAllByProvince_CodeIgnoreCaseAndActiveTrueOrderByNameAsc(String provinceCode);
+
     @Query("""
             SELECT referenceLaboratory
             FROM ReferenceLaboratoryEntity referenceLaboratory

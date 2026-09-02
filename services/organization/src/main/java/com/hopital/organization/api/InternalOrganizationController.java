@@ -1,7 +1,9 @@
 package com.hopital.organization.api;
 
 import com.hopital.organization.application.dto.HospitalAccessReferenceResponse;
+import com.hopital.organization.application.dto.ReferenceLaboratoryAccessReference;
 import com.hopital.organization.application.service.OrganizationApplicationService;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,5 +25,11 @@ public class InternalOrganizationController {
     @GetMapping("/hospitals/{hospitalId}/access-reference")
     public ResponseEntity<HospitalAccessReferenceResponse> resolveHospital(@PathVariable("hospitalId") UUID hospitalId) {
         return ResponseEntity.ok(organizationApplicationService.resolveHospitalAccessReference(hospitalId));
+    }
+
+    @GetMapping("/hospitals/{hospitalId}/reference-laboratories")
+    public ResponseEntity<List<ReferenceLaboratoryAccessReference>> listReferenceLaboratoriesForHospital(
+            @PathVariable("hospitalId") UUID hospitalId) {
+        return ResponseEntity.ok(organizationApplicationService.listActiveReferenceLaboratoriesForHospital(hospitalId));
     }
 }

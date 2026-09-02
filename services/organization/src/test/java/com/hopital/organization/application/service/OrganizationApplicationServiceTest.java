@@ -3,6 +3,7 @@ package com.hopital.organization.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.hopital.organization.application.domain.HospitalType;
@@ -224,6 +225,40 @@ class OrganizationApplicationServiceTest {
         assertThat(response.code()).isEqualTo("LRP-KIN");
         assertThat(response.provinceCode()).isEqualTo("KIN");
         assertThat(response.active()).isTrue();
+    }
+
+    @Test
+    void listsOnlyActiveReferenceLaboratoriesFromTheHospitalProvince() {
+        UUID hospitalId = UUID.randomUUID();
+        ProvinceEntity province = new ProvinceEntity("KONGO-CENTRAL", "Kongo Central");
+        HealthZoneEntity healthZone = new HealthZoneEntity("BOMA", "Boma", province);
+        HospitalEntity hospital = new HospitalEntity(
+                hospitalId,
+                "HGR-BOMA",
+                "Hôpital général de référence de Boma",
+                HospitalType.GENERAL_REFERENCE,
+                healthZone,
+                null,
+                null,
+                null);
+        ReferenceLaboratoryEntity referenceLaboratory = new ReferenceLaboratoryEntity(
+                UUID.randomUUID(),
+                "LRP-KC",
+                "Laboratoire provincial de référence du Kongo Central",
+                province,
+                null,
+                null);
+        when(hospitalRepository.findById(hospitalId)).thenReturn(Optional.of(hospital));
+        when(referenceLaboratoryRepository.findAllByProvince_CodeIgnoreCaseAndActiveTrueOrderByNameAsc("KONGO-CENTRAL"))
+                .thenReturn(List.of(referenceLaboratory));
+
+        var response = organizationApplicationService.listActiveReferenceLaboratoriesForHospital(hospitalId);
+
+        assertThat(response).extracting("code").containsExactly("LRP-KC");
+        assertThat(response).extracting("name")
+                .containsExactly("Laboratoire provincial de référence du Kongo Central");
+        verify(referenceLaboratoryRepository)
+                .findAllByProvince_CodeIgnoreCaseAndActiveTrueOrderByNameAsc("KONGO-CENTRAL");
     }
 
     @Test

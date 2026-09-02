@@ -18,6 +18,7 @@ import com.hopital.organization.application.dto.LaboratoryStructureResponse;
 import com.hopital.organization.application.dto.PageResponse;
 import com.hopital.organization.application.dto.ProvinceResponse;
 import com.hopital.organization.application.dto.ReferenceLaboratoryResponse;
+import com.hopital.organization.application.dto.ReferenceLaboratoryAccessReference;
 import com.hopital.organization.application.dto.UpdateOrganizationStatusRequest;
 import com.hopital.organization.application.exception.DuplicateOrganizationException;
 import com.hopital.organization.application.exception.OrganizationNotFoundException;
@@ -134,6 +135,23 @@ public class OrganizationApplicationService {
 
     public List<ReferenceLaboratoryResponse> listReferenceLaboratories() {
         return referenceLaboratoryRepository.findAllByOrderByNameAsc().stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Returns the active provincial reference laboratories available to a hospital.
+     * This is kept separate from the public laboratory registry because it is used
+     * by internal workflows such as sending an analysis request to a reference laboratory.
+     */
+    public List<ReferenceLaboratoryAccessReference> listActiveReferenceLaboratoriesForHospital(UUID hospitalId) {
+        HospitalEntity hospital = hospitalRepository.findById(hospitalId)
+                .orElseThrow(() -> new OrganizationNotFoundException("hôpital", hospitalId.toString()));
+        String provinceCode = hospital.getHealthZone().getProvince().getCode();
+        return referenceLaboratoryRepository
+                .findAllByProvince_CodeIgnoreCaseAndActiveTrueOrderByNameAsc(provinceCode)
+                .stream()
+                .map(referenceLaboratory -> new ReferenceLaboratoryAccessReference(
+                        referenceLaboratory.getCode(), referenceLaboratory.getName()))
+                .toList();
     }
 
     public PageResponse<ReferenceLaboratoryResponse> searchReferenceLaboratories(

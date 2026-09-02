@@ -16,6 +16,7 @@ import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.domain.PatientDocumentType;
 import com.hopital.patient.application.domain.PrescriptionSource;
+import com.hopital.patient.application.domain.PrescriptionStatus;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
@@ -28,7 +29,9 @@ import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
 import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
+import com.hopital.patient.application.dto.CreatePrescriptionDispenseRequest;
 import com.hopital.patient.application.dto.PrescriptionItemRequest;
+import com.hopital.patient.application.dto.PrescriptionDispenseItemRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
@@ -37,10 +40,14 @@ import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionItemEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionItemRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseItemRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
@@ -75,6 +82,12 @@ class PatientApplicationServiceTest {
 
     @Mock
     private PatientPassagePrescriptionItemRepository patientPassagePrescriptionItemRepository;
+
+    @Mock
+    private PatientPassagePrescriptionDispenseRepository patientPassagePrescriptionDispenseRepository;
+
+    @Mock
+    private PatientPassagePrescriptionDispenseItemRepository patientPassagePrescriptionDispenseItemRepository;
 
     @Mock
     private HospitalReferenceClient hospitalReferenceClient;
@@ -250,6 +263,28 @@ class PatientApplicationServiceTest {
     }
 
     @Test
+    void preventsClosingAPassageWhileAPrescriptionIsStillAwaitingDispense() {
+        PatientEntity patient = patient("HP-GOMA");
+        UUID responsiblePersonnelId = UUID.randomUUID();
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260902-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
+        passage.assignResponsiblePersonnel(
+                responsiblePersonnelId, "MED-001", "Kasongo Amina", "Médecin traitant", auditActor(), Instant.now());
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+        when(patientPassagePrescriptionRepository.existsByPassage_IdAndStatusIn(any(), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> patientApplicationService.updatePassageStatus(
+                patient.getId(),
+                passage.getId(),
+                new UpdatePatientPassageStatusRequest(PatientPassageStatus.CLOSED),
+                new DataAccessScope(false, false, responsiblePersonnelId, patient.getRegistrationHospitalId(), "HP-GOMA"),
+                auditActor()))
+                .isInstanceOf(com.hopital.patient.application.exception.InvalidPatientPassageStateException.class)
+                .hasMessageContaining("ordonnances");
+    }
+
+    @Test
     void refusesStatusChangesFromPersonnelNotResponsibleForThePassage() {
         PatientEntity patient = patient("HP-GOMA");
         PatientPassageEntity passage = new PatientPassageEntity(
@@ -376,6 +411,40 @@ class PatientApplicationServiceTest {
                 assertThat(item.medicineName()).isEqualTo("Amoxicilline"));
         assertThat(patient.getAuditEvents()).singleElement().satisfies(event ->
                 assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.PRESCRIPTION_ADDED));
+    }
+
+    @Test
+    void recordsACompletePharmacyDispenseAndSettlesThePrescription() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260902-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.PHARMACY, "Pharmacie hospitalière", null, auditActor(), Instant.now());
+        PatientPassagePrescriptionEntity prescription = new PatientPassagePrescriptionEntity(
+                UUID.randomUUID(), "ORD-20260902-ABCD1234", passage, PrescriptionSource.MEDICAL,
+                null, null, null, auditActor(), Instant.now());
+        PatientPassagePrescriptionItemEntity prescriptionItem = new PatientPassagePrescriptionItemEntity(
+                UUID.randomUUID(), prescription, "Amoxicilline", "500 mg", "Voie orale",
+                "3 fois par jour", "7 jours", "21 gélules", null, 0);
+        when(patientPassagePrescriptionRepository.findById(prescription.getId())).thenReturn(Optional.of(prescription));
+        when(patientPassagePrescriptionItemRepository.findAllByPrescription_IdInOrderByDisplayOrderAsc(any()))
+                .thenReturn(List.of(prescriptionItem));
+        when(patientPassagePrescriptionDispenseRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
+        when(patientPassagePrescriptionDispenseRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(patientPassagePrescriptionDispenseItemRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = patientApplicationService.dispensePrescription(
+                prescription.getId(),
+                new CreatePrescriptionDispenseRequest(true, "Traitement remis au patient.", List.of(
+                        new PrescriptionDispenseItemRequest(prescriptionItem.getId(), "21 gélules"))),
+                new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
+                auditActor());
+
+        assertThat(response.code()).startsWith("DSP-");
+        assertThat(response.items()).singleElement().satisfies(item ->
+                assertThat(item.medicineName()).isEqualTo("Amoxicilline"));
+        assertThat(prescription.getStatus()).isEqualTo(PrescriptionStatus.DISPENSED);
+        assertThat(patient.getAuditEvents()).singleElement().satisfies(event ->
+                assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.PRESCRIPTION_DISPENSED));
     }
 
     @Test

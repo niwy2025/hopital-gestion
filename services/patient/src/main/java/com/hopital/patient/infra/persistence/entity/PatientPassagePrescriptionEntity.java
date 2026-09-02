@@ -81,6 +81,13 @@ public class PatientPassagePrescriptionEntity {
         this.createdByUsername = actor.username();
     }
 
+    public void recordDispense(boolean complete) {
+        if (status == PrescriptionStatus.DISPENSED || status == PrescriptionStatus.CANCELLED) {
+            throw new IllegalStateException("Cette ordonnance ne peut plus être délivrée.");
+        }
+        this.status = complete ? PrescriptionStatus.DISPENSED : PrescriptionStatus.PARTIALLY_DISPENSED;
+    }
+
     public UUID getId() { return id; }
     public String getCode() { return code; }
     public PatientPassageEntity getPassage() { return passage; }

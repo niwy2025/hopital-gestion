@@ -10,6 +10,9 @@ import com.hopital.patient.application.domain.PatientDocumentType;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.domain.PrescriptionSource;
+import com.hopital.patient.application.domain.PrescriptionStatus;
+import com.hopital.patient.application.domain.PrescriptionDispenseCompletion;
+import com.hopital.patient.application.dto.CreatePrescriptionDispenseRequest;
 import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
@@ -28,6 +31,9 @@ import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
 import com.hopital.patient.application.dto.PatientPassageClinicalEntryResponse;
 import com.hopital.patient.application.dto.PatientPassageLaboratoryReferenceResponse;
 import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
+import com.hopital.patient.application.dto.PharmacyPrescriptionResponse;
+import com.hopital.patient.application.dto.PrescriptionDispenseItemResponse;
+import com.hopital.patient.application.dto.PrescriptionDispenseResponse;
 import com.hopital.patient.application.dto.PrescriptionItemResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
@@ -46,11 +52,15 @@ import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseItemEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionItemEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionItemRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseItemRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import java.time.Instant;
@@ -59,6 +69,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -89,6 +100,8 @@ public class PatientApplicationService {
     private final PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository;
     private final PatientPassagePrescriptionRepository patientPassagePrescriptionRepository;
     private final PatientPassagePrescriptionItemRepository patientPassagePrescriptionItemRepository;
+    private final PatientPassagePrescriptionDispenseRepository patientPassagePrescriptionDispenseRepository;
+    private final PatientPassagePrescriptionDispenseItemRepository patientPassagePrescriptionDispenseItemRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
     private final PersonnelReferenceClient personnelReferenceClient;
 
@@ -99,6 +112,8 @@ public class PatientApplicationService {
             PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository,
             PatientPassagePrescriptionRepository patientPassagePrescriptionRepository,
             PatientPassagePrescriptionItemRepository patientPassagePrescriptionItemRepository,
+            PatientPassagePrescriptionDispenseRepository patientPassagePrescriptionDispenseRepository,
+            PatientPassagePrescriptionDispenseItemRepository patientPassagePrescriptionDispenseItemRepository,
             HospitalReferenceClient hospitalReferenceClient,
             PersonnelReferenceClient personnelReferenceClient) {
         this.patientRepository = patientRepository;
@@ -107,6 +122,8 @@ public class PatientApplicationService {
         this.patientPassageClinicalEntryRepository = patientPassageClinicalEntryRepository;
         this.patientPassagePrescriptionRepository = patientPassagePrescriptionRepository;
         this.patientPassagePrescriptionItemRepository = patientPassagePrescriptionItemRepository;
+        this.patientPassagePrescriptionDispenseRepository = patientPassagePrescriptionDispenseRepository;
+        this.patientPassagePrescriptionDispenseItemRepository = patientPassagePrescriptionDispenseItemRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
         this.personnelReferenceClient = personnelReferenceClient;
     }
@@ -358,6 +375,139 @@ public class PatientApplicationService {
                 prescriptions.getTotalPages());
     }
 
+    /**
+     * Pharmacy work queue. A pharmacist only receives prescriptions for the
+     * hospital attached to their account; provincial administrators can see the
+     * province-wide queue.
+     */
+    public PageResponse<PharmacyPrescriptionResponse> searchPharmacyPrescriptions(
+            int page,
+            int size,
+            String query,
+            PrescriptionSource source,
+            PrescriptionStatus status,
+            DataAccessScope accessScope) {
+        String hospitalCode = accessScope.provinceWide() ? "" : requiredHospitalCode(accessScope);
+        var prescriptions = patientPassagePrescriptionRepository.searchForPharmacy(
+                hospitalCode,
+                normalizeSearchFilter(query),
+                source,
+                status,
+                PageRequest.of(
+                        Math.max(page, 0),
+                        Math.min(Math.max(size, 1), 100),
+                        Sort.by("createdAt").descending()));
+        return new PageResponse<>(
+                toPharmacyPrescriptions(prescriptions.getContent()),
+                prescriptions.getNumber(),
+                prescriptions.getSize(),
+                prescriptions.getTotalElements(),
+                prescriptions.getTotalPages());
+    }
+
+    public PharmacyPrescriptionResponse getPharmacyPrescription(
+            UUID prescriptionId,
+            DataAccessScope accessScope) {
+        PatientPassagePrescriptionEntity prescription = getPharmacyPrescriptionForScope(prescriptionId, accessScope);
+        return toPharmacyPrescriptions(List.of(prescription)).getFirst();
+    }
+
+    @Transactional
+    public PrescriptionDispenseResponse dispensePrescription(
+            UUID prescriptionId,
+            CreatePrescriptionDispenseRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        PatientPassagePrescriptionEntity prescription = getPharmacyPrescriptionForScope(prescriptionId, accessScope);
+        if (prescription.getStatus() == PrescriptionStatus.DISPENSED
+                || prescription.getStatus() == PrescriptionStatus.CANCELLED) {
+            throw new InvalidPrescriptionException("Cette ordonnance est déjà clôturée et ne peut plus être délivrée.");
+        }
+
+        List<PatientPassagePrescriptionItemEntity> prescriptionItems = patientPassagePrescriptionItemRepository
+                .findAllByPrescription_IdInOrderByDisplayOrderAsc(List.of(prescription.getId()));
+        if (prescriptionItems.isEmpty()) {
+            throw new InvalidPrescriptionException("Cette ordonnance ne contient aucun médicament à délivrer.");
+        }
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new InvalidPrescriptionException("Sélectionnez au moins un médicament délivré.");
+        }
+
+        Map<UUID, PatientPassagePrescriptionItemEntity> prescriptionItemsById = new HashMap<>();
+        for (PatientPassagePrescriptionItemEntity prescriptionItem : prescriptionItems) {
+            prescriptionItemsById.put(prescriptionItem.getId(), prescriptionItem);
+        }
+        List<PatientPassagePrescriptionDispenseEntity> previousDispenses = patientPassagePrescriptionDispenseRepository
+                .findAllByPrescription_IdInOrderByDispensedAtDesc(List.of(prescription.getId()));
+        Set<UUID> alreadyDispensedItemIds = new HashSet<>();
+        if (!previousDispenses.isEmpty()) {
+            List<UUID> previousDispenseIds = previousDispenses.stream()
+                    .map(PatientPassagePrescriptionDispenseEntity::getId)
+                    .toList();
+            patientPassagePrescriptionDispenseItemRepository
+                    .findAllByDispense_IdInOrderByDispense_IdAsc(previousDispenseIds)
+                    .forEach(item -> alreadyDispensedItemIds.add(item.getPrescriptionItem().getId()));
+        }
+        Set<UUID> selectedItemIds = new HashSet<>();
+        List<PatientPassagePrescriptionItemEntity> selectedPrescriptionItems = new ArrayList<>();
+        Map<UUID, String> dispensedQuantitiesByItemId = new HashMap<>();
+        for (var itemRequest : request.items()) {
+            if (itemRequest.prescriptionItemId() == null || !selectedItemIds.add(itemRequest.prescriptionItemId())) {
+                throw new InvalidPrescriptionException("Un médicament ne peut être délivré qu'une fois dans la même opération.");
+            }
+            PatientPassagePrescriptionItemEntity prescriptionItem = prescriptionItemsById.get(itemRequest.prescriptionItemId());
+            if (prescriptionItem == null) {
+                throw new InvalidPrescriptionException("Un médicament sélectionné n'appartient pas à cette ordonnance.");
+            }
+            if (alreadyDispensedItemIds.contains(prescriptionItem.getId())) {
+                throw new InvalidPrescriptionException("Ce médicament a déjà été délivré pour cette ordonnance.");
+            }
+            String dispensedQuantity = trimToNull(itemRequest.dispensedQuantity());
+            if (dispensedQuantity == null) {
+                throw new InvalidPrescriptionException("La quantité réellement délivrée est obligatoire.");
+            }
+            selectedPrescriptionItems.add(prescriptionItem);
+            dispensedQuantitiesByItemId.put(prescriptionItem.getId(), dispensedQuantity);
+        }
+        int remainingItemCount = prescriptionItems.size() - alreadyDispensedItemIds.size();
+        if (request.complete() && selectedItemIds.size() != remainingItemCount) {
+            throw new InvalidPrescriptionException(
+                    "Une délivrance complète doit inclure tous les médicaments restant à remettre.");
+        }
+        if (!request.complete() && selectedItemIds.size() == remainingItemCount) {
+            throw new InvalidPrescriptionException(
+                    "Tous les médicaments restants sont sélectionnés : enregistrez une délivrance complète.");
+        }
+
+        Instant dispensedAt = Instant.now();
+        PatientPassagePrescriptionDispenseEntity dispense = patientPassagePrescriptionDispenseRepository.save(
+                new PatientPassagePrescriptionDispenseEntity(
+                        UUID.randomUUID(),
+                        nextDispenseCode(),
+                        prescription,
+                        request.complete()
+                                ? PrescriptionDispenseCompletion.COMPLETE
+                                : PrescriptionDispenseCompletion.PARTIAL,
+                        trimToNull(request.notes()),
+                        auditActor,
+                        dispensedAt));
+        List<PatientPassagePrescriptionDispenseItemEntity> dispenseItems = selectedPrescriptionItems.stream()
+                .map(item -> new PatientPassagePrescriptionDispenseItemEntity(
+                        UUID.randomUUID(), dispense, item, dispensedQuantitiesByItemId.get(item.getId())))
+                .toList();
+
+        List<PatientPassagePrescriptionDispenseItemEntity> savedItems = patientPassagePrescriptionDispenseItemRepository
+                .saveAll(dispenseItems);
+        prescription.recordDispense(request.complete());
+        prescription.getPassage().getPatient().recordModification(
+                auditActor,
+                PatientAuditEventType.PRESCRIPTION_DISPENSED,
+                (request.complete() ? "Délivrance complète" : "Délivrance partielle")
+                        + " enregistrée pour l'ordonnance " + prescription.getCode() + ".",
+                dispensedAt);
+        return toDispense(dispense, savedItems);
+    }
+
     @Transactional
     public PatientPassageClinicalEntryResponse addClinicalEntry(
             UUID patientId,
@@ -586,6 +736,12 @@ public class PatientApplicationService {
             throw new InvalidPatientPassageStateException(
                     "Un personnel responsable doit être affecté avant de terminer le passage.");
         }
+        if (request.status() == PatientPassageStatus.CLOSED
+                && patientPassagePrescriptionRepository.existsByPassage_IdAndStatusIn(
+                        passage.getId(), Set.of(PrescriptionStatus.PENDING_DISPENSING, PrescriptionStatus.PARTIALLY_DISPENSED))) {
+            throw new InvalidPatientPassageStateException(
+                    "Les ordonnances du passage doivent être entièrement délivrées ou annulées avant sa clôture.");
+        }
         if (passage.getStatus() != request.status()) {
             passage.changeStatus(request.status(), auditActor, Instant.now());
         }
@@ -791,6 +947,17 @@ public class PatientApplicationService {
         throw new IllegalStateException("Impossible de générer un code d'ordonnance unique.");
     }
 
+    private String nextDispenseCode() {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String code = "DSP-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "-"
+                    + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
+            if (!patientPassagePrescriptionDispenseRepository.existsByCodeIgnoreCase(code)) {
+                return code;
+            }
+        }
+        throw new IllegalStateException("Impossible de générer un code de délivrance unique.");
+    }
+
     private void assertNoDuplicate(CreatePatientRequest request) {
         if (!findDuplicateCandidates(
                 request.firstName(),
@@ -944,6 +1111,22 @@ public class PatientApplicationService {
         return passage;
     }
 
+    private PatientPassagePrescriptionEntity getPharmacyPrescriptionForScope(
+            UUID prescriptionId,
+            DataAccessScope accessScope) {
+        PatientPassagePrescriptionEntity prescription = patientPassagePrescriptionRepository.findById(prescriptionId)
+                .orElseThrow(() -> new PatientNotFoundException(prescriptionId.toString()));
+        assertAccess(accessScope, prescription.getPassage().getHospitalCode());
+        return prescription;
+    }
+
+    private String requiredHospitalCode(DataAccessScope accessScope) {
+        if (accessScope.hospitalCode() == null || accessScope.hospitalCode().isBlank()) {
+            throw new DataAccessDeniedException();
+        }
+        return accessScope.hospitalCode();
+    }
+
     private void assertCanManagePassageStatus(DataAccessScope accessScope, PatientPassageEntity passage) {
         if (!canManagePassageStatus(accessScope, passage)) {
             throw new DataAccessDeniedException(
@@ -1036,16 +1219,104 @@ public class PatientApplicationService {
                 prescription.getNotes(),
                 prescription.getCreatedAt(),
                 prescription.getCreatedByUsername(),
-                items.stream().map(item -> new PrescriptionItemResponse(
+                items.stream().map(this::toPrescriptionItem).toList());
+    }
+
+    private List<PharmacyPrescriptionResponse> toPharmacyPrescriptions(
+            List<PatientPassagePrescriptionEntity> prescriptions) {
+        if (prescriptions.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> prescriptionIds = prescriptions.stream().map(PatientPassagePrescriptionEntity::getId).toList();
+        Map<UUID, List<PatientPassagePrescriptionItemEntity>> itemsByPrescription = new HashMap<>();
+        for (PatientPassagePrescriptionItemEntity item : patientPassagePrescriptionItemRepository
+                .findAllByPrescription_IdInOrderByDisplayOrderAsc(prescriptionIds)) {
+            itemsByPrescription.computeIfAbsent(item.getPrescription().getId(), ignored -> new ArrayList<>()).add(item);
+        }
+
+        Map<UUID, List<PatientPassagePrescriptionDispenseEntity>> dispensesByPrescription = new HashMap<>();
+        List<PatientPassagePrescriptionDispenseEntity> dispenses = patientPassagePrescriptionDispenseRepository
+                .findAllByPrescription_IdInOrderByDispensedAtDesc(prescriptionIds);
+        Map<UUID, List<PatientPassagePrescriptionDispenseItemEntity>> dispenseItemsByDispense = new HashMap<>();
+        if (!dispenses.isEmpty()) {
+            List<UUID> dispenseIds = dispenses.stream().map(PatientPassagePrescriptionDispenseEntity::getId).toList();
+            for (PatientPassagePrescriptionDispenseItemEntity item : patientPassagePrescriptionDispenseItemRepository
+                    .findAllByDispense_IdInOrderByDispense_IdAsc(dispenseIds)) {
+                dispenseItemsByDispense.computeIfAbsent(item.getDispense().getId(), ignored -> new ArrayList<>()).add(item);
+            }
+            for (PatientPassagePrescriptionDispenseEntity dispense : dispenses) {
+                dispensesByPrescription.computeIfAbsent(dispense.getPrescription().getId(), ignored -> new ArrayList<>()).add(dispense);
+            }
+        }
+
+        return prescriptions.stream().map(prescription -> toPharmacyPrescription(
+                prescription,
+                itemsByPrescription.getOrDefault(prescription.getId(), List.of()),
+                dispensesByPrescription.getOrDefault(prescription.getId(), List.of()),
+                dispenseItemsByDispense)).toList();
+    }
+
+    private PharmacyPrescriptionResponse toPharmacyPrescription(
+            PatientPassagePrescriptionEntity prescription,
+            List<PatientPassagePrescriptionItemEntity> items,
+            List<PatientPassagePrescriptionDispenseEntity> dispenses,
+            Map<UUID, List<PatientPassagePrescriptionDispenseItemEntity>> dispenseItemsByDispense) {
+        PatientPassageEntity passage = prescription.getPassage();
+        PatientEntity patient = passage.getPatient();
+        return new PharmacyPrescriptionResponse(
+                prescription.getId(),
+                prescription.getCode(),
+                patient.getId(),
+                patient.getCode(),
+                patient.getFirstName(),
+                patient.getLastName(),
+                patient.getMiddleName(),
+                passage.getId(),
+                passage.getCode(),
+                passage.getHospitalId(),
+                passage.getHospitalCode(),
+                passage.getServiceName(),
+                prescription.getSource(),
+                prescription.getStatus(),
+                prescription.getExternalPrescriberName(),
+                prescription.getExternalReference(),
+                prescription.getNotes(),
+                prescription.getCreatedAt(),
+                prescription.getCreatedByUsername(),
+                items.stream().map(this::toPrescriptionItem).toList(),
+                dispenses.stream().map(dispense -> toDispense(
+                        dispense,
+                        dispenseItemsByDispense.getOrDefault(dispense.getId(), List.of()))).toList());
+    }
+
+    private PrescriptionItemResponse toPrescriptionItem(PatientPassagePrescriptionItemEntity item) {
+        return new PrescriptionItemResponse(
+                item.getId(),
+                item.getMedicineName(),
+                item.getDosage(),
+                item.getAdministrationRoute(),
+                item.getFrequency(),
+                item.getDuration(),
+                item.getQuantity(),
+                item.getInstructions(),
+                item.getDisplayOrder());
+    }
+
+    private PrescriptionDispenseResponse toDispense(
+            PatientPassagePrescriptionDispenseEntity dispense,
+            List<PatientPassagePrescriptionDispenseItemEntity> items) {
+        return new PrescriptionDispenseResponse(
+                dispense.getId(),
+                dispense.getCode(),
+                dispense.getCompletion(),
+                dispense.getNotes(),
+                dispense.getDispensedAt(),
+                dispense.getDispensedByUsername(),
+                items.stream().map(item -> new PrescriptionDispenseItemResponse(
                         item.getId(),
-                        item.getMedicineName(),
-                        item.getDosage(),
-                        item.getAdministrationRoute(),
-                        item.getFrequency(),
-                        item.getDuration(),
-                        item.getQuantity(),
-                        item.getInstructions(),
-                        item.getDisplayOrder())).toList());
+                        item.getPrescriptionItem().getId(),
+                        item.getPrescriptionItem().getMedicineName(),
+                        item.getDispensedQuantity())).toList());
     }
 
     private void assignResponsiblePersonnel(

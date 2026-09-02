@@ -23,6 +23,9 @@ défaut `http://localhost:8888`.
 | `POST` | `/api/v1/patients/{patientId}/passages/{passageId}/clinical-entries` | Ajoute une évolution clinique à un passage en cours. |
 | `GET` | `/api/v1/patients/{patientId}/passages/{passageId}/prescriptions/search?page=0&size=20&query=amoxicilline&source=MEDICAL` | Consulte les ordonnances paginées d’un passage. |
 | `POST` | `/api/v1/patients/{patientId}/passages/{passageId}/prescriptions` | Ajoute une ordonnance médicale ou enregistre une ordonnance externe. |
+| `GET` | `/api/v1/patients/pharmacy/prescriptions/search?page=0&size=20&query=amoxicilline&status=PENDING_DISPENSING` | File paginée de la pharmacie, limitée à l’établissement du pharmacien. |
+| `GET` | `/api/v1/patients/pharmacy/prescriptions/{prescriptionId}` | Consulte l’ordonnance, ses médicaments et ses délivrances. |
+| `POST` | `/api/v1/patients/pharmacy/prescriptions/{prescriptionId}/dispenses` | Enregistre une délivrance complète ou partielle. |
 | `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/status` | Termine ou annule un passage en cours. |
 | `PATCH` | `/api/v1/patients/{patientId}/status` | Active ou désactive un dossier. |
 
@@ -113,9 +116,40 @@ médicale qu’il n’a pas établie.
 }
 ```
 
-Chaque ordonnance débute à l’état `PENDING_DISPENSING`. La délivrance, le
-catalogue et le stock seront ajoutés au module Pharmacie et changeront cet état
-sans modifier la prescription initiale.
+Chaque ordonnance débute à l’état `PENDING_DISPENSING`. Le catalogue et le
+stock seront ajoutés au module Pharmacie sans modifier la prescription ni ses
+délivrances déjà tracées.
+
+### Délivrance par la pharmacie
+
+La pharmacie dispose d’une file séparée des prescriptions de passage. Elle ne
+voit que les ordonnances de son hôpital ; l’administrateur provincial peut voir
+la file complète. Chaque remise génère un reçu `DSP-YYYYMMDD-XXXXXXXX`, signé
+par le pharmacien, avec les médicaments et quantités effectivement remis.
+
+Une remise peut être `PARTIAL` ou `COMPLETE`. Une remise complète doit couvrir
+toutes les lignes restant à remettre ; elle fait passer l’ordonnance à
+`DISPENSED`. Une remise partielle laisse l’ordonnance à `PARTIALLY_DISPENSED`
+afin de permettre un complément ultérieur. Une ligne déjà remise est verrouillée
+pour éviter une double délivrance, et une ordonnance annulée ou déjà délivrée
+ne peut pas être remise une seconde fois.
+
+```json
+{
+  "complete": false,
+  "notes": "Le sirop est indisponible ; le patient reviendra demain.",
+  "items": [
+    {
+      "prescriptionItemId": "3f03d0a3-10a1-4ed6-8a7e-26f9b51d7a40",
+      "dispensedQuantity": "21 gélules"
+    }
+  ]
+}
+```
+
+La clôture d’un passage est désormais refusée lorsqu’une de ses ordonnances est
+encore `PENDING_DISPENSING` ou `PARTIALLY_DISPENSED`. Cela garde le parcours,
+la délivrance et l’audit cohérents avant l’ajout de la facturation.
 
 Avant la clôture définitive, les futures opérations seront rattachées au même
 passage : consultation et actes, analyses et résultats, ordonnances et

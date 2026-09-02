@@ -20,6 +20,10 @@ public class PatientPassagePrescriptionItemEntity {
     @JoinColumn(name = "prescription_id", nullable = false)
     private PatientPassagePrescriptionEntity prescription;
 
+    /** UUID du catalogue pharmacie ; aucune clé étrangère n'est créée entre services. */
+    @Column(name = "medicine_id")
+    private UUID medicineId;
+
     @Column(name = "medicine_name", nullable = false, length = 250)
     private String medicineName;
 
@@ -50,6 +54,7 @@ public class PatientPassagePrescriptionItemEntity {
     public PatientPassagePrescriptionItemEntity(
             UUID id,
             PatientPassagePrescriptionEntity prescription,
+            UUID medicineId,
             String medicineName,
             String dosage,
             String administrationRoute,
@@ -60,6 +65,7 @@ public class PatientPassagePrescriptionItemEntity {
             int displayOrder) {
         this.id = id;
         this.prescription = prescription;
+        this.medicineId = medicineId;
         this.medicineName = medicineName;
         this.dosage = dosage;
         this.administrationRoute = administrationRoute;
@@ -70,8 +76,24 @@ public class PatientPassagePrescriptionItemEntity {
         this.displayOrder = displayOrder;
     }
 
+    /** Compatible avec les prescriptions historiques qui n'étaient pas liées au catalogue. */
+    public PatientPassagePrescriptionItemEntity(
+            UUID id,
+            PatientPassagePrescriptionEntity prescription,
+            String medicineName,
+            String dosage,
+            String administrationRoute,
+            String frequency,
+            String duration,
+            String quantity,
+            String instructions,
+            int displayOrder) {
+        this(id, prescription, null, medicineName, dosage, administrationRoute, frequency, duration, quantity, instructions, displayOrder);
+    }
+
     public UUID getId() { return id; }
     public PatientPassagePrescriptionEntity getPrescription() { return prescription; }
+    public UUID getMedicineId() { return medicineId; }
     public String getMedicineName() { return medicineName; }
     public String getDosage() { return dosage; }
     public String getAdministrationRoute() { return administrationRoute; }

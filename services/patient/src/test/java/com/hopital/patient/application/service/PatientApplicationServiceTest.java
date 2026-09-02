@@ -36,6 +36,7 @@ import com.hopital.patient.application.dto.PrescriptionDispenseItemRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
+import com.hopital.patient.infra.integration.pharmacy.PharmacyDispenseClient;
 import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
@@ -96,6 +97,9 @@ class PatientApplicationServiceTest {
 
     @Mock
     private PersonnelReferenceClient personnelReferenceClient;
+
+    @Mock
+    private PharmacyDispenseClient pharmacyDispenseClient;
 
     @InjectMocks
     private PatientApplicationService patientApplicationService;
@@ -402,7 +406,7 @@ class PatientApplicationServiceTest {
                         "ORD-PAPIER-54",
                         "Ordonnance apportée par le patient.",
                         List.of(new PrescriptionItemRequest(
-                                "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null))),
+                                null, "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null))),
                 new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
                 auditActor());
 
@@ -438,7 +442,7 @@ class PatientApplicationServiceTest {
                         "Dr. Mavungu",
                         "Vente au comptoir.",
                         List.of(new PrescriptionItemRequest(
-                                "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null))),
+                                null, "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null))),
                 new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
                 auditActor());
 
@@ -457,9 +461,10 @@ class PatientApplicationServiceTest {
         PatientPassagePrescriptionEntity prescription = new PatientPassagePrescriptionEntity(
                 UUID.randomUUID(), "ORD-20260902-ABCD1234", passage, PrescriptionSource.MEDICAL,
                 null, null, null, auditActor(), Instant.now());
+        UUID medicineId = UUID.randomUUID();
         PatientPassagePrescriptionItemEntity prescriptionItem = new PatientPassagePrescriptionItemEntity(
-                UUID.randomUUID(), prescription, "Amoxicilline", "500 mg", "Voie orale",
-                "3 fois par jour", "7 jours", "21 gélules", null, 0);
+                UUID.randomUUID(), prescription, medicineId, "Amoxicilline", "500 mg", "Voie orale",
+                "3 fois par jour", "7 jours", "21", null, 0);
         when(patientPassagePrescriptionRepository.findById(prescription.getId())).thenReturn(Optional.of(prescription));
         when(patientPassagePrescriptionItemRepository.findAllByPrescription_IdInOrderByDisplayOrderAsc(any()))
                 .thenReturn(List.of(prescriptionItem));
@@ -473,7 +478,7 @@ class PatientApplicationServiceTest {
                         com.hopital.patient.application.domain.PaymentCurrency.CDF,
                         com.hopital.patient.application.domain.PrescriptionPaymentMethod.CASH,
                         "Traitement remis au patient.", List.of(
-                        new PrescriptionDispenseItemRequest(prescriptionItem.getId(), "21 gélules"))),
+                        new PrescriptionDispenseItemRequest(prescriptionItem.getId(), "21"))),
                 new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
                 auditActor());
 
@@ -481,6 +486,7 @@ class PatientApplicationServiceTest {
         assertThat(response.items()).singleElement().satisfies(item ->
                 assertThat(item.medicineName()).isEqualTo("Amoxicilline"));
         assertThat(prescription.getStatus()).isEqualTo(PrescriptionStatus.DISPENSED);
+        verify(pharmacyDispenseClient).recordDispense(any(), any(), any(), any());
         assertThat(patient.getAuditEvents()).singleElement().satisfies(event ->
                 assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.PRESCRIPTION_DISPENSED));
     }

@@ -2,8 +2,10 @@ package com.hopital.patient.application.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 
 public record PrescriptionItemRequest(
+        UUID medicineId,
         @NotBlank(message = "Le médicament est obligatoire.")
         @Size(max = 250, message = "Le nom du médicament est trop long.")
         String medicineName,

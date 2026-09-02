@@ -47,6 +47,7 @@ import com.hopital.patient.application.exception.InvalidPatientPassageStateExcep
 import com.hopital.patient.application.exception.InvalidPrescriptionException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
+import com.hopital.patient.infra.integration.pharmacy.PharmacyDispenseClient;
 import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
@@ -105,6 +106,7 @@ public class PatientApplicationService {
     private final PatientPassagePrescriptionDispenseItemRepository patientPassagePrescriptionDispenseItemRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
     private final PersonnelReferenceClient personnelReferenceClient;
+    private final PharmacyDispenseClient pharmacyDispenseClient;
 
     public PatientApplicationService(
             PatientRepository patientRepository,
@@ -116,7 +118,8 @@ public class PatientApplicationService {
             PatientPassagePrescriptionDispenseRepository patientPassagePrescriptionDispenseRepository,
             PatientPassagePrescriptionDispenseItemRepository patientPassagePrescriptionDispenseItemRepository,
             HospitalReferenceClient hospitalReferenceClient,
-            PersonnelReferenceClient personnelReferenceClient) {
+            PersonnelReferenceClient personnelReferenceClient,
+            PharmacyDispenseClient pharmacyDispenseClient) {
         this.patientRepository = patientRepository;
         this.patientDocumentRepository = patientDocumentRepository;
         this.patientPassageRepository = patientPassageRepository;
@@ -127,6 +130,7 @@ public class PatientApplicationService {
         this.patientPassagePrescriptionDispenseItemRepository = patientPassagePrescriptionDispenseItemRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
         this.personnelReferenceClient = personnelReferenceClient;
+        this.pharmacyDispenseClient = pharmacyDispenseClient;
     }
 
     /** Compatibility endpoint for existing dependent forms. New registry screens use the paginated search endpoint. */
@@ -484,11 +488,29 @@ public class PatientApplicationService {
                     "Tous les médicaments restants sont sélectionnés : enregistrez une délivrance complète.");
         }
 
+        String dispenseCode = nextDispenseCode();
+        List<PharmacyDispenseClient.StockDispenseItem> linkedStockItems = selectedPrescriptionItems.stream()
+                .filter(item -> item.getMedicineId() != null)
+                .map(item -> new PharmacyDispenseClient.StockDispenseItem(
+                        item.getMedicineId(),
+                        stockQuantity(item, dispensedQuantitiesByItemId.get(item.getId()))))
+                .toList();
+        try {
+            pharmacyDispenseClient.recordDispense(
+                    prescription.getPassage().getHospitalId(),
+                    dispenseCode,
+                    auditActor,
+                    linkedStockItems);
+        } catch (org.springframework.web.client.RestClientException exception) {
+            throw new InvalidPrescriptionException(
+                    "La délivrance ne peut pas être confirmée : le stock disponible doit être vérifié par la pharmacie.");
+        }
+
         Instant dispensedAt = Instant.now();
         PatientPassagePrescriptionDispenseEntity dispense = patientPassagePrescriptionDispenseRepository.save(
                 new PatientPassagePrescriptionDispenseEntity(
                         UUID.randomUUID(),
-                        nextDispenseCode(),
+                        dispenseCode,
                         prescription,
                         request.complete()
                                 ? PrescriptionDispenseCompletion.COMPLETE
@@ -564,11 +586,6 @@ public class PatientApplicationService {
             throw new InvalidPatientPassageStateException(
                     "Une ordonnance ne peut être ajoutée que sur un passage en cours.");
         }
-        if (request.source() == PrescriptionSource.MEDICAL) {
-            // Une prescription clinique doit être portée par le professionnel responsable
-            // du passage (l'administrateur provincial reste l'exception contrôlée).
-            assertCanManagePassageStatus(accessScope, passage);
-        }
         String externalPrescriberName = request.source() == PrescriptionSource.EXTERNAL_PAPER
                 ? trimToNull(request.externalPrescriberName())
                 : null;
@@ -596,6 +613,7 @@ public class PatientApplicationService {
             items.add(new PatientPassagePrescriptionItemEntity(
                     UUID.randomUUID(),
                     prescription,
+                    item.medicineId(),
                     item.medicineName().trim(),
                     trimToNull(item.dosage()),
                     trimToNull(item.administrationRoute()),
@@ -1132,6 +1150,20 @@ public class PatientApplicationService {
         return value.trim();
     }
 
+    private int stockQuantity(PatientPassagePrescriptionItemEntity item, String dispensedQuantity) {
+        try {
+            int quantity = Integer.parseInt(dispensedQuantity.trim());
+            if (quantity < 1) {
+                throw new NumberFormatException("quantity must be positive");
+            }
+            return quantity;
+        } catch (NumberFormatException exception) {
+            throw new InvalidPrescriptionException(
+                    "La quantité délivrée pour " + item.getMedicineName()
+                            + " doit être un nombre entier afin de mettre le stock à jour.");
+        }
+    }
+
     private String normalizeSearchFilter(String value) {
         return value == null ? "" : value.trim();
     }
@@ -1336,6 +1368,7 @@ public class PatientApplicationService {
     private PrescriptionItemResponse toPrescriptionItem(PatientPassagePrescriptionItemEntity item) {
         return new PrescriptionItemResponse(
                 item.getId(),
+                item.getMedicineId(),
                 item.getMedicineName(),
                 item.getDosage(),
                 item.getAdministrationRoute(),

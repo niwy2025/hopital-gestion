@@ -26,6 +26,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/**", "/internal/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/pharmacy/**").hasAnyRole("ADMIN", "PHARMACY_ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/pharmacy/medicines/**").hasAnyRole("ADMIN", "HOSPITAL_ADMIN", "PHARMACIST", "PHARMACY_ADMIN", "DOCTOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/pharmacy/**").hasAnyRole("ADMIN", "HOSPITAL_ADMIN", "PHARMACIST", "PHARMACY_ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))

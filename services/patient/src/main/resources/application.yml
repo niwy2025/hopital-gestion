@@ -30,6 +30,8 @@ hospital:
     base-url: ${ORGANIZATION_SERVICE_BASE_URL:http://organization-service:8084}
   personnel-service:
     base-url: ${PERSONNEL_SERVICE_BASE_URL:http://personnel-service:8087}
+  pharmacy-service:
+    base-url: ${PHARMACY_SERVICE_BASE_URL:http://pharmacy-service:8089}
 
 management:
   metrics:

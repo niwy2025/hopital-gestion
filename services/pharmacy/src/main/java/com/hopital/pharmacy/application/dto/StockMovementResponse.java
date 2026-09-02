@@ -1,29 +1,27 @@
 package com.hopital.pharmacy.application.dto;
 
 import com.hopital.pharmacy.application.domain.Currency;
+import com.hopital.pharmacy.application.domain.StockMovementType;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-public record StockBalanceResponse(
+public record StockMovementResponse(
         UUID id,
+        String code,
+        StockMovementType type,
+        UUID stockId,
         UUID hospitalId,
         String hospitalCode,
         UUID medicineId,
         String medicineCode,
         String genericName,
-        String commercialName,
-        String dosage,
-        String pharmaceuticalForm,
+        String lotCode,
         int quantity,
-        int availableQuantity,
-        int expiredQuantity,
-        int expiringQuantity,
-        LocalDate nearestExpiry,
-        int reorderLevel,
-        BigDecimal averageUnitCost,
+        BigDecimal unitCost,
         Currency currency,
-        boolean lowStock,
-        Instant updatedAt) {
-}
+        LocalDate expiresOn,
+        String notes,
+        Instant occurredAt,
+        String performedByUsername) { }

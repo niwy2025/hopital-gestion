@@ -3,12 +3,17 @@ package com.hopital.pharmacy.application.service;
 import com.hopital.pharmacy.application.domain.AccountingPostingStatus;
 import com.hopital.pharmacy.application.domain.AuditActor;
 import com.hopital.pharmacy.application.domain.DataAccessScope;
+import com.hopital.pharmacy.application.domain.StockMovementType;
 import com.hopital.pharmacy.application.dto.CreateMedicineRequest;
+import com.hopital.pharmacy.application.dto.CreateStockIssueRequest;
 import com.hopital.pharmacy.application.dto.CreateStockEntryRequest;
+import com.hopital.pharmacy.application.dto.ExpiryTreatmentResponse;
 import com.hopital.pharmacy.application.dto.MedicineResponse;
 import com.hopital.pharmacy.application.dto.PageResponse;
+import com.hopital.pharmacy.application.dto.StockAvailabilityResponse;
 import com.hopital.pharmacy.application.dto.StockBalanceResponse;
 import com.hopital.pharmacy.application.dto.StockEntryResponse;
+import com.hopital.pharmacy.application.dto.StockMovementResponse;
 import com.hopital.pharmacy.application.exception.DataAccessDeniedException;
 import com.hopital.pharmacy.application.exception.InvalidStockEntryException;
 import com.hopital.pharmacy.application.exception.PharmacyResourceNotFoundException;
@@ -16,9 +21,14 @@ import com.hopital.pharmacy.infra.integration.organization.HospitalReferenceClie
 import com.hopital.pharmacy.infra.persistence.entity.HospitalStockEntity;
 import com.hopital.pharmacy.infra.persistence.entity.MedicineEntity;
 import com.hopital.pharmacy.infra.persistence.entity.StockEntryEntity;
+import com.hopital.pharmacy.infra.persistence.entity.StockLotEntity;
+import com.hopital.pharmacy.infra.persistence.entity.StockMovementEntity;
 import com.hopital.pharmacy.infra.persistence.repository.HospitalStockRepository;
 import com.hopital.pharmacy.infra.persistence.repository.MedicineRepository;
 import com.hopital.pharmacy.infra.persistence.repository.StockEntryRepository;
+import com.hopital.pharmacy.infra.persistence.repository.StockLotRepository;
+import com.hopital.pharmacy.infra.persistence.repository.StockMovementRepository;
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,13 +46,18 @@ public class PharmacyApplicationService {
     private final MedicineRepository medicineRepository;
     private final HospitalStockRepository hospitalStockRepository;
     private final StockEntryRepository stockEntryRepository;
+    private final StockLotRepository stockLotRepository;
+    private final StockMovementRepository stockMovementRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
 
     public PharmacyApplicationService(MedicineRepository medicineRepository, HospitalStockRepository hospitalStockRepository,
-            StockEntryRepository stockEntryRepository, HospitalReferenceClient hospitalReferenceClient) {
+            StockEntryRepository stockEntryRepository, StockLotRepository stockLotRepository,
+            StockMovementRepository stockMovementRepository, HospitalReferenceClient hospitalReferenceClient) {
         this.medicineRepository = medicineRepository;
         this.hospitalStockRepository = hospitalStockRepository;
         this.stockEntryRepository = stockEntryRepository;
+        this.stockLotRepository = stockLotRepository;
+        this.stockMovementRepository = stockMovementRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
     }
 
@@ -72,6 +87,20 @@ public class PharmacyApplicationService {
         return page(results.map(this::toEntry));
     }
 
+    public StockAvailabilityResponse currentStock(UUID medicineId, DataAccessScope scope) {
+        HospitalReferenceClient.HospitalReference hospital = resolveHospital(scope);
+        return hospitalStockRepository.findByHospitalIdAndMedicine_Id(hospital.hospitalId(), medicineId)
+                .map(stock -> new StockAvailabilityResponse(medicineId, true, toStock(stock)))
+                .orElseGet(() -> new StockAvailabilityResponse(medicineId, false, null));
+    }
+
+    public PageResponse<StockMovementResponse> searchStockMovements(int page, int size, String query,
+            UUID medicineId, StockMovementType type, DataAccessScope scope) {
+        String hospitalCode = scope.provinceWide() ? "" : requiredHospitalCode(scope);
+        var results = stockMovementRepository.search(hospitalCode, medicineId, type, normalize(query), pageable(page, size, "occurredAt"));
+        return page(results.map(this::toMovement));
+    }
+
     @Transactional
     public StockEntryResponse receiveStock(CreateStockEntryRequest request, DataAccessScope scope, AuditActor actor) {
         MedicineEntity medicine = medicineRepository.findById(request.medicineId())
@@ -98,7 +127,64 @@ public class PharmacyApplicationService {
         StockEntryEntity entry = new StockEntryEntity(UUID.randomUUID(), nextStockEntryCode(), stock, request.quantity(),
                 request.unitCost().setScale(2, RoundingMode.HALF_UP), request.currency(), request.expiresOn(),
                 trimToNull(request.supplierName()), trimToNull(request.notes()), actor, receivedAt);
-        return toEntry(stockEntryRepository.save(entry));
+        StockEntryEntity savedEntry = stockEntryRepository.save(entry);
+        StockLotEntity lot = stockLotRepository.save(new StockLotEntity(UUID.randomUUID(), "LOT-" + savedEntry.getCode(), stock,
+                savedEntry, request.quantity(), savedEntry.getUnitCost(), request.currency(), request.expiresOn(), receivedAt));
+        stockMovementRepository.save(new StockMovementEntity(UUID.randomUUID(), nextStockMovementCode(), stock, lot,
+                StockMovementType.ENTRY, request.quantity(), savedEntry.getUnitCost(), request.currency(), savedEntry.getNotes(), actor, receivedAt));
+        return toEntry(savedEntry);
+    }
+
+    @Transactional
+    public StockMovementResponse issueStock(CreateStockIssueRequest request, DataAccessScope scope, AuditActor actor) {
+        if (request.type() == StockMovementType.ENTRY || request.type() == StockMovementType.EXPIRY) {
+            throw new InvalidStockEntryException("Ce type de mouvement ne peut pas être saisi manuellement.");
+        }
+        HospitalReferenceClient.HospitalReference hospital = resolveHospital(scope);
+        HospitalStockEntity stock = hospitalStockRepository.findByHospitalIdAndMedicine_Id(hospital.hospitalId(), request.medicineId())
+                .orElseThrow(() -> new InvalidStockEntryException("Ce médicament ne possède aucun stock dans votre hôpital."));
+        Instant occurredAt = Instant.now();
+        var usableLots = stockLotRepository.findUsableByStock(stock.getId(), LocalDate.now());
+        int availableQuantity = usableLots.stream().mapToInt(StockLotEntity::getRemainingQuantity).sum();
+        if (request.quantity() > availableQuantity) {
+            throw new InvalidStockEntryException("La quantité demandée dépasse le stock disponible hors produits périmés.");
+        }
+        int remainingToIssue = request.quantity();
+        BigDecimal issuedValue = BigDecimal.ZERO;
+        for (StockLotEntity lot : usableLots) {
+            int consumed = Math.min(remainingToIssue, lot.getRemainingQuantity());
+            if (consumed == 0) continue;
+            lot.consume(consumed);
+            issuedValue = issuedValue.add(lot.getUnitCost().multiply(BigDecimal.valueOf(consumed)));
+            remainingToIssue -= consumed;
+            if (remainingToIssue == 0) break;
+        }
+        stock.issue(request.quantity(), occurredAt);
+        BigDecimal unitCost = issuedValue.divide(BigDecimal.valueOf(request.quantity()), 2, RoundingMode.HALF_UP);
+        StockMovementEntity movement = new StockMovementEntity(UUID.randomUUID(), nextStockMovementCode(), stock, null,
+                request.type(), request.quantity(), unitCost, stock.getCurrency(), trimToNull(request.notes()), actor, occurredAt);
+        return toMovement(stockMovementRepository.save(movement));
+    }
+
+    @Transactional
+    public ExpiryTreatmentResponse processExpiredStock(DataAccessScope scope, AuditActor actor) {
+        String hospitalCode = scope.provinceWide() ? "" : requiredHospitalCode(scope);
+        int lotsProcessed = 0;
+        int quantityProcessed = 0;
+        Instant occurredAt = Instant.now();
+        for (StockLotEntity lot : stockLotRepository.findExpired(hospitalCode, LocalDate.now())) {
+            int expiredQuantity = lot.getRemainingQuantity();
+            if (expiredQuantity == 0) continue;
+            HospitalStockEntity stock = lot.getStock();
+            lot.consume(expiredQuantity);
+            stock.issue(expiredQuantity, occurredAt);
+            stockMovementRepository.save(new StockMovementEntity(UUID.randomUUID(), nextStockMovementCode(), stock, lot,
+                    StockMovementType.EXPIRY, expiredQuantity, lot.getUnitCost(), lot.getCurrency(),
+                    "Sortie automatique : lot périmé" + (lot.getExpiresOn() == null ? "" : " le " + lot.getExpiresOn()), actor, occurredAt));
+            lotsProcessed++;
+            quantityProcessed += expiredQuantity;
+        }
+        return new ExpiryTreatmentResponse(lotsProcessed, quantityProcessed);
     }
 
     private HospitalReferenceClient.HospitalReference resolveHospital(DataAccessScope scope) {
@@ -110,6 +196,7 @@ public class PharmacyApplicationService {
 
     private String nextMedicineCode() { return nextCode("MED", medicineRepository::existsByCodeIgnoreCase); }
     private String nextStockEntryCode() { return nextCode("ENT", stockEntryRepository::existsByCodeIgnoreCase); }
+    private String nextStockMovementCode() { return nextCode("MVT", stockMovementRepository::existsByCodeIgnoreCase); }
     private String nextCode(String prefix, java.util.function.Predicate<String> exists) {
         for (int attempt = 0; attempt < 5; attempt++) {
             String code = prefix + "-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "-"
@@ -136,14 +223,34 @@ public class PharmacyApplicationService {
     }
     private StockBalanceResponse toStock(HospitalStockEntity item) {
         MedicineEntity medicine = item.getMedicine();
+        LocalDate today = LocalDate.now();
+        LocalDate warningDate = today.plusDays(90);
+        var lots = stockLotRepository.findByStock_IdAndRemainingQuantityGreaterThan(item.getId(), 0);
+        int expiredQuantity = lots.stream().filter(lot -> lot.getExpiresOn() != null && lot.getExpiresOn().isBefore(today))
+                .mapToInt(StockLotEntity::getRemainingQuantity).sum();
+        int expiringQuantity = lots.stream().filter(lot -> lot.getExpiresOn() != null
+                && !lot.getExpiresOn().isBefore(today) && !lot.getExpiresOn().isAfter(warningDate))
+                .mapToInt(StockLotEntity::getRemainingQuantity).sum();
+        LocalDate nearestExpiry = lots.stream().map(StockLotEntity::getExpiresOn).filter(java.util.Objects::nonNull)
+                .min(LocalDate::compareTo).orElse(null);
+        int availableQuantity = Math.max(0, item.getQuantity() - expiredQuantity);
         return new StockBalanceResponse(item.getId(), item.getHospitalId(), item.getHospitalCode(), medicine.getId(), medicine.getCode(),
                 medicine.getGenericName(), medicine.getCommercialName(), medicine.getDosage(), medicine.getPharmaceuticalForm(), item.getQuantity(),
-                item.getReorderLevel(), item.getAverageUnitCost(), item.getCurrency(), item.getQuantity() <= item.getReorderLevel(), item.getUpdatedAt());
+                availableQuantity, expiredQuantity, expiringQuantity, nearestExpiry, item.getReorderLevel(), item.getAverageUnitCost(),
+                item.getCurrency(), availableQuantity <= item.getReorderLevel(), item.getUpdatedAt());
     }
     private StockEntryResponse toEntry(StockEntryEntity item) {
         MedicineEntity medicine = item.getMedicine();
         return new StockEntryResponse(item.getId(), item.getCode(), item.getHospitalId(), item.getHospitalCode(), medicine.getId(), medicine.getCode(),
                 medicine.getGenericName(), item.getQuantity(), item.getUnitCost(), item.getTotalCost(), item.getCurrency(), item.getExpiresOn(),
                 item.getSupplierName(), item.getNotes(), item.getAccountingStatus(), item.getReceivedAt(), item.getReceivedByUsername());
+    }
+    private StockMovementResponse toMovement(StockMovementEntity item) {
+        MedicineEntity medicine = item.getStock().getMedicine();
+        StockLotEntity lot = item.getStockLot();
+        return new StockMovementResponse(item.getId(), item.getCode(), item.getType(), item.getStock().getId(), item.getStock().getHospitalId(),
+                item.getStock().getHospitalCode(), medicine.getId(), medicine.getCode(), medicine.getGenericName(), lot == null ? null : lot.getCode(),
+                item.getQuantity(), item.getUnitCost(), item.getCurrency(), lot == null ? null : lot.getExpiresOn(), item.getNotes(),
+                item.getOccurredAt(), item.getPerformedByUsername());
     }
 }

@@ -46,6 +46,14 @@ public class HospitalStockEntity {
         updatedAt = receivedAt;
     }
 
+    public void issue(int outgoingQuantity, Instant occurredAt) {
+        if (outgoingQuantity <= 0 || outgoingQuantity > quantity) {
+            throw new IllegalArgumentException("La quantité à sortir dépasse le stock comptable.");
+        }
+        quantity -= outgoingQuantity;
+        updatedAt = occurredAt;
+    }
+
     public UUID getId() { return id; }
     public UUID getHospitalId() { return hospitalId; }
     public String getHospitalCode() { return hospitalCode; }

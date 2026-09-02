@@ -34,8 +34,8 @@ public class PharmacyController {
 
     @GetMapping("/medicines/search")
     public ResponseEntity<PageResponse<MedicineResponse>> searchMedicines(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query, @RequestParam(required = false) Boolean active) {
+            @RequestParam(name = "page", defaultValue = "0") int page, @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query, @RequestParam(name = "active", required = false) Boolean active) {
         return ResponseEntity.ok(pharmacyApplicationService.searchMedicines(page, size, query, active));
     }
 
@@ -46,16 +46,16 @@ public class PharmacyController {
 
     @GetMapping("/stocks/search")
     public ResponseEntity<PageResponse<StockBalanceResponse>> searchStocks(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query, @RequestParam(defaultValue = "false") boolean lowStock,
+            @RequestParam(name = "page", defaultValue = "0") int page, @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query, @RequestParam(name = "lowStock", defaultValue = "false") boolean lowStock,
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(pharmacyApplicationService.searchStocks(page, size, query, lowStock, scope(jwt)));
     }
 
     @GetMapping("/stock-entries/search")
     public ResponseEntity<PageResponse<StockEntryResponse>> searchStockEntries(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String query, @RequestParam(required = false) AccountingPostingStatus accountingStatus,
+            @RequestParam(name = "page", defaultValue = "0") int page, @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query, @RequestParam(name = "accountingStatus", required = false) AccountingPostingStatus accountingStatus,
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(pharmacyApplicationService.searchStockEntries(page, size, query, accountingStatus, scope(jwt)));
     }

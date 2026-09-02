@@ -11,7 +11,6 @@ import java.util.UUID;
 
 public record CreateStockEntryRequest(
         @NotNull(message = "Le médicament est obligatoire.") UUID medicineId,
-        UUID hospitalId,
         @NotNull(message = "La quantité reçue est obligatoire.") @Min(value = 1, message = "La quantité doit être positive.") Integer quantity,
         @NotNull(message = "Le coût unitaire est obligatoire.") @DecimalMin(value = "0.01", message = "Le coût unitaire doit être positif.") BigDecimal unitCost,
         @NotNull(message = "La monnaie est obligatoire.") Currency currency,

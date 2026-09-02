@@ -80,7 +80,7 @@ public class PharmacyApplicationService {
         if (request.expiresOn() != null && !request.expiresOn().isAfter(LocalDate.now())) {
             throw new InvalidStockEntryException("La date de péremption doit être future.");
         }
-        HospitalReferenceClient.HospitalReference hospital = resolveHospital(request.hospitalId(), scope);
+        HospitalReferenceClient.HospitalReference hospital = resolveHospital(scope);
         Instant receivedAt = Instant.now();
         int reorderLevel = request.reorderLevel() == null ? 0 : request.reorderLevel();
         var existing = hospitalStockRepository.findByHospitalIdAndMedicine_Id(hospital.hospitalId(), medicine.getId());
@@ -101,13 +101,11 @@ public class PharmacyApplicationService {
         return toEntry(stockEntryRepository.save(entry));
     }
 
-    private HospitalReferenceClient.HospitalReference resolveHospital(UUID requestedHospitalId, DataAccessScope scope) {
-        if (scope.provinceWide()) {
-            if (requestedHospitalId == null) throw new IllegalArgumentException("Un hôpital est obligatoire pour cette entrée de stock.");
-            return hospitalReferenceClient.resolveActive(requestedHospitalId);
+    private HospitalReferenceClient.HospitalReference resolveHospital(DataAccessScope scope) {
+        if (scope.hospitalId() == null || scope.hospitalCode() == null) {
+            throw new DataAccessDeniedException();
         }
-        if (scope.hospitalId() == null || scope.hospitalCode() == null) throw new DataAccessDeniedException();
-        return new HospitalReferenceClient.HospitalReference(scope.hospitalId(), scope.hospitalCode(), true);
+        return hospitalReferenceClient.resolveActive(scope.hospitalId());
     }
 
     private String nextMedicineCode() { return nextCode("MED", medicineRepository::existsByCodeIgnoreCase); }

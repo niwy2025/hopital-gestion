@@ -29,7 +29,7 @@ public class KeycloakAuthClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(KeycloakAuthClient.class);
 
     private static final Set<String> MANAGED_ROLE_CODES = Set.of(
-            "ADMIN", "DOCTOR", "NURSE", "PHARMACIST", "RECEPTIONIST", "PATIENT", "HR_MANAGER");
+            "ADMIN", "DOCTOR", "NURSE", "PHARMACIST", "PHARMACY_MANAGER", "RECEPTIONIST", "PATIENT", "HR_MANAGER");
 
     private final RestClient keycloakClient;
     private final AuthServiceProperties properties;

@@ -28,6 +28,7 @@ public class StockEntryEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "medicine_id", nullable = false) private MedicineEntity medicine;
     @Column(nullable = false) private int quantity;
     @Column(name = "unit_cost", nullable = false, precision = 18, scale = 2) private BigDecimal unitCost;
+    @Column(name = "unit_selling_price", nullable = false, precision = 18, scale = 2) private BigDecimal unitSellingPrice;
     @Column(name = "total_cost", nullable = false, precision = 18, scale = 2) private BigDecimal totalCost;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 3) private Currency currency;
     @Column(name = "expires_on") private LocalDate expiresOn;
@@ -40,10 +41,10 @@ public class StockEntryEntity {
 
     protected StockEntryEntity() { }
 
-    public StockEntryEntity(UUID id, String code, HospitalStockEntity stock, int quantity, BigDecimal unitCost,
+    public StockEntryEntity(UUID id, String code, HospitalStockEntity stock, int quantity, BigDecimal unitCost, BigDecimal unitSellingPrice,
             Currency currency, LocalDate expiresOn, String supplierName, String notes, AuditActor actor, Instant receivedAt) {
         this.id = id; this.code = code; this.stock = stock; this.hospitalId = stock.getHospitalId(); this.hospitalCode = stock.getHospitalCode();
-        this.medicine = stock.getMedicine(); this.quantity = quantity; this.unitCost = unitCost; this.totalCost = unitCost.multiply(BigDecimal.valueOf(quantity));
+        this.medicine = stock.getMedicine(); this.quantity = quantity; this.unitCost = unitCost; this.unitSellingPrice = unitSellingPrice; this.totalCost = unitCost.multiply(BigDecimal.valueOf(quantity));
         this.currency = currency; this.expiresOn = expiresOn; this.supplierName = supplierName; this.notes = notes;
         this.accountingStatus = AccountingPostingStatus.PENDING_ACCOUNTING; this.receivedAt = receivedAt;
         this.receivedByUserId = actor.userId(); this.receivedByUsername = actor.username();
@@ -51,7 +52,7 @@ public class StockEntryEntity {
 
     public UUID getId() { return id; } public String getCode() { return code; } public UUID getHospitalId() { return hospitalId; }
     public String getHospitalCode() { return hospitalCode; } public MedicineEntity getMedicine() { return medicine; } public int getQuantity() { return quantity; }
-    public BigDecimal getUnitCost() { return unitCost; } public BigDecimal getTotalCost() { return totalCost; } public Currency getCurrency() { return currency; }
+    public BigDecimal getUnitCost() { return unitCost; } public BigDecimal getUnitSellingPrice() { return unitSellingPrice; } public BigDecimal getTotalCost() { return totalCost; } public Currency getCurrency() { return currency; }
     public LocalDate getExpiresOn() { return expiresOn; } public String getSupplierName() { return supplierName; } public String getNotes() { return notes; }
     public AccountingPostingStatus getAccountingStatus() { return accountingStatus; } public Instant getReceivedAt() { return receivedAt; }
     public String getReceivedByUsername() { return receivedByUsername; }

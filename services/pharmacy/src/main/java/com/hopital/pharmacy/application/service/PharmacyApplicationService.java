@@ -120,13 +120,13 @@ public class PharmacyApplicationService {
             if (stock.getCurrency() != request.currency()) {
                 throw new InvalidStockEntryException("La monnaie doit rester identique pour le stock de ce médicament dans cet hôpital.");
             }
-            stock.receive(request.quantity(), request.unitCost(), reorderLevel, receivedAt);
+            stock.receive(request.quantity(), request.unitCost(), request.unitSellingPrice(), reorderLevel, receivedAt);
         } else {
             stock = hospitalStockRepository.save(new HospitalStockEntity(UUID.randomUUID(), hospital.hospitalId(),
-                    hospital.hospitalCode(), medicine, request.quantity(), reorderLevel, request.unitCost(), request.currency(), receivedAt));
+                    hospital.hospitalCode(), medicine, request.quantity(), reorderLevel, request.unitCost(), request.unitSellingPrice(), request.currency(), receivedAt));
         }
         StockEntryEntity entry = new StockEntryEntity(UUID.randomUUID(), nextStockEntryCode(), stock, request.quantity(),
-                request.unitCost().setScale(2, RoundingMode.HALF_UP), request.currency(), request.expiresOn(),
+                request.unitCost().setScale(2, RoundingMode.HALF_UP), request.unitSellingPrice().setScale(2, RoundingMode.HALF_UP), request.currency(), request.expiresOn(),
                 trimToNull(request.supplierName()), trimToNull(request.notes()), actor, receivedAt);
         StockEntryEntity savedEntry = stockEntryRepository.save(entry);
         StockLotEntity lot = stockLotRepository.save(new StockLotEntity(UUID.randomUUID(), "LOT-" + savedEntry.getCode(), stock,
@@ -267,12 +267,13 @@ public class PharmacyApplicationService {
         return new StockBalanceResponse(item.getId(), item.getHospitalId(), item.getHospitalCode(), medicine.getId(), medicine.getCode(),
                 medicine.getGenericName(), medicine.getCommercialName(), medicine.getDosage(), medicine.getPharmaceuticalForm(), item.getQuantity(),
                 availableQuantity, expiredQuantity, expiringQuantity, nearestExpiry, item.getReorderLevel(), item.getAverageUnitCost(),
+                item.getUnitSellingPrice(),
                 item.getCurrency(), availableQuantity <= item.getReorderLevel(), item.getUpdatedAt());
     }
     private StockEntryResponse toEntry(StockEntryEntity item) {
         MedicineEntity medicine = item.getMedicine();
         return new StockEntryResponse(item.getId(), item.getCode(), item.getHospitalId(), item.getHospitalCode(), medicine.getId(), medicine.getCode(),
-                medicine.getGenericName(), item.getQuantity(), item.getUnitCost(), item.getTotalCost(), item.getCurrency(), item.getExpiresOn(),
+                medicine.getGenericName(), item.getQuantity(), item.getUnitCost(), item.getUnitSellingPrice(), item.getTotalCost(), item.getCurrency(), item.getExpiresOn(),
                 item.getSupplierName(), item.getNotes(), item.getAccountingStatus(), item.getReceivedAt(), item.getReceivedByUsername());
     }
     private StockMovementResponse toMovement(StockMovementEntity item) {

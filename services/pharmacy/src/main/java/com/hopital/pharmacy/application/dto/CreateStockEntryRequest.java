@@ -13,6 +13,7 @@ public record CreateStockEntryRequest(
         @NotNull(message = "Le médicament est obligatoire.") UUID medicineId,
         @NotNull(message = "La quantité reçue est obligatoire.") @Min(value = 1, message = "La quantité doit être positive.") Integer quantity,
         @NotNull(message = "Le coût unitaire est obligatoire.") @DecimalMin(value = "0.01", message = "Le coût unitaire doit être positif.") BigDecimal unitCost,
+        @NotNull(message = "Le prix de vente unitaire est obligatoire.") @DecimalMin(value = "0.00", message = "Le prix de vente ne peut pas être négatif.") BigDecimal unitSellingPrice,
         @NotNull(message = "La monnaie est obligatoire.") Currency currency,
         @Min(value = 0, message = "Le seuil d’alerte ne peut pas être négatif.") Integer reorderLevel,
         LocalDate expiresOn,

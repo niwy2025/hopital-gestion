@@ -23,6 +23,7 @@ public record StockBalanceResponse(
         LocalDate nearestExpiry,
         int reorderLevel,
         BigDecimal averageUnitCost,
+        BigDecimal unitSellingPrice,
         Currency currency,
         boolean lowStock,
         Instant updatedAt) {

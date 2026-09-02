@@ -17,6 +17,7 @@ public record StockEntryResponse(
         String genericName,
         int quantity,
         BigDecimal unitCost,
+        BigDecimal unitSellingPrice,
         BigDecimal totalCost,
         Currency currency,
         LocalDate expiresOn,

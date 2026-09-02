@@ -4,6 +4,7 @@ import com.hopital.auth.application.dto.AuthenticatedAccountResponse;
 import com.hopital.auth.application.dto.AccountResponse;
 import com.hopital.auth.application.dto.AccountWorkspaceResponse;
 import com.hopital.auth.application.dto.DataAccessScopeResponse;
+import com.hopital.auth.application.dto.ReferenceLaboratoryAccessReferenceResponse;
 import com.hopital.auth.application.dto.HospitalAccessReferenceResponse;
 import com.hopital.auth.application.dto.PersonnelAccessScopeResponse;
 import com.hopital.auth.application.dto.LoginRequest;
@@ -96,6 +97,33 @@ public class AuthApplicationService {
         PersonnelAccessScopeResponse personnelScope = personnelAccessClient.resolveActiveScope(account.id());
         if ("PROVINCIAL".equals(personnelScope.scope())) {
             return DataAccessScopeResponse.provinceWidePersonnelScope(personnelScope.personnelId());
+        }
+        if ("REFERENCE_LABORATORY".equals(personnelScope.scope())) {
+            if (personnelScope.laboratoryCode() == null || personnelScope.laboratoryCode().isBlank()) {
+                throw new AuthException("Le laboratoire de référence de l’affectation est invalide.");
+            }
+            ReferenceLaboratoryAccessReferenceResponse laboratory;
+            try {
+                laboratory = organizationAccessClient.resolveReferenceLaboratory(personnelScope.laboratoryCode());
+            } catch (RestClientResponseException exception) {
+                if (exception.getStatusCode() == HttpStatus.NOT_FOUND) {
+                    throw new AuthException(
+                            AuthFailureCode.ACCOUNT_ASSIGNMENT_REQUIRED,
+                            "Le laboratoire de référence de votre affectation est introuvable.");
+                }
+                throw exception;
+            }
+            if (laboratory == null || !laboratory.active()) {
+                throw new AuthException("Le laboratoire de référence de l’affectation est inactif.");
+            }
+            return new DataAccessScopeResponse(
+                    false,
+                    false,
+                    personnelScope.personnelId(),
+                    null,
+                    null,
+                    List.of(laboratory.code()),
+                    laboratory.code());
         }
         HospitalAccessReferenceResponse hospital = organizationAccessClient.resolveHospital(personnelScope.hospitalId());
         if ("HOSPITAL_LABORATORY".equals(personnelScope.scope())) {

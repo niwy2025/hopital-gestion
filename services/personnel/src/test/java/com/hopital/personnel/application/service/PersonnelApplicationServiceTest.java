@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -21,6 +22,7 @@ import com.hopital.personnel.application.dto.PersonnelAccessScopeResponse;
 import com.hopital.personnel.application.dto.PersonnelCareReferenceResponse;
 import com.hopital.personnel.application.dto.PersonnelResponse;
 import com.hopital.personnel.infra.integration.account.AccountReferenceClient;
+import com.hopital.personnel.infra.integration.organization.ReferenceLaboratoryReferenceClient;
 import com.hopital.personnel.infra.persistence.entity.PersonnelDocumentEntity;
 import com.hopital.personnel.infra.persistence.entity.PersonnelAssignmentEntity;
 import com.hopital.personnel.infra.persistence.entity.PersonnelEntity;
@@ -47,6 +49,9 @@ class PersonnelApplicationServiceTest {
 
     @Mock
     private AccountReferenceClient accountReferenceClient;
+
+    @Mock
+    private ReferenceLaboratoryReferenceClient referenceLaboratoryReferenceClient;
 
     @Mock
     private PersonnelDocumentRepository personnelDocumentRepository;
@@ -220,6 +225,44 @@ class PersonnelApplicationServiceTest {
         assertThat(scope.personnelId()).isEqualTo(personnelId);
         assertThat(scope.hospitalId()).isEqualTo(hospitalId);
         assertThat(scope.laboratoryCode()).isEqualTo("LAB-HGR-01");
+    }
+
+    @Test
+    void createsReferenceLaboratoryAssignmentAndClearsTheHospitalScope() {
+        UUID personnelId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        UUID formerHospitalId = UUID.randomUUID();
+        PersonnelEntity personnel = activePersonnel(personnelId);
+        personnel.update(
+                personnel.getEmployeeNumber(), personnel.getFirstName(), personnel.getLastName(), personnel.getMiddleName(),
+                personnel.getDateOfBirth(), personnel.getGender(), personnel.getCategory(), personnel.getJobTitle(),
+                personnel.getPhoneNumber(), personnel.getEmail(), personnel.getAddress(), formerHospitalId, accountId);
+        when(personnelRepository.findById(personnelId)).thenReturn(Optional.of(personnel));
+        when(personnelAssignmentRepository.existsByPersonnelIdAndStatusAndPrimaryAssignmentTrue(any(), any())).thenReturn(false);
+        when(personnelAssignmentRepository.save(any(PersonnelAssignmentEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(accountReferenceClient.assertAccountExists(accountId))
+                .thenReturn(new AccountReferenceClient.AccountReference(accountId, formerHospitalId));
+        when(referenceLaboratoryReferenceClient.assertActiveReferenceLaboratory("LRP-KC"))
+                .thenReturn(new ReferenceLaboratoryReferenceClient.ReferenceLaboratoryReference("LRP-KC", true));
+
+        PersonnelAssignmentResponse response = personnelApplicationService.createAssignment(personnelId,
+                new CreatePersonnelAssignmentRequest(
+                        PersonnelAssignmentScope.REFERENCE_LABORATORY,
+                        null,
+                        "lrp-kc",
+                        "Biologie médicale",
+                        "Réception",
+                        "Technicien de laboratoire",
+                        LocalDate.of(2026, 9, 2),
+                        true,
+                        null));
+
+        assertThat(response.scope()).isEqualTo(PersonnelAssignmentScope.REFERENCE_LABORATORY);
+        assertThat(response.hospitalId()).isNull();
+        assertThat(response.laboratoryCode()).isEqualTo("LRP-KC");
+        assertThat(personnel.getHospitalId()).isNull();
+        verify(accountReferenceClient).synchronizeHospitalAssignment(eq(accountId), isNull());
     }
 
     @Test

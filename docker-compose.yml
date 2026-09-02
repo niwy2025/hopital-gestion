@@ -502,10 +502,13 @@ services:
       SPRING_DATASOURCE_USERNAME: ${HOSPITAL_DB_USER:-hospital}
       SPRING_DATASOURCE_PASSWORD: ${HOSPITAL_DB_PASSWORD:-hospital_password}
       ACCOUNT_SERVICE_URI: http://account-service:8082
+      ORGANIZATION_SERVICE_URI: http://organization-service:8084
     depends_on:
       postgres:
         condition: service_healthy
       account-service:
+        condition: service_started
+      organization-service:
         condition: service_started
     networks: [hospital-network]
 

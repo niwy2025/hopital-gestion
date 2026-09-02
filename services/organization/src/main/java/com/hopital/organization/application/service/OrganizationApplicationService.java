@@ -19,6 +19,7 @@ import com.hopital.organization.application.dto.PageResponse;
 import com.hopital.organization.application.dto.ProvinceResponse;
 import com.hopital.organization.application.dto.ReferenceLaboratoryResponse;
 import com.hopital.organization.application.dto.ReferenceLaboratoryAccessReference;
+import com.hopital.organization.application.dto.ReferenceLaboratoryAssignmentReference;
 import com.hopital.organization.application.dto.UpdateOrganizationStatusRequest;
 import com.hopital.organization.application.exception.DuplicateOrganizationException;
 import com.hopital.organization.application.exception.OrganizationNotFoundException;
@@ -152,6 +153,21 @@ public class OrganizationApplicationService {
                 .map(referenceLaboratory -> new ReferenceLaboratoryAccessReference(
                         referenceLaboratory.getCode(), referenceLaboratory.getName()))
                 .toList();
+    }
+
+    /**
+     * Resolves a laboratory solely for staff-assignment and access-scope
+     * checks. The active flag matters: disabling a reference laboratory must
+     * prevent staff assigned only to it from processing new work.
+     */
+    public ReferenceLaboratoryAssignmentReference resolveReferenceLaboratoryAssignmentReference(
+            String referenceLaboratoryCode) {
+        ReferenceLaboratoryEntity referenceLaboratory = referenceLaboratoryRepository
+                .findByCodeIgnoreCase(normalizeCode(referenceLaboratoryCode))
+                .orElseThrow(() -> new OrganizationNotFoundException(
+                        "Le laboratoire de référence", referenceLaboratoryCode));
+        return new ReferenceLaboratoryAssignmentReference(
+                referenceLaboratory.getCode(), referenceLaboratory.isActive());
     }
 
     public PageResponse<ReferenceLaboratoryResponse> searchReferenceLaboratories(

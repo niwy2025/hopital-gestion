@@ -3,5 +3,6 @@ package com.hopital.personnel.application.domain;
 public enum PersonnelAssignmentScope {
     PROVINCIAL,
     HOSPITAL,
-    HOSPITAL_LABORATORY
+    HOSPITAL_LABORATORY,
+    REFERENCE_LABORATORY
 }

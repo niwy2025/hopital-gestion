@@ -2,6 +2,7 @@ package com.hopital.auth.infra.integration.organization;
 
 import com.hopital.auth.application.config.AuthServiceProperties;
 import com.hopital.auth.application.dto.HospitalAccessReferenceResponse;
+import com.hopital.auth.application.dto.ReferenceLaboratoryAccessReferenceResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -19,5 +20,12 @@ public class OrganizationAccessClient {
                 .uri("/internal/organizations/hospitals/{hospitalId}/access-reference", hospitalId)
                 .retrieve()
                 .body(HospitalAccessReferenceResponse.class);
+    }
+
+    public ReferenceLaboratoryAccessReferenceResponse resolveReferenceLaboratory(String laboratoryCode) {
+        return organizationClient.get()
+                .uri("/internal/organizations/reference-laboratories/{laboratoryCode}/assignment-reference", laboratoryCode)
+                .retrieve()
+                .body(ReferenceLaboratoryAccessReferenceResponse.class);
     }
 }

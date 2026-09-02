@@ -2,6 +2,7 @@ package com.hopital.organization.api;
 
 import com.hopital.organization.application.dto.HospitalAccessReferenceResponse;
 import com.hopital.organization.application.dto.ReferenceLaboratoryAccessReference;
+import com.hopital.organization.application.dto.ReferenceLaboratoryAssignmentReference;
 import com.hopital.organization.application.service.OrganizationApplicationService;
 import java.util.List;
 import java.util.UUID;
@@ -31,5 +32,12 @@ public class InternalOrganizationController {
     public ResponseEntity<List<ReferenceLaboratoryAccessReference>> listReferenceLaboratoriesForHospital(
             @PathVariable("hospitalId") UUID hospitalId) {
         return ResponseEntity.ok(organizationApplicationService.listActiveReferenceLaboratoriesForHospital(hospitalId));
+    }
+
+    @GetMapping("/reference-laboratories/{referenceLaboratoryCode}/assignment-reference")
+    public ResponseEntity<ReferenceLaboratoryAssignmentReference> resolveReferenceLaboratoryAssignmentReference(
+            @PathVariable("referenceLaboratoryCode") String referenceLaboratoryCode) {
+        return ResponseEntity.ok(organizationApplicationService
+                .resolveReferenceLaboratoryAssignmentReference(referenceLaboratoryCode));
     }
 }

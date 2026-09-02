@@ -75,9 +75,15 @@ supprimé par `DELETE /api/v1/personnel/{personnelId}/documents/{documentId}`.
 ## Affectations
 
 Les affectations sont historisées indépendamment de la fiche administrative.
-Elles peuvent être de niveau `PROVINCIAL` (sans établissement) ou `HOSPITAL`
-(avec `hospitalId`), et précisent la fonction, le service ou département, l’unité
-et la période. Une seule affectation principale peut être active pour un agent.
+Elles peuvent être de niveau `PROVINCIAL` (sans établissement), `HOSPITAL`
+(avec `hospitalId`), `HOSPITAL_LABORATORY` (avec hôpital et laboratoire interne)
+ou `REFERENCE_LABORATORY` (avec le code d’un laboratoire de référence, sans
+hôpital). Elles précisent la fonction, le service ou département, l’unité et la
+période. Une seule affectation principale peut être active pour un agent.
+
+Un laboratoire de référence est vérifié comme actif dans le référentiel avant
+l’enregistrement. Lorsqu’elle est principale, cette affectation limite le compte
+associé aux seules demandes envoyées à ce laboratoire.
 
 - `GET /api/v1/personnel/{personnelId}/assignments/search?page=0&size=20&query=&status=ACTIVE`
   fournit l’historique paginé et filtrable.

@@ -21,6 +21,7 @@ import com.hopital.personnel.application.exception.InvalidPersonnelAssignmentExc
 import com.hopital.personnel.application.exception.InvalidPersonnelReferenceException;
 import com.hopital.personnel.application.exception.PersonnelNotFoundException;
 import com.hopital.personnel.infra.integration.account.AccountReferenceClient;
+import com.hopital.personnel.infra.integration.organization.ReferenceLaboratoryReferenceClient;
 import com.hopital.personnel.infra.persistence.entity.PersonnelDocumentEntity;
 import com.hopital.personnel.infra.persistence.entity.PersonnelAssignmentEntity;
 import com.hopital.personnel.infra.persistence.entity.PersonnelEntity;
@@ -63,16 +64,19 @@ public class PersonnelApplicationService {
     private final PersonnelAssignmentRepository personnelAssignmentRepository;
     private final PersonnelDocumentRepository personnelDocumentRepository;
     private final AccountReferenceClient accountReferenceClient;
+    private final ReferenceLaboratoryReferenceClient referenceLaboratoryReferenceClient;
 
     public PersonnelApplicationService(
             PersonnelRepository personnelRepository,
             PersonnelAssignmentRepository personnelAssignmentRepository,
             PersonnelDocumentRepository personnelDocumentRepository,
-            AccountReferenceClient accountReferenceClient) {
+            AccountReferenceClient accountReferenceClient,
+            ReferenceLaboratoryReferenceClient referenceLaboratoryReferenceClient) {
         this.personnelRepository = personnelRepository;
         this.personnelAssignmentRepository = personnelAssignmentRepository;
         this.personnelDocumentRepository = personnelDocumentRepository;
         this.accountReferenceClient = accountReferenceClient;
+        this.referenceLaboratoryReferenceClient = referenceLaboratoryReferenceClient;
     }
 
     public PageResponse<PersonnelResponse> searchPersonnel(int page, int size, String query, String hospitalId, Boolean active) {
@@ -240,6 +244,11 @@ public class PersonnelApplicationService {
         UUID hospitalId = parseOptionalUuid(request.hospitalId(), "hôpital");
         String laboratoryCode = normalizeOptionalCode(request.laboratoryCode());
         validateAssignmentScope(request.scope(), hospitalId, laboratoryCode);
+        if (request.scope() == PersonnelAssignmentScope.REFERENCE_LABORATORY) {
+            laboratoryCode = referenceLaboratoryReferenceClient
+                    .assertActiveReferenceLaboratory(laboratoryCode)
+                    .code();
+        }
         if (request.primaryAssignment() && personnelAssignmentRepository
                 .existsByPersonnelIdAndStatusAndPrimaryAssignmentTrue(personnelId, PersonnelAssignmentStatus.ACTIVE)) {
             throw new InvalidPersonnelAssignmentException("Cet agent possède déjà une affectation principale active. Clôturez-la avant d'en définir une autre.");
@@ -325,7 +334,7 @@ public class PersonnelApplicationService {
     }
 
     private void synchronizePrimaryAssignment(PersonnelEntity personnel, boolean primaryAssignment, UUID hospitalId) {
-        if (!primaryAssignment || hospitalId == null) {
+        if (!primaryAssignment) {
             return;
         }
         personnel.updateHospitalAssignment(hospitalId);
@@ -476,6 +485,11 @@ public class PersonnelApplicationService {
         }
         if (scope == PersonnelAssignmentScope.PROVINCIAL && (hospitalId != null || laboratoryCode != null)) {
             throw new InvalidPersonnelAssignmentException("Une affectation provinciale ne peut pas être liée à un hôpital.");
+        }
+        if (scope == PersonnelAssignmentScope.REFERENCE_LABORATORY
+                && (hospitalId != null || laboratoryCode == null)) {
+            throw new InvalidPersonnelAssignmentException(
+                    "Une affectation en laboratoire de référence doit indiquer ce laboratoire, sans hôpital.");
         }
     }
 

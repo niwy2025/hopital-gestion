@@ -25,6 +25,7 @@ spring:
 
 personnel:
   account-service-url: ${ACCOUNT_SERVICE_URI:http://account-service:8082}
+  organization-service-url: ${ORGANIZATION_SERVICE_URI:http://organization-service:8084}
 
 management:
   metrics:

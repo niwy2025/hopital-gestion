@@ -3,6 +3,7 @@ package com.hopital.accounting.infra.persistence.repository;
 import com.hopital.accounting.infra.persistence.entity.AccountingPaymentEntity;
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.Optional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import com.hopital.accounting.application.domain.AccountingCurrency;
@@ -15,6 +16,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface AccountingPaymentRepository extends JpaRepository<AccountingPaymentEntity, UUID> {
     boolean existsByHospitalIdAndCode(UUID hospitalId, String code);
+    Optional<AccountingPaymentEntity> findByInvoiceIdAndIdempotencyKey(UUID invoiceId, String idempotencyKey);
     @Query("""
             SELECT COALESCE(SUM(payment.amount), 0) FROM AccountingPaymentEntity payment
             WHERE payment.hospitalId = :hospitalId AND payment.currency = :currency AND payment.method = :method

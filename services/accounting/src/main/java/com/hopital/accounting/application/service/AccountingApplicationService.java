@@ -130,6 +130,7 @@ public class AccountingApplicationService {
     private final HospitalReferenceClient hospitalReferenceClient;
     private final PatientAccountingReferenceClient patientReferenceClient;
     private final PharmacyAccountingReferenceClient pharmacyReferenceClient;
+    private final PharmacyPaymentSettlementOutboxService pharmacyPaymentSettlementOutboxService;
 
     public AccountingApplicationService(AccountingAccountRepository accountRepository,
             AccountingJournalRepository journalRepository, AccountingPeriodRepository periodRepository,
@@ -137,12 +138,14 @@ public class AccountingApplicationService {
             AccountingInvoiceRepository invoiceRepository, AccountingPaymentRepository paymentRepository,
             FinancialStatementNoteRepository noteRepository, AccountingSupportingDocumentRepository documentRepository,
             CashSessionRepository cashSessionRepository, HospitalReferenceClient hospitalReferenceClient,
-            PatientAccountingReferenceClient patientReferenceClient, PharmacyAccountingReferenceClient pharmacyReferenceClient) {
+            PatientAccountingReferenceClient patientReferenceClient, PharmacyAccountingReferenceClient pharmacyReferenceClient,
+            PharmacyPaymentSettlementOutboxService pharmacyPaymentSettlementOutboxService) {
         this.accountRepository = accountRepository; this.journalRepository = journalRepository; this.periodRepository = periodRepository;
         this.entryRepository = entryRepository; this.entryLineRepository = entryLineRepository; this.invoiceRepository = invoiceRepository;
         this.paymentRepository = paymentRepository; this.noteRepository = noteRepository; this.documentRepository = documentRepository;
         this.cashSessionRepository = cashSessionRepository; this.hospitalReferenceClient = hospitalReferenceClient;
         this.patientReferenceClient = patientReferenceClient; this.pharmacyReferenceClient = pharmacyReferenceClient;
+        this.pharmacyPaymentSettlementOutboxService = pharmacyPaymentSettlementOutboxService;
     }
 
     public PageResponse<AccountingAccountResponse> searchAccounts(int page, int size, String query, Boolean active,
@@ -382,12 +385,22 @@ public class AccountingApplicationService {
     @Transactional
     public AccountingPaymentResponse recordPayment(UUID invoiceId, CreateAccountingPaymentRequest request, DataAccessScope scope,
             AuditActor actor) {
-        AccountingInvoiceEntity invoice = ownedInvoice(invoiceId, scope);
+        AccountingInvoiceEntity invoice = invoiceRepository.lockById(invoiceId)
+                .orElseThrow(() -> new AccountingResourceNotFoundException("La facture"));
+        assertOwned(invoice.getHospitalId(), scope);
         HospitalContext hospital = new HospitalContext(invoice.getHospitalId(), invoice.getHospitalCode()); ensureHospitalBook(hospital);
+        String idempotencyKey = trimToNull(request.idempotencyKey());
+        if (idempotencyKey != null) {
+            AccountingPaymentEntity existing = paymentRepository.findByInvoiceIdAndIdempotencyKey(invoice.getId(), idempotencyKey)
+                    .orElse(null);
+            if (existing != null) {
+                return toPayment(existing);
+            }
+        }
         if (invoice.getCurrency() != request.currency()) throw new AccountingValidationException("La devise du paiement doit correspondre à celle de la facture.");
         if (invoice.getDueAmount().compareTo(money(request.amount())) < 0) throw new AccountingValidationException("Le paiement dépasse le solde de la facture.");
         return toPayment(recordPayment(hospital, invoice, request.paidOn(), money(request.amount()), request.currency(), request.method(),
-                trimToNull(request.paymentReference()), actor, AccountingSourceType.MANUAL_INVOICE,
+                trimToNull(request.paymentReference()), idempotencyKey, actor, AccountingSourceType.MANUAL_INVOICE,
                 invoice.getCode() + ":PAYMENT:" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT)));
     }
 
@@ -612,6 +625,7 @@ public class AccountingApplicationService {
         var existing = invoiceRepository.findByHospitalIdAndSourceTypeAndSourceCode(hospital.id(), AccountingSourceType.PHARMACY_DISPENSE, dispenseCode);
         if (existing.isPresent()) {
             AccountingInvoiceEntity invoice = existing.get();
+            pharmacyPaymentSettlementOutboxService.enqueueInvoiceState(invoice);
             AccountingEntryEntity sales = entryRepository.findByHospitalIdAndSourceTypeAndSourceCode(hospital.id(),
                     AccountingSourceType.PHARMACY_DISPENSE, dispenseCode + ":INVOICE").orElse(null);
             return new PharmacyDispensationAccountingResponse(invoice.getId(), invoice.getCode(), invoice.getCode(),
@@ -635,6 +649,7 @@ public class AccountingApplicationService {
                 patient.passageId(), patient.passageCode(), date, currency, total, "Délivrance pharmacie " + dispenseCode,
                 actor.userId(), actor.username(), Instant.now()));
         invoice.issue();
+        pharmacyPaymentSettlementOutboxService.enqueueInvoiceState(invoice);
         AccountingEntryEntity sales = null;
         if (total.signum() > 0) {
             sales = createAndPostEntry(hospital, date, journal(hospital, "VEN"), AccountingSourceType.PHARMACY_DISPENSE,
@@ -644,7 +659,7 @@ public class AccountingApplicationService {
         }
         if (paid.signum() > 0) {
             recordPayment(hospital, invoice, date, paid, currency, parsePaymentMethod(patient.paymentMethod()),
-                    dispenseCode, actor, AccountingSourceType.PHARMACY_DISPENSE, dispenseCode + ":PAYMENT");
+                    dispenseCode, null, actor, AccountingSourceType.PHARMACY_DISPENSE, dispenseCode + ":PAYMENT");
         }
         if (stockCost.signum() > 0) {
             createAndPostEntry(hospital, date, journal(hospital, "OD"), AccountingSourceType.PHARMACY_DISPENSE,
@@ -819,7 +834,7 @@ public class AccountingApplicationService {
 
     private AccountingPaymentEntity recordPayment(HospitalContext hospital, AccountingInvoiceEntity invoice, LocalDate paidOn,
             BigDecimal amount, AccountingCurrency currency, AccountingPaymentMethod method, String paymentReference,
-            AuditActor actor, AccountingSourceType sourceType, String sourceCode) {
+            String idempotencyKey, AuditActor actor, AccountingSourceType sourceType, String sourceCode) {
         if (amount.signum() <= 0) throw new AccountingValidationException("Un paiement doit être supérieur à zéro.");
         if (invoice.getCurrency() != currency) throw new AccountingValidationException("La devise du paiement est différente de la facture.");
         if (invoice.getDueAmount().compareTo(amount) < 0) throw new AccountingValidationException("Le paiement dépasse le solde de la facture.");
@@ -835,8 +850,10 @@ public class AccountingApplicationService {
                         new LineSpec(account(hospital, ACCOUNT_RECEIVABLES), "Règlement " + invoice.getCode(), BigDecimal.ZERO, amount, invoice.getPatientCode())));
         invoice.receive(amount);
         String paymentCode = nextCode("REC", value -> paymentRepository.existsByHospitalIdAndCode(hospital.id(), value));
-        return paymentRepository.save(new AccountingPaymentEntity(UUID.randomUUID(), hospital.id(), hospital.code(), paymentCode,
-                invoice, paidOn, amount, currency, method, paymentReference, entry, actor.userId(), actor.username(), Instant.now()));
+        AccountingPaymentEntity payment = paymentRepository.save(new AccountingPaymentEntity(UUID.randomUUID(), hospital.id(), hospital.code(), paymentCode,
+                invoice, paidOn, amount, currency, method, paymentReference, idempotencyKey, entry, actor.userId(), actor.username(), Instant.now()));
+        pharmacyPaymentSettlementOutboxService.enqueuePaymentState(payment, invoice);
+        return payment;
     }
 
     private AccountingEntryEntity createAndPostEntry(HospitalContext hospital, LocalDate date, AccountingJournalEntity journal,

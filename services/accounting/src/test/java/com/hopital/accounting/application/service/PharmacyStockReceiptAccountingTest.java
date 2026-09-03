@@ -56,6 +56,7 @@ class PharmacyStockReceiptAccountingTest {
     @Mock private HospitalReferenceClient hospitalReferenceClient;
     @Mock private PatientAccountingReferenceClient patientReferenceClient;
     @Mock private PharmacyAccountingReferenceClient pharmacyReferenceClient;
+    @Mock private PharmacyPaymentSettlementOutboxService pharmacyPaymentSettlementOutboxService;
 
     @Test
     void postsSupplierStockReceiptFromTheImmutablePharmacyReference() {
@@ -92,7 +93,8 @@ class PharmacyStockReceiptAccountingTest {
 
         AccountingApplicationService service = new AccountingApplicationService(accountRepository, journalRepository, periodRepository,
                 entryRepository, entryLineRepository, invoiceRepository, paymentRepository, noteRepository, documentRepository,
-                cashSessionRepository, hospitalReferenceClient, patientReferenceClient, pharmacyReferenceClient);
+                cashSessionRepository, hospitalReferenceClient, patientReferenceClient, pharmacyReferenceClient,
+                pharmacyPaymentSettlementOutboxService);
 
         var response = service.recordPharmacyStockReceipt("ENT-20260903-ABCD1234");
 

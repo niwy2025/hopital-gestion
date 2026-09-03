@@ -16,6 +16,8 @@ import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.domain.PatientDocumentType;
+import com.hopital.patient.application.domain.PharmacyDispenseAccountingEventType;
+import com.hopital.patient.application.domain.PharmacyDispenseAccountingInvoiceStatus;
 import com.hopital.patient.application.domain.PrescriptionSource;
 import com.hopital.patient.application.domain.PrescriptionStatus;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
@@ -34,6 +36,7 @@ import com.hopital.patient.application.dto.CreatePrescriptionDispenseRequest;
 import com.hopital.patient.application.dto.CreatePharmacyExternalPrescriptionRequest;
 import com.hopital.patient.application.dto.PrescriptionItemRequest;
 import com.hopital.patient.application.dto.PrescriptionDispenseItemRequest;
+import com.hopital.patient.application.dto.PharmacyDispensePaymentSettlementRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
@@ -47,6 +50,7 @@ import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionEn
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseItemEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionItemEntity;
+import com.hopital.patient.infra.persistence.entity.PharmacyDispensePaymentSettlementEventEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionItemRepository;
@@ -55,6 +59,7 @@ import com.hopital.patient.infra.persistence.repository.PatientPassagePrescripti
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
+import com.hopital.patient.infra.persistence.repository.PharmacyDispensePaymentSettlementEventRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
@@ -106,6 +111,9 @@ class PatientApplicationServiceTest {
 
     @Mock
     private PharmacyDispenseAccountingOutboxService pharmacyDispenseAccountingOutboxService;
+
+    @Mock
+    private PharmacyDispensePaymentSettlementEventRepository pharmacyDispensePaymentSettlementEventRepository;
 
     @InjectMocks
     private PatientApplicationService patientApplicationService;
@@ -579,6 +587,130 @@ class PatientApplicationServiceTest {
     }
 
     @Test
+    void projectsTheCurrentAccountingBalanceAfterALaterPharmacySettlement() {
+        PatientPassagePrescriptionDispenseEntity dispense = pharmacyDispense("15000.00", "5000.00");
+        UUID invoiceId = UUID.randomUUID();
+        when(pharmacyDispensePaymentSettlementEventRepository.findById(any())).thenReturn(Optional.empty());
+        when(pharmacyDispensePaymentSettlementEventRepository.findByPaymentId(any())).thenReturn(Optional.empty());
+        when(patientPassagePrescriptionDispenseRepository.lockByCodeIgnoreCase(dispense.getCode()))
+                .thenReturn(Optional.of(dispense));
+        when(pharmacyDispensePaymentSettlementEventRepository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var issued = patientApplicationService.applyPharmacyDispensePaymentSettlement(
+                dispense.getCode(),
+                new PharmacyDispensePaymentSettlementRequest(
+                        UUID.randomUUID(), null, invoiceId, "FAC-20260903-0001",
+                        new java.math.BigDecimal("15000.00"), new java.math.BigDecimal("5000.00"),
+                        new java.math.BigDecimal("10000.00"),
+                        com.hopital.patient.application.domain.PaymentCurrency.CDF,
+                        PharmacyDispenseAccountingInvoiceStatus.PARTIALLY_PAID,
+                        null, null, PharmacyDispenseAccountingEventType.INVOICE_ISSUED, 1L));
+
+        UUID paymentId = UUID.randomUUID();
+        var settled = patientApplicationService.applyPharmacyDispensePaymentSettlement(
+                dispense.getCode(),
+                new PharmacyDispensePaymentSettlementRequest(
+                        UUID.randomUUID(), paymentId, invoiceId, "FAC-20260903-0001",
+                        new java.math.BigDecimal("15000.00"), new java.math.BigDecimal("15000.00"),
+                        java.math.BigDecimal.ZERO,
+                        com.hopital.patient.application.domain.PaymentCurrency.CDF,
+                        PharmacyDispenseAccountingInvoiceStatus.PAID,
+                        LocalDate.of(2026, 9, 3), "REC-20260903-0001",
+                        PharmacyDispenseAccountingEventType.PAYMENT_RECORDED, 2L));
+
+        assertThat(issued.applied()).isTrue();
+        assertThat(issued.dueAmount()).isEqualByComparingTo("10000.00");
+        assertThat(settled.applied()).isTrue();
+        assertThat(settled.totalAmount()).isEqualByComparingTo("15000.00");
+        assertThat(settled.paidAmount()).isEqualByComparingTo("15000.00");
+        assertThat(settled.dueAmount()).isEqualByComparingTo("0.00");
+        assertThat(settled.status()).isEqualTo(PharmacyDispenseAccountingInvoiceStatus.PAID);
+        // The original collection is retained as dispense evidence; screen
+        // responses use the synchronized accounting projection instead.
+        assertThat(dispense.getPaidAmount()).isEqualByComparingTo("5000.00");
+        assertThat(dispense.getEffectivePaidAmount()).isEqualByComparingTo("15000.00");
+        assertThat(dispense.getEffectiveDueAmount()).isEqualByComparingTo("0.00");
+        assertThat(dispense.getAccountingStateVersion()).isEqualTo(2L);
+    }
+
+    @Test
+    void ignoresAnOutOfOrderAccountingSettlementWithoutLoweringTheDisplayedBalance() {
+        PatientPassagePrescriptionDispenseEntity dispense = pharmacyDispense("15000.00", "5000.00");
+        UUID invoiceId = UUID.randomUUID();
+        dispense.applyAccountingProjection(
+                invoiceId,
+                "FAC-20260903-0001",
+                new java.math.BigDecimal("15000.00"),
+                new java.math.BigDecimal("12000.00"),
+                new java.math.BigDecimal("3000.00"),
+                com.hopital.patient.application.domain.PaymentCurrency.CDF,
+                PharmacyDispenseAccountingInvoiceStatus.PARTIALLY_PAID,
+                2L,
+                UUID.randomUUID(),
+                LocalDate.of(2026, 9, 3),
+                "REC-20260903-0001",
+                Instant.now());
+        when(pharmacyDispensePaymentSettlementEventRepository.findById(any())).thenReturn(Optional.empty());
+        when(patientPassagePrescriptionDispenseRepository.lockByCodeIgnoreCase(dispense.getCode()))
+                .thenReturn(Optional.of(dispense));
+        when(pharmacyDispensePaymentSettlementEventRepository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = patientApplicationService.applyPharmacyDispensePaymentSettlement(
+                dispense.getCode(),
+                new PharmacyDispensePaymentSettlementRequest(
+                        UUID.randomUUID(), null, invoiceId, "FAC-20260903-0001",
+                        new java.math.BigDecimal("15000.00"), new java.math.BigDecimal("5000.00"),
+                        new java.math.BigDecimal("10000.00"),
+                        com.hopital.patient.application.domain.PaymentCurrency.CDF,
+                        PharmacyDispenseAccountingInvoiceStatus.PARTIALLY_PAID,
+                        null, null, PharmacyDispenseAccountingEventType.INVOICE_ISSUED, 1L));
+
+        assertThat(response.applied()).isFalse();
+        assertThat(response.paidAmount()).isEqualByComparingTo("12000.00");
+        assertThat(response.dueAmount()).isEqualByComparingTo("3000.00");
+        assertThat(dispense.getAccountingStateVersion()).isEqualTo(2L);
+    }
+
+    @Test
+    void acceptsTheSameAccountingEventOnlyOnce() {
+        PatientPassagePrescriptionDispenseEntity dispense = pharmacyDispense("15000.00", "5000.00");
+        UUID eventId = UUID.randomUUID();
+        PharmacyDispensePaymentSettlementEventEntity existingEvent = new PharmacyDispensePaymentSettlementEventEntity(
+                eventId,
+                dispense,
+                null,
+                UUID.randomUUID(),
+                "FAC-20260903-0001",
+                new java.math.BigDecimal("15000.00"),
+                new java.math.BigDecimal("5000.00"),
+                new java.math.BigDecimal("10000.00"),
+                com.hopital.patient.application.domain.PaymentCurrency.CDF,
+                PharmacyDispenseAccountingInvoiceStatus.PARTIALLY_PAID,
+                PharmacyDispenseAccountingEventType.INVOICE_ISSUED,
+                1L,
+                null,
+                null,
+                true,
+                null,
+                Instant.now());
+        when(pharmacyDispensePaymentSettlementEventRepository.findById(eventId)).thenReturn(Optional.of(existingEvent));
+
+        var response = patientApplicationService.applyPharmacyDispensePaymentSettlement(
+                dispense.getCode(),
+                new PharmacyDispensePaymentSettlementRequest(
+                        eventId, null, existingEvent.getInvoiceId(), existingEvent.getInvoiceCode(),
+                        existingEvent.getTotalAmount(), existingEvent.getPaidAmount(), existingEvent.getDueAmount(),
+                        existingEvent.getCurrency(), existingEvent.getStatus(), null, null,
+                        existingEvent.getEventType(), existingEvent.getStateVersion()));
+
+        assertThat(response.applied()).isFalse();
+        verify(pharmacyDispensePaymentSettlementEventRepository,
+                org.mockito.Mockito.never()).save(any(PharmacyDispensePaymentSettlementEventEntity.class));
+    }
+
+    @Test
     void searchesOnlyPassagesFromTheOperatorHospital() {
         PatientEntity patient = patient("HP-GOMA");
         PatientPassageEntity passage = new PatientPassageEntity(
@@ -706,6 +838,24 @@ class PatientApplicationServiceTest {
                 UUID.randomUUID(),
                 hospitalCode,
                 Instant.now());
+    }
+
+    private PatientPassagePrescriptionDispenseEntity pharmacyDispense(String totalAmount, String paidAmount) {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260903-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.PHARMACY, "Pharmacie hospitalière", null, auditActor(), Instant.now());
+        PatientPassagePrescriptionEntity prescription = new PatientPassagePrescriptionEntity(
+                UUID.randomUUID(), "ORD-20260903-ABCD1234", passage, PrescriptionSource.MEDICAL,
+                null, null, null, auditActor(), Instant.now());
+        return new PatientPassagePrescriptionDispenseEntity(
+                UUID.randomUUID(), "DSP-20260903-ABCD1234", prescription,
+                com.hopital.patient.application.domain.PrescriptionDispenseCompletion.COMPLETE,
+                new java.math.BigDecimal(totalAmount),
+                new java.math.BigDecimal(paidAmount),
+                com.hopital.patient.application.domain.PaymentCurrency.CDF,
+                com.hopital.patient.application.domain.PrescriptionPaymentMethod.CASH,
+                null, auditActor(), Instant.now());
     }
 
     private AuditActor auditActor() {

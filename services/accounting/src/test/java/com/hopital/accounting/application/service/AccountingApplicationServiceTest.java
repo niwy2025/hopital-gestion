@@ -68,6 +68,7 @@ class AccountingApplicationServiceTest {
     @Mock private HospitalReferenceClient hospitalReferenceClient;
     @Mock private PatientAccountingReferenceClient patientReferenceClient;
     @Mock private PharmacyAccountingReferenceClient pharmacyReferenceClient;
+    @Mock private PharmacyPaymentSettlementOutboxService pharmacyPaymentSettlementOutboxService;
 
     private AccountingApplicationService service;
     private final UUID hospitalId = UUID.randomUUID();
@@ -80,7 +81,7 @@ class AccountingApplicationServiceTest {
     void setUp() {
         service = new AccountingApplicationService(accountRepository, journalRepository, periodRepository, entryRepository,
                 entryLineRepository, invoiceRepository, paymentRepository, noteRepository, documentRepository, cashSessionRepository,
-                hospitalReferenceClient, patientReferenceClient, pharmacyReferenceClient);
+                hospitalReferenceClient, patientReferenceClient, pharmacyReferenceClient, pharmacyPaymentSettlementOutboxService);
     }
 
     @Test

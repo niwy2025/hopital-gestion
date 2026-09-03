@@ -12,4 +12,5 @@ import java.time.LocalDate;
 public record CreateAccountingPaymentRequest(@NotNull LocalDate paidOn,
         @NotNull @DecimalMin(value = "0.01") @Digits(integer = 14, fraction = 2) BigDecimal amount,
         @NotNull AccountingCurrency currency, @NotNull AccountingPaymentMethod method,
-        @Size(max = 150) String paymentReference) { }
+        @Size(max = 150) String paymentReference,
+        @Size(max = 100) String idempotencyKey) { }

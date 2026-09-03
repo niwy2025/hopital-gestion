@@ -27,6 +27,7 @@ public class AccountingPaymentEntity {
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 3) private AccountingCurrency currency;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 30) private AccountingPaymentMethod method;
     @Column(name = "payment_reference", length = 150) private String paymentReference;
+    @Column(name = "idempotency_key", length = 100) private String idempotencyKey;
     @Column(name = "accounting_entry_id", nullable = false) private UUID accountingEntryId;
     @Column(name = "accounting_entry_code", nullable = false, length = 50) private String accountingEntryCode;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
@@ -36,10 +37,10 @@ public class AccountingPaymentEntity {
     protected AccountingPaymentEntity() { }
     public AccountingPaymentEntity(UUID id, UUID hospitalId, String hospitalCode, String code, AccountingInvoiceEntity invoice,
             LocalDate paidOn, BigDecimal amount, AccountingCurrency currency, AccountingPaymentMethod method,
-            String paymentReference, AccountingEntryEntity accountingEntry, String userId, String username, Instant createdAt) {
+            String paymentReference, String idempotencyKey, AccountingEntryEntity accountingEntry, String userId, String username, Instant createdAt) {
         this.id = id; this.hospitalId = hospitalId; this.hospitalCode = hospitalCode; this.code = code;
         this.invoiceId = invoice.getId(); this.invoiceCode = invoice.getCode(); this.paidOn = paidOn; this.amount = amount;
-        this.currency = currency; this.method = method; this.paymentReference = paymentReference;
+        this.currency = currency; this.method = method; this.paymentReference = paymentReference; this.idempotencyKey = idempotencyKey;
         this.accountingEntryId = accountingEntry.getId(); this.accountingEntryCode = accountingEntry.getCode();
         this.receivedByUserId = userId; this.receivedByUsername = username; this.createdAt = createdAt;
     }
@@ -47,6 +48,7 @@ public class AccountingPaymentEntity {
     public String getCode() { return code; } public UUID getInvoiceId() { return invoiceId; } public String getInvoiceCode() { return invoiceCode; }
     public LocalDate getPaidOn() { return paidOn; } public BigDecimal getAmount() { return amount; } public AccountingCurrency getCurrency() { return currency; }
     public AccountingPaymentMethod getMethod() { return method; } public String getPaymentReference() { return paymentReference; }
+    public String getIdempotencyKey() { return idempotencyKey; }
     public UUID getAccountingEntryId() { return accountingEntryId; } public String getAccountingEntryCode() { return accountingEntryCode; }
     public Instant getCreatedAt() { return createdAt; } public String getReceivedByUsername() { return receivedByUsername; }
 }

@@ -29,6 +29,10 @@ hospital:
     base-url: ${ORGANIZATION_SERVICE_BASE_URL:http://organization-service:8084}
   patient-service:
     base-url: ${PATIENT_SERVICE_BASE_URL:http://patient-service:8086}
+    payment-settlement-outbox:
+      connect-timeout-ms: ${PATIENT_SETTLEMENT_OUTBOX_CONNECT_TIMEOUT_MS:2000}
+      read-timeout-ms: ${PATIENT_SETTLEMENT_OUTBOX_READ_TIMEOUT_MS:5000}
+      retry-delay-ms: ${PATIENT_SETTLEMENT_OUTBOX_RETRY_DELAY_MS:30000}
   pharmacy-service:
     base-url: ${PHARMACY_SERVICE_BASE_URL:http://pharmacy-service:8089}
 

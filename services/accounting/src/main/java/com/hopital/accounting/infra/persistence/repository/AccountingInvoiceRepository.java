@@ -3,6 +3,7 @@ package com.hopital.accounting.infra.persistence.repository;
 import com.hopital.accounting.application.domain.AccountingSourceType;
 import com.hopital.accounting.application.domain.InvoiceStatus;
 import com.hopital.accounting.infra.persistence.entity.AccountingInvoiceEntity;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.Collection;
@@ -12,9 +13,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 
 public interface AccountingInvoiceRepository extends JpaRepository<AccountingInvoiceEntity, UUID> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT invoice FROM AccountingInvoiceEntity invoice WHERE invoice.id = :invoiceId")
+    Optional<AccountingInvoiceEntity> lockById(@Param("invoiceId") UUID invoiceId);
     Optional<AccountingInvoiceEntity> findByHospitalIdAndSourceTypeAndSourceCode(UUID hospitalId, AccountingSourceType sourceType, String sourceCode);
     boolean existsByHospitalIdAndCode(UUID hospitalId, String code);
     long countByHospitalIdAndStatusIn(UUID hospitalId, Collection<InvoiceStatus> statuses);

@@ -33,6 +33,7 @@ public class AccountingInvoiceEntity {
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 2) private BigDecimal totalAmount;
     @Column(name = "paid_amount", nullable = false, precision = 18, scale = 2) private BigDecimal paidAmount;
     @Column(name = "due_amount", nullable = false, precision = 18, scale = 2) private BigDecimal dueAmount;
+    @Column(name = "settlement_version", nullable = false) private int settlementVersion;
     @Column(nullable = false, length = 1000) private String description;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "created_by_user_id", nullable = false, length = 100) private String createdByUserId;
@@ -46,6 +47,7 @@ public class AccountingInvoiceEntity {
         this.sourceCode = sourceCode; this.patientId = patientId; this.patientCode = patientCode; this.passageId = passageId;
         this.passageCode = passageCode; this.issuedOn = issuedOn; this.currency = currency; this.totalAmount = totalAmount;
         this.paidAmount = BigDecimal.ZERO.setScale(2); this.dueAmount = totalAmount; this.status = InvoiceStatus.DRAFT;
+        this.settlementVersion = 0;
         this.description = description; this.createdByUserId = userId; this.createdByUsername = username; this.createdAt = createdAt;
     }
     public UUID getId() { return id; } public UUID getHospitalId() { return hospitalId; } public String getHospitalCode() { return hospitalCode; }
@@ -55,15 +57,18 @@ public class AccountingInvoiceEntity {
     public AccountingCurrency getCurrency() { return currency; } public BigDecimal getTotalAmount() { return totalAmount; } public BigDecimal getPaidAmount() { return paidAmount; }
     public BigDecimal getDueAmount() { return dueAmount; } public String getDescription() { return description; } public Instant getCreatedAt() { return createdAt; }
     public String getCreatedByUsername() { return createdByUsername; }
+    public int getSettlementVersion() { return settlementVersion; }
     public void issue() {
         if (status != InvoiceStatus.DRAFT) throw new IllegalStateException("Cette facture a déjà été émise.");
         status = totalAmount.signum() == 0 ? InvoiceStatus.PAID : InvoiceStatus.ISSUED;
+        settlementVersion++;
     }
     public void receive(BigDecimal amount) {
         if (status == InvoiceStatus.DRAFT) throw new IllegalStateException("La facture doit être émise avant encaissement.");
         if (status == InvoiceStatus.CANCELLED) throw new IllegalStateException("Une facture annulée ne peut pas être encaissée.");
         paidAmount = paidAmount.add(amount); dueAmount = totalAmount.subtract(paidAmount);
         status = dueAmount.signum() == 0 ? InvoiceStatus.PAID : InvoiceStatus.PARTIALLY_PAID;
+        settlementVersion++;
     }
     public void cancel() { if (paidAmount.signum() != 0) throw new IllegalStateException("Une facture encaissée ne peut pas être annulée."); status = InvoiceStatus.CANCELLED; }
 }

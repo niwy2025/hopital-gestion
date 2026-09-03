@@ -1,6 +1,7 @@
 package com.hopital.patient.application.service;
 
 import com.hopital.patient.application.domain.AuditActor;
+import com.hopital.patient.application.domain.AccountingSynchronizationStatus;
 import com.hopital.patient.application.domain.ClinicalEntryType;
 import com.hopital.patient.application.domain.ClinicalOrientation;
 import com.hopital.patient.application.domain.DataAccessScope;
@@ -9,6 +10,7 @@ import com.hopital.patient.application.domain.PatientAuditEventType;
 import com.hopital.patient.application.domain.PatientDocumentType;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
+import com.hopital.patient.application.domain.PharmacyDispenseAccountingEventType;
 import com.hopital.patient.application.domain.PrescriptionSource;
 import com.hopital.patient.application.domain.PrescriptionStatus;
 import com.hopital.patient.application.domain.PrescriptionDispenseCompletion;
@@ -35,6 +37,8 @@ import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
 import com.hopital.patient.application.dto.PharmacyPrescriptionResponse;
 import com.hopital.patient.application.dto.PharmacyDispenseAccountingLineResponse;
 import com.hopital.patient.application.dto.PharmacyDispenseAccountingReferenceResponse;
+import com.hopital.patient.application.dto.PharmacyDispensePaymentSettlementRequest;
+import com.hopital.patient.application.dto.PharmacyDispensePaymentSettlementResponse;
 import com.hopital.patient.application.dto.PrescriptionDispenseItemResponse;
 import com.hopital.patient.application.dto.PrescriptionDispenseResponse;
 import com.hopital.patient.application.dto.PrescriptionItemResponse;
@@ -60,6 +64,7 @@ import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionEn
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseItemEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionItemEntity;
+import com.hopital.patient.infra.persistence.entity.PharmacyDispensePaymentSettlementEventEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionItemRepository;
@@ -68,6 +73,8 @@ import com.hopital.patient.infra.persistence.repository.PatientPassagePrescripti
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
+import com.hopital.patient.infra.persistence.repository.PharmacyDispensePaymentSettlementEventRepository;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -111,6 +118,7 @@ public class PatientApplicationService {
     private final PersonnelReferenceClient personnelReferenceClient;
     private final PharmacyDispenseClient pharmacyDispenseClient;
     private final PharmacyDispenseAccountingOutboxService pharmacyDispenseAccountingOutboxService;
+    private final PharmacyDispensePaymentSettlementEventRepository pharmacyDispensePaymentSettlementEventRepository;
 
     public PatientApplicationService(
             PatientRepository patientRepository,
@@ -124,7 +132,8 @@ public class PatientApplicationService {
             HospitalReferenceClient hospitalReferenceClient,
             PersonnelReferenceClient personnelReferenceClient,
             PharmacyDispenseClient pharmacyDispenseClient,
-            PharmacyDispenseAccountingOutboxService pharmacyDispenseAccountingOutboxService) {
+            PharmacyDispenseAccountingOutboxService pharmacyDispenseAccountingOutboxService,
+            PharmacyDispensePaymentSettlementEventRepository pharmacyDispensePaymentSettlementEventRepository) {
         this.patientRepository = patientRepository;
         this.patientDocumentRepository = patientDocumentRepository;
         this.patientPassageRepository = patientPassageRepository;
@@ -137,6 +146,7 @@ public class PatientApplicationService {
         this.personnelReferenceClient = personnelReferenceClient;
         this.pharmacyDispenseClient = pharmacyDispenseClient;
         this.pharmacyDispenseAccountingOutboxService = pharmacyDispenseAccountingOutboxService;
+        this.pharmacyDispensePaymentSettlementEventRepository = pharmacyDispensePaymentSettlementEventRepository;
     }
 
     /** Compatibility endpoint for existing dependent forms. New registry screens use the paginated search endpoint. */
@@ -468,6 +478,92 @@ public class PatientApplicationService {
                         .toList());
     }
 
+    /**
+     * Applies an accounting-owned, cumulative invoice snapshot to the local
+     * pharmacy dispense. The receiver is intentionally idempotent because the
+     * accounting outbox can retry an event after a successful HTTP call.
+     *
+     * <p>Only a strictly newer accounting state may move the projection. A
+     * stale event is retained for audit but cannot regress a later payment.
+     * The original pharmacy-side {@code paidAmount} remains unchanged as
+     * evidence of the initial dispense; public responses expose the effective
+     * accounting amount when this projection has been synchronized.</p>
+     */
+    @Transactional
+    public PharmacyDispensePaymentSettlementResponse applyPharmacyDispensePaymentSettlement(
+            String dispenseCode,
+            PharmacyDispensePaymentSettlementRequest request) {
+        validateAccountingSettlementRequest(request);
+
+        PharmacyDispensePaymentSettlementEventEntity existingEvent = pharmacyDispensePaymentSettlementEventRepository
+                .findById(request.eventId())
+                .orElse(null);
+        if (existingEvent != null) {
+            assertEventTargetsDispense(existingEvent, dispenseCode);
+            return toPaymentSettlementResponse(existingEvent.getDispense(), false);
+        }
+
+        PatientPassagePrescriptionDispenseEntity dispense = patientPassagePrescriptionDispenseRepository
+                .lockByCodeIgnoreCase(dispenseCode)
+                .orElseThrow(() -> new PrescriptionDispenseNotFoundException(dispenseCode));
+
+        // A concurrent retry can have been waiting for the same row lock.
+        existingEvent = pharmacyDispensePaymentSettlementEventRepository.findById(request.eventId()).orElse(null);
+        if (existingEvent != null) {
+            assertEventTargetsDispense(existingEvent, dispenseCode);
+            return toPaymentSettlementResponse(existingEvent.getDispense(), false);
+        }
+
+        if (request.paymentId() != null) {
+            PharmacyDispensePaymentSettlementEventEntity existingPayment = pharmacyDispensePaymentSettlementEventRepository
+                    .findByPaymentId(request.paymentId())
+                    .orElse(null);
+            if (existingPayment != null) {
+                assertEventTargetsDispense(existingPayment, dispenseCode);
+                return toPaymentSettlementResponse(dispense, false);
+            }
+        }
+
+        assertCompatibleAccountingInvoice(dispense, request);
+        boolean applied = shouldApplyAccountingSettlement(dispense, request);
+        String ignoredReason = applied ? null : ignoredSettlementReason(dispense, request);
+        Instant receivedAt = Instant.now();
+        if (applied) {
+            dispense.applyAccountingProjection(
+                    request.invoiceId(),
+                    request.invoiceCode().trim(),
+                    request.totalAmount(),
+                    request.paidAmount(),
+                    request.dueAmount(),
+                    request.currency(),
+                    request.status(),
+                    request.stateVersion(),
+                    request.paymentId(),
+                    request.paidOn(),
+                    trimToNull(request.paymentReference()),
+                    receivedAt);
+        }
+        pharmacyDispensePaymentSettlementEventRepository.save(new PharmacyDispensePaymentSettlementEventEntity(
+                request.eventId(),
+                dispense,
+                request.paymentId(),
+                request.invoiceId(),
+                request.invoiceCode().trim(),
+                request.totalAmount(),
+                request.paidAmount(),
+                request.dueAmount(),
+                request.currency(),
+                request.status(),
+                request.eventType(),
+                request.stateVersion(),
+                request.paidOn(),
+                trimToNull(request.paymentReference()),
+                applied,
+                ignoredReason,
+                receivedAt));
+        return toPaymentSettlementResponse(dispense, applied);
+    }
+
     @Transactional
     public PrescriptionDispenseResponse dispensePrescription(
             UUID prescriptionId,
@@ -602,6 +698,7 @@ public class PatientApplicationService {
         if (!linkedStockItems.isEmpty()) {
             // The event is written in the same transaction as the immutable delivery.
             // Its actual HTTP synchronization starts only after this transaction commits.
+            dispense.markAccountingPending();
             pharmacyDispenseAccountingOutboxService.enqueue(dispense.getId(), dispense.getCode());
         }
         prescription.getPassage().getPatient().recordModification(
@@ -1225,6 +1322,147 @@ public class PatientApplicationService {
         return value.trim();
     }
 
+    private void validateAccountingSettlementRequest(PharmacyDispensePaymentSettlementRequest request) {
+        if (request == null
+                || request.eventId() == null
+                || request.invoiceId() == null
+                || trimToNull(request.invoiceCode()) == null
+                || request.totalAmount() == null
+                || request.paidAmount() == null
+                || request.dueAmount() == null
+                || request.currency() == null
+                || request.status() == null
+                || request.eventType() == null
+                || request.stateVersion() == null) {
+            throw new InvalidPrescriptionException("La projection de règlement comptable est incomplète.");
+        }
+        if (request.totalAmount().signum() < 0
+                || request.paidAmount().signum() < 0
+                || request.dueAmount().signum() < 0
+                || request.paidAmount().compareTo(request.totalAmount()) > 0
+                || request.dueAmount().compareTo(request.totalAmount()) > 0
+                || request.paidAmount().add(request.dueAmount()).compareTo(request.totalAmount()) != 0) {
+            throw new InvalidPrescriptionException("Les montants reçus de la comptabilité sont incohérents.");
+        }
+        if (request.stateVersion() < 0) {
+            throw new InvalidPrescriptionException("La version de l'état comptable est invalide.");
+        }
+        if (request.eventType() == PharmacyDispenseAccountingEventType.PAYMENT_RECORDED
+                && (request.paymentId() == null || request.paidOn() == null)) {
+            throw new InvalidPrescriptionException(
+                    "Un règlement comptable doit contenir son identifiant et sa date d'encaissement.");
+        }
+        if (request.status().name().equals("PAID") && request.dueAmount().signum() != 0) {
+            throw new InvalidPrescriptionException("Une facture réglée ne peut pas conserver un solde.");
+        }
+        if (request.status().name().equals("CANCELLED") && request.paidAmount().signum() != 0) {
+            throw new InvalidPrescriptionException("Une facture annulée ne peut pas contenir un montant encaissé.");
+        }
+    }
+
+    private void assertEventTargetsDispense(
+            PharmacyDispensePaymentSettlementEventEntity event,
+            String dispenseCode) {
+        if (!event.getDispense().getCode().equalsIgnoreCase(dispenseCode)) {
+            throw new InvalidPrescriptionException(
+                    "Cet événement comptable a déjà été associé à une autre délivrance.");
+        }
+    }
+
+    private void assertCompatibleAccountingInvoice(
+            PatientPassagePrescriptionDispenseEntity dispense,
+            PharmacyDispensePaymentSettlementRequest request) {
+        if (dispense.getAccountingInvoiceId() == null) {
+            return;
+        }
+        if (!dispense.getAccountingInvoiceId().equals(request.invoiceId())) {
+            throw new InvalidPrescriptionException(
+                    "Une délivrance ne peut être rattachée qu'à une seule facture comptable.");
+        }
+        if (dispense.getAccountingInvoiceCode() != null
+                && !dispense.getAccountingInvoiceCode().equalsIgnoreCase(request.invoiceCode().trim())) {
+            throw new InvalidPrescriptionException("Le code de facture comptable ne correspond pas à la délivrance.");
+        }
+        if (dispense.getAccountingCurrency() != null
+                && dispense.getAccountingCurrency() != request.currency()) {
+            throw new InvalidPrescriptionException("La devise de la facture comptable ne correspond pas à la délivrance.");
+        }
+        if (dispense.getAccountingTotalAmount() != null
+                && dispense.getAccountingTotalAmount().compareTo(request.totalAmount()) != 0) {
+            throw new InvalidPrescriptionException(
+                    "Le total de la facture comptable ne correspond pas à la délivrance.");
+        }
+    }
+
+    private boolean shouldApplyAccountingSettlement(
+            PatientPassagePrescriptionDispenseEntity dispense,
+            PharmacyDispensePaymentSettlementRequest request) {
+        if (!dispense.hasAccountingProjection()) {
+            return true;
+        }
+        long currentVersion = dispense.getAccountingStateVersion();
+        if (request.stateVersion() < currentVersion) {
+            return false;
+        }
+        if (request.stateVersion() == currentVersion) {
+            if (!matchesCurrentAccountingProjection(dispense, request)) {
+                throw new InvalidPrescriptionException(
+                        "La même version comptable contient des montants ou un statut différents.");
+            }
+            return false;
+        }
+        return request.paidAmount().compareTo(dispense.getAccountingPaidAmount()) >= 0;
+    }
+
+    private boolean matchesCurrentAccountingProjection(
+            PatientPassagePrescriptionDispenseEntity dispense,
+            PharmacyDispensePaymentSettlementRequest request) {
+        return dispense.getAccountingInvoiceId().equals(request.invoiceId())
+                && dispense.getAccountingInvoiceCode().equalsIgnoreCase(request.invoiceCode().trim())
+                && sameMoney(dispense.getAccountingTotalAmount(), request.totalAmount())
+                && sameMoney(dispense.getAccountingPaidAmount(), request.paidAmount())
+                && sameMoney(dispense.getAccountingDueAmount(), request.dueAmount())
+                && dispense.getAccountingCurrency() == request.currency()
+                && dispense.getAccountingInvoiceStatus() == request.status();
+    }
+
+    private boolean sameMoney(BigDecimal left, BigDecimal right) {
+        return left != null && right != null && left.compareTo(right) == 0;
+    }
+
+    private String ignoredSettlementReason(
+            PatientPassagePrescriptionDispenseEntity dispense,
+            PharmacyDispensePaymentSettlementRequest request) {
+        if (dispense.getAccountingStateVersion() != null
+                && request.stateVersion() < dispense.getAccountingStateVersion()) {
+            return "Événement comptable obsolète.";
+        }
+        if (dispense.getAccountingPaidAmount() != null
+                && request.paidAmount().compareTo(dispense.getAccountingPaidAmount()) < 0) {
+            return "Montant encaissé inférieur à la projection déjà synchronisée.";
+        }
+        return "Projection comptable déjà synchronisée.";
+    }
+
+    private PharmacyDispensePaymentSettlementResponse toPaymentSettlementResponse(
+            PatientPassagePrescriptionDispenseEntity dispense,
+            boolean applied) {
+        return new PharmacyDispensePaymentSettlementResponse(
+                dispense.getId(),
+                dispense.getCode(),
+                applied,
+                dispense.getAccountingSynchronizationStatus(),
+                dispense.getAccountingInvoiceId(),
+                dispense.getAccountingInvoiceCode(),
+                dispense.getAccountingTotalAmount(),
+                dispense.getAccountingPaidAmount(),
+                dispense.getAccountingDueAmount(),
+                dispense.getAccountingCurrency(),
+                dispense.getAccountingInvoiceStatus(),
+                dispense.getAccountingStateVersion(),
+                dispense.getAccountingSynchronizedAt());
+    }
+
     private int stockQuantity(PatientPassagePrescriptionItemEntity item, String dispensedQuantity) {
         try {
             int quantity = Integer.parseInt(dispensedQuantity.trim());
@@ -1461,10 +1699,22 @@ public class PatientApplicationService {
                 dispense.getId(),
                 dispense.getCode(),
                 dispense.getCompletion(),
-                dispense.getTotalAmount(),
-                dispense.getPaidAmount(),
-                dispense.getCurrency(),
+                dispense.getEffectiveTotalAmount(),
+                dispense.getEffectivePaidAmount(),
+                dispense.getEffectiveDueAmount(),
+                dispense.hasAccountingProjection() ? dispense.getAccountingCurrency() : dispense.getCurrency(),
                 dispense.getPaymentMethod(),
+                dispense.getAccountingSynchronizationStatus(),
+                dispense.getAccountingInvoiceId(),
+                dispense.getAccountingInvoiceCode(),
+                dispense.getAccountingTotalAmount(),
+                dispense.getAccountingPaidAmount(),
+                dispense.getAccountingDueAmount(),
+                dispense.getAccountingCurrency(),
+                dispense.getAccountingInvoiceStatus(),
+                dispense.getAccountingStateVersion(),
+                dispense.getAccountingSynchronizedAt(),
+                dispense.getAccountingLastPaymentReference(),
                 dispense.getNotes(),
                 dispense.getDispensedAt(),
                 dispense.getDispensedByUsername(),

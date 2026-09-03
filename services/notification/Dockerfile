@@ -13,6 +13,7 @@ COPY services/laboratory/pom.xml services/laboratory/pom.xml
 COPY services/pharmacy/pom.xml services/pharmacy/pom.xml
 COPY services/patient/pom.xml services/patient/pom.xml
 COPY services/personnel/pom.xml services/personnel/pom.xml
+COPY services/accounting/pom.xml services/accounting/pom.xml
 
 # Cette couche ne change que si un POM évolue. Docker réutilise alors toutes
 # les dépendances déjà résolues pour une simple modification de code.

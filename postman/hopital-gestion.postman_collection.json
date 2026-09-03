@@ -516,6 +516,53 @@
           }
         }
       ]
+    },
+    {
+      "name": "08 - Comptabilité",
+      "item": [
+        {
+          "name": "Dashboard comptable",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/dashboard", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "dashboard"] }
+          }
+        },
+        {
+          "name": "Rechercher les factures",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounting/invoices/search?page=0&size=20&query=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounting", "invoices", "search"],
+              "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "query", "value": "" }]
+            }
+          }
+        },
+        {
+          "name": "Rechercher les écritures",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounting/entries/search?page=0&size=20&query=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounting", "entries", "search"],
+              "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "query", "value": "" }]
+            }
+          }
+        },
+        {
+          "name": "Balance générale",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/trial-balance", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "trial-balance"] }
+          }
+        }
+      ]
     }
   ]
 }

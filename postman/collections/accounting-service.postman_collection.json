@@ -1,0 +1,106 @@
+{
+  "info": {
+    "name": "Hopital Gestion - Accounting Service",
+    "description": "Comptabilité hospitalière : factures, encaissements, journaux, états et annexes. Toutes les requêtes publiques passent par {{baseUrl}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Vue comptable",
+      "item": [
+        {
+          "name": "Dashboard de l'hôpital courant",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/dashboard", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "dashboard"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Facturation et encaissements",
+      "item": [
+        {
+          "name": "Rechercher les factures",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/invoices/search?page=0&size=20&query=", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "invoices", "search"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "query", "value": "" }] }
+          }
+        },
+        {
+          "name": "Rechercher les encaissements",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/payments/search?page=0&size=20&query=", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "payments", "search"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "query", "value": "" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Journaux et grand livre",
+      "item": [
+        {
+          "name": "Rechercher les journaux",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/journals/search?page=0&size=20&query=", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "journals", "search"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "query", "value": "" }] }
+          }
+        },
+        {
+          "name": "Consulter le grand livre",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/ledger/search?page=0&size=20&query=", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "ledger", "search"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "query", "value": "" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - États SYSCOHADA",
+      "item": [
+        {
+          "name": "Balance générale",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/trial-balance", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "trial-balance"] }
+          }
+        },
+        {
+          "name": "États financiers",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/financial-statements", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "financial-statements"] }
+          }
+        },
+        {
+          "name": "Rechercher les annexes",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/notes/search?page=0&size=20&query=", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "notes", "search"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "query", "value": "" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Périodes",
+      "item": [
+        {
+          "name": "Rechercher les périodes",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/accounting/periods/search?page=0&size=20&query=", "host": ["{{baseUrl}}"], "path": ["api", "v1", "accounting", "periods", "search"], "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }, { "key": "query", "value": "" }] }
+          }
+        }
+      ]
+    }
+  ]
+}

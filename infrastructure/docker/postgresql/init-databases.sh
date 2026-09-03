@@ -47,6 +47,7 @@ for database in \
   hospital_auth \
   hospital_organization \
   hospital_laboratory \
+  hospital_accounting \
   hospital_pharmacy \
   hospital_patient \
   hospital_personnel; do

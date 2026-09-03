@@ -60,6 +60,10 @@ services:
     ports: !reset []
     restart: unless-stopped
 
+  accounting-service:
+    ports: !reset []
+    restart: unless-stopped
+
   personnel-service:
     ports: !reset []
     restart: unless-stopped
@@ -83,6 +87,9 @@ services:
 
   kong-init:
     restart: on-failure
+
+  accounting-db-init:
+    restart: "no"
 
   keycloak-init:
     restart: on-failure

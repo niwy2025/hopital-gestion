@@ -19,12 +19,15 @@ services/auth/                    Microservice d'authentification
 services/notification/            Microservice asynchrone e-mail et SMS
 services/organization/            Référentiel territorial, hôpitaux et laboratoires
 services/laboratory/              Cycle des analyses, échantillons, résultats et validations
+services/pharmacy/                Catalogue, stock et délivrances de médicaments
 services/patient/                 Registre provincial des dossiers patients
+services/personnel/               Dossiers, documents et affectations du personnel
+services/accounting/              Facturation, caisse, journaux et états comptables par hôpital
 ```
 
 ## Briques incluses
 
-- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`, `organization-service`, `laboratory-service`, `patient-service`).
+- **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`, `organization-service`, `laboratory-service`, `patient-service`, `pharmacy-service`, `personnel-service`, `accounting-service`).
 - **Docker Compose** pour orchestrer les dépendances et services locaux.
 - **Kong** comme gateway interne, conservée pour les intégrations qui l'utilisent.
 - **Keycloak** pour OAuth2/OpenID Connect et l'émission des JWT.
@@ -56,7 +59,8 @@ docker compose up -d --no-deps --force-recreate auth-service
 ```
 
 Remplacez `auth-service` par `account-service`, `notification-service`,
-`organization-service`, `laboratory-service`, `patient-service` ou
+`organization-service`, `laboratory-service`, `patient-service`,
+`pharmacy-service`, `personnel-service`, `accounting-service` ou
 `api-gateway` selon le service modifié. Évitez
 `--no-cache` pour le développement courant : cette option force volontairement
 le téléchargement et la reconstruction de toutes les couches.
@@ -154,8 +158,8 @@ connexion **PostgreSQL** avec `127.0.0.1`, le port `54320`, l'utilisateur
 `hospital` et le mot de passe `HOSPITAL_DB_PASSWORD`. Dans l'onglet **SSH**,
 activez le tunnel et indiquez l'adresse, le port SSH et l'utilisateur du VPS.
 Vous pouvez alors choisir l'une des bases : `hospital_account`, `hospital_auth`,
-`hospital_organization`, `hospital_laboratory`, `hospital_patient` ou
-`hospital_personnel`.
+`hospital_organization`, `hospital_laboratory`, `hospital_patient`,
+`hospital_personnel`, `hospital_pharmacy` ou `hospital_accounting`.
 
 L'alternative équivalente en ligne de commande est :
 
@@ -203,7 +207,8 @@ représentés par le type PostgreSQL `UUID` et par `UUID` dans les services Java
 technique de Flyway et non une donnée métier.
 
 Les services `services/account`, `services/auth`, `services/organization`,
-`services/laboratory`, `services/patient` et `services/personnel` appliquent déjà cette convention et servent de modèles
+`services/laboratory`, `services/patient`, `services/personnel`,
+`services/pharmacy` et `services/accounting` appliquent déjà cette convention et servent de modèles
 pour les futurs services hospitaliers comme `patient-service`,
 `appointment-service`, `staff-service`, `billing-service` ou
 `notification-service`.
@@ -212,7 +217,8 @@ pour les futurs services hospitaliers comme `patient-service`,
 
 Prometheus collecte Kong, Keycloak, `api-gateway`, `auth-service`,
 `account-service`, `notification-service`, `organization-service`,
-`laboratory-service`, `patient-service` et `personnel-service` depuis
+`laboratory-service`, `patient-service`, `pharmacy-service`, `personnel-service`
+et `accounting-service` depuis
 `infrastructure/monitoring/prometheus/prometheus.yml`. Chaque service Spring
 Boot expose `/actuator/prometheus` grâce à Actuator et Micrometer, avec le tag
 `application` pour distinguer ses métriques. Grafana provisionne la datasource
@@ -266,3 +272,15 @@ comptes associés, documents et affectations historisées des agents, y compris
 l’affectation à un laboratoire de référence. La protection par permissions et
 périmètres d’affectation est appliquée par les services ; l’interface ne fait
 que masquer les actions inutiles.
+
+## Comptabilité hospitalière
+
+`accounting-service` conserve les factures, encaissements, caisses, écritures
+en partie double, journaux, balances, états financiers et annexes par hôpital.
+Le plan comptable initial suit un socle SYSCOHADA configurable ; les écritures
+validées sont immuables et une correction est toujours matérialisée par une
+contrepassation. Les délivrances de la pharmacie alimentent automatiquement la
+facturation, l'encaissement et les écritures, avec une reprise idempotente si
+la comptabilité est temporairement indisponible. Consultez
+[la documentation Comptabilité](docs/api/accounting.md) pour le détail des
+rôles, du périmètre et des routes.

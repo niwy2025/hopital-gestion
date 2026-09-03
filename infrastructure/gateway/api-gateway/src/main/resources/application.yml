@@ -43,6 +43,10 @@ spring:
           uri: ${PHARMACY_SERVICE_URI:http://pharmacy-service:8089}
           predicates:
             - Path=/api/v1/pharmacy/**
+        - id: accounting-service
+          uri: ${ACCOUNTING_SERVICE_URI:http://accounting-service:8090}
+          predicates:
+            - Path=/api/v1/accounting/**
         - id: personnel-service
           uri: ${PERSONNEL_SERVICE_URI:http://personnel-service:8087}
           predicates:

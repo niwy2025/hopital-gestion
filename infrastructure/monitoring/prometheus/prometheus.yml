@@ -57,6 +57,11 @@ scrape_configs:
     static_configs:
       - targets: ["pharmacy-service:8089"]
 
+  - job_name: accounting-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["accounting-service:8090"]
+
   - job_name: personnel-service
     metrics_path: /actuator/prometheus
     static_configs:

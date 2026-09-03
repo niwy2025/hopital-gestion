@@ -214,6 +214,27 @@ services:
         if ! /opt/keycloak/bin/kcadm.sh get roles/PHARMACY_ADMIN -r hospital >/dev/null 2>&1; then
           /opt/keycloak/bin/kcadm.sh create roles -r hospital -s name=PHARMACY_ADMIN -s 'description=Hospital pharmacy administrator'
         fi
+        if ! /opt/keycloak/bin/kcadm.sh get roles/LABORATORY_TECHNICIAN -r hospital >/dev/null 2>&1; then
+          /opt/keycloak/bin/kcadm.sh create roles -r hospital -s name=LABORATORY_TECHNICIAN -s 'description=Laboratory technician'
+        fi
+        if ! /opt/keycloak/bin/kcadm.sh get roles/LABORATORY_BIOLOGIST -r hospital >/dev/null 2>&1; then
+          /opt/keycloak/bin/kcadm.sh create roles -r hospital -s name=LABORATORY_BIOLOGIST -s 'description=Medical biologist'
+        fi
+        if ! /opt/keycloak/bin/kcadm.sh get roles/BILLING_OFFICER -r hospital >/dev/null 2>&1; then
+          /opt/keycloak/bin/kcadm.sh create roles -r hospital -s name=BILLING_OFFICER -s 'description=Hospital billing officer'
+        fi
+        if ! /opt/keycloak/bin/kcadm.sh get roles/CASHIER -r hospital >/dev/null 2>&1; then
+          /opt/keycloak/bin/kcadm.sh create roles -r hospital -s name=CASHIER -s 'description=Hospital cashier'
+        fi
+        if ! /opt/keycloak/bin/kcadm.sh get roles/HOSPITAL_ACCOUNTANT -r hospital >/dev/null 2>&1; then
+          /opt/keycloak/bin/kcadm.sh create roles -r hospital -s name=HOSPITAL_ACCOUNTANT -s 'description=Hospital accountant'
+        fi
+        if ! /opt/keycloak/bin/kcadm.sh get roles/FINANCE_MANAGER -r hospital >/dev/null 2>&1; then
+          /opt/keycloak/bin/kcadm.sh create roles -r hospital -s name=FINANCE_MANAGER -s 'description=Hospital finance manager'
+        fi
+        if ! /opt/keycloak/bin/kcadm.sh get roles/FINANCE_AUDITOR -r hospital >/dev/null 2>&1; then
+          /opt/keycloak/bin/kcadm.sh create roles -r hospital -s name=FINANCE_AUDITOR -s 'description=Hospital finance auditor'
+        fi
         client_id=$$(/opt/keycloak/bin/kcadm.sh get clients -r hospital -q clientId=hospital-services --fields id --format csv | tr -d '\"\r\n')
         /opt/keycloak/bin/kcadm.sh update clients/$$client_id -r hospital \
           -s directAccessGrantsEnabled=true \

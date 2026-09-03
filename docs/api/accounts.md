@@ -42,6 +42,37 @@ Exemple de création :
 Pour une mise à jour, le champ `password` est facultatif. Lorsqu'il est absent,
 le mot de passe actuel est conservé.
 
+## Comptabilité hospitalière
+
+Les rôles comptables sont prévus pour une affectation à un hôpital. Comme tous
+les comptes opérationnels, ils doivent donc disposer d'un `hospitalId` avant de
+pouvoir se connecter. L'administration provinciale (`ADMIN`) reste la seule
+exception transversale.
+
+| Rôle | Responsabilité | Restrictions de contrôle |
+| --- | --- | --- |
+| `BILLING_OFFICER` | Préparer les factures | N'encaisse pas et ne valide pas. |
+| `CASHIER` | Ouvrir/fermer sa caisse et enregistrer les encaissements | Ne modifie ni ne valide les factures. |
+| `HOSPITAL_ACCOUNTANT` | Tenir les journaux, produire les états et préparer les annexes | Ne valide pas ses propres écritures. |
+| `FINANCE_MANAGER` | Contrôler les écritures, valider, clôturer les périodes et annexes | N'assure pas les opérations de caisse. |
+| `FINANCE_AUDITOR` | Consulter les pièces, journaux, rapports et traces | Lecture seule. |
+
+Les permissions commencent toutes par `ACCOUNTING_`. Elles couvrent le plan
+comptable, les journaux, factures, paiements, caisses, rapports, journal d'audit,
+clôture de période et annexes des états financiers. Cette granularité permet au
+service Comptabilité de respecter la séparation entre saisie, encaissement
+et validation requise par une gestion SYSCOHADA traçable.
+
+| Domaine | Permissions |
+| --- | --- |
+| Référentiel | `ACCOUNTING_CHART_READ`, `ACCOUNTING_CONFIGURATION_WRITE` |
+| Journaux | `ACCOUNTING_JOURNAL_READ`, `ACCOUNTING_JOURNAL_WRITE`, `ACCOUNTING_JOURNAL_VALIDATE` |
+| Facturation | `ACCOUNTING_INVOICE_READ`, `ACCOUNTING_INVOICE_WRITE`, `ACCOUNTING_INVOICE_VALIDATE` |
+| Encaissements | `ACCOUNTING_PAYMENT_READ`, `ACCOUNTING_PAYMENT_WRITE` |
+| Caisse | `ACCOUNTING_CASH_READ`, `ACCOUNTING_CASH_OPEN`, `ACCOUNTING_CASH_CLOSE` |
+| États et contrôle | `ACCOUNTING_REPORT_READ`, `ACCOUNTING_AUDIT_READ`, `ACCOUNTING_PERIOD_CLOSE` |
+| Annexes | `ACCOUNTING_ANNEX_READ`, `ACCOUNTING_ANNEX_WRITE`, `ACCOUNTING_ANNEX_VALIDATE` |
+
 ## Rôles de prescription et de pharmacie
 
 - **Médecin** : crée les ordonnances médicales de ses patients.

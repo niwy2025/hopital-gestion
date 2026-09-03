@@ -28,8 +28,30 @@ public class KeycloakAuthClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KeycloakAuthClient.class);
 
+    /**
+     * Roles that are owned by account-service and therefore mirrored to Keycloak.
+     * Keeping this list explicit prevents the authentication bridge from altering
+     * Keycloak technical or realm-management roles.
+     */
     private static final Set<String> MANAGED_ROLE_CODES = Set.of(
-            "ADMIN", "HOSPITAL_ADMIN", "DOCTOR", "NURSE", "PHARMACIST", "PHARMACY_ADMIN", "PHARMACY_MANAGER", "RECEPTIONIST", "PATIENT", "HR_MANAGER");
+            "ADMIN",
+            "HOSPITAL_ADMIN",
+            "DOCTOR",
+            "NURSE",
+            "RECEPTIONIST",
+            "PATIENT",
+            "HR_MANAGER",
+            "LABORATORY_TECHNICIAN",
+            "LABORATORY_BIOLOGIST",
+            "PHARMACIST",
+            "PHARMACY_ADMIN",
+            // Migration V11 remplace ce rôle ; il reste géré pour retirer son ancien mapping Keycloak.
+            "PHARMACY_MANAGER",
+            "BILLING_OFFICER",
+            "CASHIER",
+            "HOSPITAL_ACCOUNTANT",
+            "FINANCE_MANAGER",
+            "FINANCE_AUDITOR");
 
     private final RestClient keycloakClient;
     private final AuthServiceProperties properties;

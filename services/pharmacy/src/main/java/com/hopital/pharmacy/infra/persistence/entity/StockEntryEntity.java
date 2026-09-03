@@ -35,6 +35,7 @@ public class StockEntryEntity {
     @Column(name = "supplier_name", length = 200) private String supplierName;
     @Column(length = 2000) private String notes;
     @Enumerated(EnumType.STRING) @Column(name = "accounting_status", nullable = false, length = 30) private AccountingPostingStatus accountingStatus;
+    @Column(name = "accounting_entry_reference", length = 80) private String accountingEntryReference;
     @Column(name = "received_at", nullable = false) private Instant receivedAt;
     @Column(name = "received_by_user_id", nullable = false, length = 100) private String receivedByUserId;
     @Column(name = "received_by_username", nullable = false, length = 150) private String receivedByUsername;
@@ -56,4 +57,10 @@ public class StockEntryEntity {
     public LocalDate getExpiresOn() { return expiresOn; } public String getSupplierName() { return supplierName; } public String getNotes() { return notes; }
     public AccountingPostingStatus getAccountingStatus() { return accountingStatus; } public Instant getReceivedAt() { return receivedAt; }
     public String getReceivedByUsername() { return receivedByUsername; }
+    public String getReceivedByUserId() { return receivedByUserId; }
+    public String getAccountingEntryReference() { return accountingEntryReference; }
+    public void markAccountingPosted(String entryReference) {
+        this.accountingStatus = AccountingPostingStatus.POSTED;
+        this.accountingEntryReference = entryReference;
+    }
 }

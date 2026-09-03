@@ -1,6 +1,7 @@
 package com.hopital.patient.api;
 
 import com.hopital.patient.application.dto.PatientPassageLaboratoryReferenceResponse;
+import com.hopital.patient.application.dto.PharmacyDispenseAccountingReferenceResponse;
 import com.hopital.patient.application.service.PatientApplicationService;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -24,5 +25,12 @@ public class InternalPatientController {
     public ResponseEntity<PatientPassageLaboratoryReferenceResponse> resolvePassageForLaboratory(
             @PathVariable("passageId") UUID passageId) {
         return ResponseEntity.ok(patientApplicationService.resolvePassageForLaboratory(passageId));
+    }
+
+    @GetMapping("/pharmacy-dispensations/{dispenseCode}/accounting-reference")
+    public ResponseEntity<PharmacyDispenseAccountingReferenceResponse> resolvePharmacyDispenseForAccounting(
+            @PathVariable("dispenseCode") String dispenseCode) {
+        return ResponseEntity.ok(patientApplicationService
+                .resolvePharmacyDispenseAccountingReference(dispenseCode));
     }
 }

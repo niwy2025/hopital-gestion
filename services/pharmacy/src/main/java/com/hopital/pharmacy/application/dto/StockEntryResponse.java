@@ -24,6 +24,7 @@ public record StockEntryResponse(
         String supplierName,
         String notes,
         AccountingPostingStatus accountingStatus,
+        String accountingEntryReference,
         Instant receivedAt,
         String receivedByUsername) {
 }

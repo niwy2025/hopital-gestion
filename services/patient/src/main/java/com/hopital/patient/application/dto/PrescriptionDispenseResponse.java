@@ -12,6 +12,7 @@ public record PrescriptionDispenseResponse(
         UUID id,
         String code,
         PrescriptionDispenseCompletion completion,
+        BigDecimal totalAmount,
         BigDecimal paidAmount,
         PaymentCurrency currency,
         PrescriptionPaymentMethod paymentMethod,

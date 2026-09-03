@@ -2,8 +2,10 @@ package com.hopital.pharmacy.application.service;
 
 import com.hopital.pharmacy.application.domain.AccountingPostingStatus;
 import com.hopital.pharmacy.application.domain.AuditActor;
+import com.hopital.pharmacy.application.domain.Currency;
 import com.hopital.pharmacy.application.domain.DataAccessScope;
 import com.hopital.pharmacy.application.domain.StockMovementType;
+import com.hopital.pharmacy.application.domain.StockMovementSourceType;
 import com.hopital.pharmacy.application.dto.CreateMedicineRequest;
 import com.hopital.pharmacy.application.dto.CreateStockIssueRequest;
 import com.hopital.pharmacy.application.dto.CreateStockEntryRequest;
@@ -11,9 +13,14 @@ import com.hopital.pharmacy.application.dto.ExpiryTreatmentResponse;
 import com.hopital.pharmacy.application.dto.MedicineResponse;
 import com.hopital.pharmacy.application.dto.PageResponse;
 import com.hopital.pharmacy.application.dto.PrescriptionStockDispenseItemRequest;
+import com.hopital.pharmacy.application.dto.PrescriptionDispenseAccountingLineResponse;
+import com.hopital.pharmacy.application.dto.PrescriptionDispenseAccountingReferenceResponse;
+import com.hopital.pharmacy.application.dto.PrescriptionDispenseValuationResponse;
 import com.hopital.pharmacy.application.dto.StockAvailabilityResponse;
 import com.hopital.pharmacy.application.dto.StockBalanceResponse;
 import com.hopital.pharmacy.application.dto.StockEntryResponse;
+import com.hopital.pharmacy.application.dto.StockEntryAccountingReferenceResponse;
+import com.hopital.pharmacy.application.dto.StockMovementAccountingReferenceResponse;
 import com.hopital.pharmacy.application.dto.StockMovementResponse;
 import com.hopital.pharmacy.application.exception.DataAccessDeniedException;
 import com.hopital.pharmacy.application.exception.InvalidStockEntryException;
@@ -50,16 +57,22 @@ public class PharmacyApplicationService {
     private final StockLotRepository stockLotRepository;
     private final StockMovementRepository stockMovementRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
+    private final StockEntryAccountingOutboxService stockEntryAccountingOutboxService;
+    private final StockMovementAccountingOutboxService stockMovementAccountingOutboxService;
 
     public PharmacyApplicationService(MedicineRepository medicineRepository, HospitalStockRepository hospitalStockRepository,
             StockEntryRepository stockEntryRepository, StockLotRepository stockLotRepository,
-            StockMovementRepository stockMovementRepository, HospitalReferenceClient hospitalReferenceClient) {
+            StockMovementRepository stockMovementRepository, HospitalReferenceClient hospitalReferenceClient,
+            StockEntryAccountingOutboxService stockEntryAccountingOutboxService,
+            StockMovementAccountingOutboxService stockMovementAccountingOutboxService) {
         this.medicineRepository = medicineRepository;
         this.hospitalStockRepository = hospitalStockRepository;
         this.stockEntryRepository = stockEntryRepository;
         this.stockLotRepository = stockLotRepository;
         this.stockMovementRepository = stockMovementRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
+        this.stockEntryAccountingOutboxService = stockEntryAccountingOutboxService;
+        this.stockMovementAccountingOutboxService = stockMovementAccountingOutboxService;
     }
 
     public PageResponse<MedicineResponse> searchMedicines(int page, int size, String query, Boolean active) {
@@ -133,7 +146,64 @@ public class PharmacyApplicationService {
                 savedEntry, request.quantity(), savedEntry.getUnitCost(), request.currency(), request.expiresOn(), receivedAt));
         stockMovementRepository.save(new StockMovementEntity(UUID.randomUUID(), nextStockMovementCode(), stock, lot,
                 StockMovementType.ENTRY, request.quantity(), savedEntry.getUnitCost(), request.currency(), savedEntry.getNotes(), actor, receivedAt));
+        // Durable in the same transaction as the receipt. The scheduler, not
+        // the pharmacy user's HTTP request, performs the accounting call.
+        stockEntryAccountingOutboxService.enqueue(savedEntry.getId(), savedEntry.getCode());
         return toEntry(savedEntry);
+    }
+
+    /**
+     * Returns the immutable purchase value of one stock reception. This is
+     * internal-only: accounting obtains the amount from the source record,
+     * never from an outbox payload or a browser request.
+     */
+    public StockEntryAccountingReferenceResponse resolveStockEntryAccountingReference(String rawStockEntryCode) {
+        String stockEntryCode = rawStockEntryCode == null ? "" : rawStockEntryCode.trim().toUpperCase(Locale.ROOT);
+        StockEntryEntity entry = stockEntryRepository.findByCodeIgnoreCase(stockEntryCode)
+                .orElseThrow(() -> new PharmacyResourceNotFoundException("L'entrée de stock"));
+        return new StockEntryAccountingReferenceResponse(
+                entry.getId(),
+                entry.getCode(),
+                entry.getHospitalId(),
+                entry.getHospitalCode(),
+                entry.getSupplierName(),
+                entry.getTotalCost(),
+                entry.getCurrency(),
+                entry.getReceivedAt(),
+                entry.getReceivedByUserId(),
+                entry.getReceivedByUsername());
+    }
+
+    /**
+     * Returns the immutable valuation of one stock-out movement. Accounting
+     * never trusts a browser amount or an outbox payload for this operation.
+     */
+    public StockMovementAccountingReferenceResponse resolveStockMovementAccountingReference(
+            String rawStockMovementCode) {
+        String stockMovementCode = rawStockMovementCode == null
+                ? ""
+                : rawStockMovementCode.trim().toUpperCase(Locale.ROOT);
+        StockMovementEntity movement = stockMovementRepository.findByCodeIgnoreCase(stockMovementCode)
+                .orElseThrow(() -> new PharmacyResourceNotFoundException("Le mouvement de stock"));
+        BigDecimal totalCost = movement.getUnitCost()
+                .multiply(BigDecimal.valueOf(movement.getQuantity()))
+                .setScale(2, RoundingMode.HALF_UP);
+        return new StockMovementAccountingReferenceResponse(
+                movement.getId(),
+                movement.getCode(),
+                movement.getType(),
+                movement.getSourceType(),
+                movement.getSourceCode(),
+                movement.getHospitalId(),
+                movement.getHospitalCode(),
+                movement.getQuantity(),
+                movement.getUnitCost(),
+                totalCost,
+                movement.getCurrency(),
+                movement.getNotes(),
+                movement.getOccurredAt(),
+                movement.getPerformedByUserId(),
+                movement.getPerformedByUsername());
     }
 
     @Transactional
@@ -147,12 +217,37 @@ public class PharmacyApplicationService {
 
     /** Registers the stock movements generated by one already validated patient dispense. */
     @Transactional
-    public void recordPrescriptionDispensation(
+    public PrescriptionDispenseValuationResponse recordPrescriptionDispensation(
             UUID hospitalId,
             String dispenseCode,
             AuditActor actor,
+            BigDecimal paidAmount,
+            String paymentCurrency,
             java.util.List<PrescriptionStockDispenseItemRequest> items) {
+        // The patient service can safely retry an internal HTTP call without
+        // deducting the same stock twice. One delivery code is immutable.
+        var existingMovements = stockMovementRepository.findAllBySourceTypeAndSourceCodeOrderByOccurredAtAsc(
+                StockMovementSourceType.PRESCRIPTION_DISPENSE,
+                dispenseCode);
+        if (!existingMovements.isEmpty()) {
+            return valuationFromMovements(dispenseCode, existingMovements);
+        }
         HospitalReferenceClient.HospitalReference hospital = hospitalReferenceClient.resolveActive(hospitalId);
+        Currency expectedCurrency = Currency.valueOf(paymentCurrency);
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (PrescriptionStockDispenseItemRequest item : items) {
+            HospitalStockEntity stock = hospitalStockRepository.findByHospitalIdAndMedicine_Id(hospital.hospitalId(), item.medicineId())
+                    .orElseThrow(() -> new InvalidStockEntryException("Ce médicament ne possède aucun stock dans votre hôpital."));
+            if (stock.getCurrency() != expectedCurrency) {
+                throw new InvalidStockEntryException(
+                        "La devise du paiement doit correspondre à la devise du stock délivré.");
+            }
+            totalAmount = totalAmount.add(stock.getUnitSellingPrice().multiply(BigDecimal.valueOf(item.quantity())));
+        }
+        if (paidAmount.compareTo(totalAmount) > 0) {
+            throw new InvalidStockEntryException(
+                    "Le montant encaissé ne peut pas dépasser le montant facturé par le stock délivré.");
+        }
         for (PrescriptionStockDispenseItemRequest item : items) {
             issueStockFromHospital(
                     item.medicineId(),
@@ -160,8 +255,54 @@ public class PharmacyApplicationService {
                     StockMovementType.DISPENSING,
                     "Délivrance pharmacie " + dispenseCode,
                     hospital,
-                    actor);
+                    actor,
+                    StockMovementSourceType.PRESCRIPTION_DISPENSE,
+                    dispenseCode);
         }
+        return new PrescriptionDispenseValuationResponse(
+                dispenseCode,
+                totalAmount.setScale(2, RoundingMode.HALF_UP),
+                expectedCurrency);
+    }
+
+    /**
+     * Returns the immutable cost source of a prescription delivery for the
+     * accounting service. This endpoint is internal-only and does not expose
+     * the pharmacy catalogue to the browser.
+     */
+    public PrescriptionDispenseAccountingReferenceResponse resolvePrescriptionDispenseAccountingReference(
+            String dispenseCode) {
+        var movements = stockMovementRepository.findAllBySourceTypeAndSourceCodeOrderByOccurredAtAsc(
+                StockMovementSourceType.PRESCRIPTION_DISPENSE,
+                dispenseCode);
+        if (movements.isEmpty()) {
+            throw new PharmacyResourceNotFoundException("La délivrance de pharmacie");
+        }
+        StockMovementEntity firstMovement = movements.getFirst();
+        BigDecimal totalCost = movements.stream()
+                .map(movement -> movement.getUnitCost().multiply(BigDecimal.valueOf(movement.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        var lines = movements.stream()
+                .map(movement -> new PrescriptionDispenseAccountingLineResponse(
+                        movement.getId(),
+                        movement.getCode(),
+                        movement.getStock().getMedicine().getId(),
+                        movement.getStock().getMedicine().getCode(),
+                        movement.getStock().getMedicine().getGenericName(),
+                        movement.getQuantity(),
+                        movement.getUnitCost(),
+                        movement.getUnitCost().multiply(BigDecimal.valueOf(movement.getQuantity())),
+                        movement.getCurrency(),
+                        movement.getOccurredAt()))
+                .toList();
+        return new PrescriptionDispenseAccountingReferenceResponse(
+                dispenseCode,
+                firstMovement.getStock().getHospitalId(),
+                firstMovement.getStock().getHospitalCode(),
+                totalCost,
+                firstMovement.getCurrency(),
+                firstMovement.getOccurredAt(),
+                lines);
     }
 
     private StockMovementResponse issueStockFromHospital(
@@ -171,6 +312,18 @@ public class PharmacyApplicationService {
             String notes,
             HospitalReferenceClient.HospitalReference hospital,
             AuditActor actor) {
+        return issueStockFromHospital(medicineId, quantity, type, notes, hospital, actor, null, null);
+    }
+
+    private StockMovementResponse issueStockFromHospital(
+            UUID medicineId,
+            int quantity,
+            StockMovementType type,
+            String notes,
+            HospitalReferenceClient.HospitalReference hospital,
+            AuditActor actor,
+            StockMovementSourceType sourceType,
+            String sourceCode) {
         HospitalStockEntity stock = hospitalStockRepository.findByHospitalIdAndMedicine_Id(hospital.hospitalId(), medicineId)
                 .orElseThrow(() -> new InvalidStockEntryException("Ce médicament ne possède aucun stock dans votre hôpital."));
         Instant occurredAt = Instant.now();
@@ -192,8 +345,34 @@ public class PharmacyApplicationService {
         stock.issue(quantity, occurredAt);
         BigDecimal unitCost = issuedValue.divide(BigDecimal.valueOf(quantity), 2, RoundingMode.HALF_UP);
         StockMovementEntity movement = new StockMovementEntity(UUID.randomUUID(), nextStockMovementCode(), stock, null,
-                type, quantity, unitCost, stock.getCurrency(), notes, actor, occurredAt);
-        return toMovement(stockMovementRepository.save(movement));
+                type, sourceType, sourceCode, quantity, unitCost,
+                type == StockMovementType.DISPENSING ? stock.getUnitSellingPrice() : null,
+                stock.getCurrency(), notes, actor, occurredAt);
+        StockMovementEntity savedMovement = stockMovementRepository.save(movement);
+        // Prescription deliveries are synchronised by the patient outbox. All
+        // other irreversible stock-outs receive their own durable accounting
+        // intent without delaying the pharmacy operation.
+        stockMovementAccountingOutboxService.enqueueIfRequired(savedMovement);
+        return toMovement(savedMovement);
+    }
+
+    private PrescriptionDispenseValuationResponse valuationFromMovements(
+            String dispenseCode,
+            java.util.List<StockMovementEntity> movements) {
+        Currency currency = movements.getFirst().getCurrency();
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (StockMovementEntity movement : movements) {
+            if (movement.getCurrency() != currency || movement.getUnitSellingPrice() == null) {
+                throw new InvalidStockEntryException(
+                        "La valeur de vente historique de cette délivrance ne peut pas être déterminée.");
+            }
+            totalAmount = totalAmount.add(
+                    movement.getUnitSellingPrice().multiply(BigDecimal.valueOf(movement.getQuantity())));
+        }
+        return new PrescriptionDispenseValuationResponse(
+                dispenseCode,
+                totalAmount.setScale(2, RoundingMode.HALF_UP),
+                currency);
     }
 
     @Transactional
@@ -208,9 +387,10 @@ public class PharmacyApplicationService {
             HospitalStockEntity stock = lot.getStock();
             lot.consume(expiredQuantity);
             stock.issue(expiredQuantity, occurredAt);
-            stockMovementRepository.save(new StockMovementEntity(UUID.randomUUID(), nextStockMovementCode(), stock, lot,
+            StockMovementEntity movement = stockMovementRepository.save(new StockMovementEntity(UUID.randomUUID(), nextStockMovementCode(), stock, lot,
                     StockMovementType.EXPIRY, expiredQuantity, lot.getUnitCost(), lot.getCurrency(),
                     "Sortie automatique : lot périmé" + (lot.getExpiresOn() == null ? "" : " le " + lot.getExpiresOn()), actor, occurredAt));
+            stockMovementAccountingOutboxService.enqueueIfRequired(movement);
             lotsProcessed++;
             quantityProcessed += expiredQuantity;
         }
@@ -274,7 +454,7 @@ public class PharmacyApplicationService {
         MedicineEntity medicine = item.getMedicine();
         return new StockEntryResponse(item.getId(), item.getCode(), item.getHospitalId(), item.getHospitalCode(), medicine.getId(), medicine.getCode(),
                 medicine.getGenericName(), item.getQuantity(), item.getUnitCost(), item.getUnitSellingPrice(), item.getTotalCost(), item.getCurrency(), item.getExpiresOn(),
-                item.getSupplierName(), item.getNotes(), item.getAccountingStatus(), item.getReceivedAt(), item.getReceivedByUsername());
+                item.getSupplierName(), item.getNotes(), item.getAccountingStatus(), item.getAccountingEntryReference(), item.getReceivedAt(), item.getReceivedByUsername());
     }
     private StockMovementResponse toMovement(StockMovementEntity item) {
         MedicineEntity medicine = item.getStock().getMedicine();

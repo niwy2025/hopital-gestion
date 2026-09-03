@@ -20,6 +20,26 @@ Chaque entrée conserve la quantité, le coût unitaire, le total, la monnaie,
 l’auteur et le statut `PENDING_ACCOUNTING`. Le futur service Comptabilité
 pourra reprendre ces lignes immuables sans recalculer le coût d’origine.
 
+## Rapprochement comptable des mouvements
+
+Les réceptions (`ENT-…`) et les sorties (`MVT-…`) sont envoyées au service
+Comptabilité par une file persistante et idempotente. Une indisponibilité
+temporaire de la comptabilité ne bloque donc pas la réception, la perte, la
+péremption ou le transfert de stock ; la reprise se fait ultérieurement à
+partir de la référence immuable du mouvement.
+
+- `LOSS` est imputé au compte de pertes `658100` contre le stock `310000`.
+- `EXPIRY` est imputé au compte de péremption `658200` contre le stock
+  `310000`.
+- `TRANSFER_OUT` est porté au compte de stock transféré à rapprocher
+  `382000`, sans inventer l'hôpital ou le tiers destinataire.
+- Une délivrance manuelle sans ordonnance ni montant fiable est portée au
+  compte transitoire `471100`, et non au chiffre d'affaires.
+
+Les délivrances patient référencées `DSP-…` restent exclues de cette file :
+elles sont déjà rapprochées par le flux de délivrance lié à l'ordonnance, afin
+d'éviter tout double comptage.
+
 Une ligne de stock est unique pour un couple hôpital–médicament. Les lots issus
 des entrées conservent leurs quantités restantes et dates de péremption. La
 quantité « disponible » exclut les lots périmés, même avant leur sortie

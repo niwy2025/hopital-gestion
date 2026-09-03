@@ -33,6 +33,8 @@ import com.hopital.patient.application.dto.PatientPassageClinicalEntryResponse;
 import com.hopital.patient.application.dto.PatientPassageLaboratoryReferenceResponse;
 import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
 import com.hopital.patient.application.dto.PharmacyPrescriptionResponse;
+import com.hopital.patient.application.dto.PharmacyDispenseAccountingLineResponse;
+import com.hopital.patient.application.dto.PharmacyDispenseAccountingReferenceResponse;
 import com.hopital.patient.application.dto.PrescriptionDispenseItemResponse;
 import com.hopital.patient.application.dto.PrescriptionDispenseResponse;
 import com.hopital.patient.application.dto.PrescriptionItemResponse;
@@ -46,6 +48,7 @@ import com.hopital.patient.application.exception.InvalidPatientDocumentException
 import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
 import com.hopital.patient.application.exception.InvalidPrescriptionException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
+import com.hopital.patient.application.exception.PrescriptionDispenseNotFoundException;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.integration.pharmacy.PharmacyDispenseClient;
 import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
@@ -107,6 +110,7 @@ public class PatientApplicationService {
     private final HospitalReferenceClient hospitalReferenceClient;
     private final PersonnelReferenceClient personnelReferenceClient;
     private final PharmacyDispenseClient pharmacyDispenseClient;
+    private final PharmacyDispenseAccountingOutboxService pharmacyDispenseAccountingOutboxService;
 
     public PatientApplicationService(
             PatientRepository patientRepository,
@@ -119,7 +123,8 @@ public class PatientApplicationService {
             PatientPassagePrescriptionDispenseItemRepository patientPassagePrescriptionDispenseItemRepository,
             HospitalReferenceClient hospitalReferenceClient,
             PersonnelReferenceClient personnelReferenceClient,
-            PharmacyDispenseClient pharmacyDispenseClient) {
+            PharmacyDispenseClient pharmacyDispenseClient,
+            PharmacyDispenseAccountingOutboxService pharmacyDispenseAccountingOutboxService) {
         this.patientRepository = patientRepository;
         this.patientDocumentRepository = patientDocumentRepository;
         this.patientPassageRepository = patientPassageRepository;
@@ -131,6 +136,7 @@ public class PatientApplicationService {
         this.hospitalReferenceClient = hospitalReferenceClient;
         this.personnelReferenceClient = personnelReferenceClient;
         this.pharmacyDispenseClient = pharmacyDispenseClient;
+        this.pharmacyDispenseAccountingOutboxService = pharmacyDispenseAccountingOutboxService;
     }
 
     /** Compatibility endpoint for existing dependent forms. New registry screens use the paginated search endpoint. */
@@ -417,6 +423,51 @@ public class PatientApplicationService {
         return toPharmacyPrescriptions(List.of(prescription)).getFirst();
     }
 
+    /**
+     * Exposes the payment and care context of a single immutable pharmacy
+     * delivery to the future accounting service. It is intentionally available
+     * only through the internal controller, never through the public gateway.
+     */
+    public PharmacyDispenseAccountingReferenceResponse resolvePharmacyDispenseAccountingReference(
+            String dispenseCode) {
+        PatientPassagePrescriptionDispenseEntity dispense = patientPassagePrescriptionDispenseRepository
+                .findByCodeIgnoreCase(dispenseCode)
+                .orElseThrow(() -> new PrescriptionDispenseNotFoundException(dispenseCode));
+        List<PatientPassagePrescriptionDispenseItemEntity> dispenseItems = patientPassagePrescriptionDispenseItemRepository
+                .findAllByDispense_IdInOrderByDispense_IdAsc(List.of(dispense.getId()));
+        PatientPassagePrescriptionEntity prescription = dispense.getPrescription();
+        PatientPassageEntity passage = prescription.getPassage();
+        PatientEntity patient = passage.getPatient();
+        return new PharmacyDispenseAccountingReferenceResponse(
+                dispense.getId(),
+                dispense.getCode(),
+                passage.getHospitalId(),
+                passage.getHospitalCode(),
+                patient.getId(),
+                patient.getCode(),
+                passage.getId(),
+                passage.getCode(),
+                prescription.getId(),
+                prescription.getCode(),
+                prescription.getSource(),
+                dispense.getCompletion(),
+                dispense.getTotalAmount(),
+                dispense.getPaidAmount(),
+                dispense.getCurrency(),
+                dispense.getPaymentMethod(),
+                dispense.getDispensedAt(),
+                dispense.getDispensedByUserId(),
+                dispense.getDispensedByUsername(),
+                dispenseItems.stream()
+                        .map(item -> new PharmacyDispenseAccountingLineResponse(
+                                item.getPrescriptionItem().getId(),
+                                item.getPrescriptionItem().getMedicineId(),
+                                item.getPrescriptionItem().getMedicineName(),
+                                item.getPrescriptionItem().getDosage(),
+                                item.getDispensedQuantity()))
+                        .toList());
+    }
+
     @Transactional
     public PrescriptionDispenseResponse dispensePrescription(
             UUID prescriptionId,
@@ -495,15 +546,30 @@ public class PatientApplicationService {
                         item.getMedicineId(),
                         stockQuantity(item, dispensedQuantitiesByItemId.get(item.getId()))))
                 .toList();
+        PharmacyDispenseClient.DispenseValuation dispenseValuation;
         try {
-            pharmacyDispenseClient.recordDispense(
+            dispenseValuation = pharmacyDispenseClient.recordDispense(
                     prescription.getPassage().getHospitalId(),
                     dispenseCode,
                     auditActor,
+                    request.paidAmount(),
+                    request.currency(),
                     linkedStockItems);
-        } catch (org.springframework.web.client.RestClientException exception) {
+        } catch (RuntimeException exception) {
             throw new InvalidPrescriptionException(
                     "La délivrance ne peut pas être confirmée : le stock disponible doit être vérifié par la pharmacie.");
+        }
+        if (dispenseValuation.totalAmount() == null || dispenseValuation.totalAmount().signum() < 0) {
+            throw new InvalidPrescriptionException("Le montant facturé par la pharmacie est invalide.");
+        }
+        if (dispenseValuation.currency() != null
+                && !request.currency().name().equalsIgnoreCase(dispenseValuation.currency())) {
+            throw new InvalidPrescriptionException(
+                    "La devise du paiement doit correspondre à la devise du stock délivré.");
+        }
+        if (request.paidAmount().compareTo(dispenseValuation.totalAmount()) > 0) {
+            throw new InvalidPrescriptionException(
+                    "Le montant encaissé ne peut pas dépasser le montant facturé par la pharmacie.");
         }
 
         Instant dispensedAt = Instant.now();
@@ -515,6 +581,7 @@ public class PatientApplicationService {
                         request.complete()
                                 ? PrescriptionDispenseCompletion.COMPLETE
                                 : PrescriptionDispenseCompletion.PARTIAL,
+                        dispenseValuation.totalAmount(),
                         request.paidAmount(),
                         request.currency(),
                         request.paymentMethod(),
@@ -529,6 +596,14 @@ public class PatientApplicationService {
         List<PatientPassagePrescriptionDispenseItemEntity> savedItems = patientPassagePrescriptionDispenseItemRepository
                 .saveAll(dispenseItems);
         prescription.recordDispense(request.complete());
+        // Only a delivery that consumed catalogue stock has a matching
+        // pharmacy-cost source for accounting. A zero selling price is still
+        // synchronized: its stock/COGS movement remains accounting-relevant.
+        if (!linkedStockItems.isEmpty()) {
+            // The event is written in the same transaction as the immutable delivery.
+            // Its actual HTTP synchronization starts only after this transaction commits.
+            pharmacyDispenseAccountingOutboxService.enqueue(dispense.getId(), dispense.getCode());
+        }
         prescription.getPassage().getPatient().recordModification(
                 auditActor,
                 PatientAuditEventType.PRESCRIPTION_DISPENSED,
@@ -1386,6 +1461,7 @@ public class PatientApplicationService {
                 dispense.getId(),
                 dispense.getCode(),
                 dispense.getCompletion(),
+                dispense.getTotalAmount(),
                 dispense.getPaidAmount(),
                 dispense.getCurrency(),
                 dispense.getPaymentMethod(),

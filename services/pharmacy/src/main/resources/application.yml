@@ -27,6 +27,14 @@ hospital:
     base-url: ${AUTH_SERVICE_BASE_URL:http://auth-service:8081}
   organization-service:
     base-url: ${ORGANIZATION_SERVICE_BASE_URL:http://organization-service:8084}
+  accounting-service:
+    base-url: ${ACCOUNTING_SERVICE_BASE_URL:http://accounting-service:8090}
+    # La réception de stock n'attend jamais la comptabilité : une file durable
+    # réessaie avec ces délais réseau bornés.
+    connect-timeout-ms: ${ACCOUNTING_OUTBOX_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${ACCOUNTING_OUTBOX_READ_TIMEOUT_MS:5000}
+    outbox:
+      retry-delay-ms: ${ACCOUNTING_OUTBOX_RETRY_DELAY_MS:30000}
 
 management:
   metrics:

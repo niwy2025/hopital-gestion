@@ -1,6 +1,6 @@
 package com.hopital.pharmacy.application.domain;
 
-/** State reserved for the future accounting service; pharmacy never changes a posted entry. */
+/** Accounting synchronization state of an immutable stock reception. */
 public enum AccountingPostingStatus {
     PENDING_ACCOUNTING,
     POSTED

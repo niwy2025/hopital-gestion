@@ -1,6 +1,8 @@
 package com.hopital.patient.infra.integration.pharmacy;
 
 import com.hopital.patient.application.domain.AuditActor;
+import com.hopital.patient.application.domain.PaymentCurrency;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,27 +20,38 @@ public class PharmacyDispenseClient {
         this.restClient = builder.baseUrl(pharmacyServiceBaseUrl).build();
     }
 
-    public void recordDispense(
+    public DispenseValuation recordDispense(
             UUID hospitalId,
             String dispenseCode,
             AuditActor actor,
+            BigDecimal paidAmount,
+            PaymentCurrency paymentCurrency,
             List<StockDispenseItem> items) {
         if (items.isEmpty()) {
-            return;
+            return new DispenseValuation(BigDecimal.ZERO, null);
         }
-        restClient.post()
+        PharmacyDispenseResponse response = restClient.post()
                 .uri("/internal/pharmacy/prescription-dispensations")
                 .body(new PharmacyDispenseRequest(
                         hospitalId,
                         dispenseCode,
                         actor.userId(),
                         actor.username(),
+                        paidAmount,
+                        paymentCurrency.name(),
                         items))
                 .retrieve()
-                .toBodilessEntity();
+                .body(PharmacyDispenseResponse.class);
+        if (response == null || response.totalAmount() == null) {
+            throw new IllegalStateException("La pharmacie n'a pas retourné le montant facturé de la délivrance.");
+        }
+        return new DispenseValuation(response.totalAmount(), response.currency());
     }
 
     public record StockDispenseItem(UUID medicineId, int quantity) {
+    }
+
+    public record DispenseValuation(BigDecimal totalAmount, String currency) {
     }
 
     private record PharmacyDispenseRequest(
@@ -46,6 +59,11 @@ public class PharmacyDispenseClient {
             String dispenseCode,
             String actorId,
             String actorUsername,
+            BigDecimal paidAmount,
+            String paymentCurrency,
             List<StockDispenseItem> items) {
+    }
+
+    private record PharmacyDispenseResponse(BigDecimal totalAmount, String currency) {
     }
 }

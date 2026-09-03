@@ -41,6 +41,9 @@ public class PatientPassagePrescriptionDispenseEntity {
     @Column(name = "paid_amount", precision = 14, scale = 2)
     private BigDecimal paidAmount;
 
+    @Column(name = "total_amount", precision = 14, scale = 2)
+    private BigDecimal totalAmount;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_currency", length = 3)
     private PaymentCurrency currency;
@@ -66,6 +69,7 @@ public class PatientPassagePrescriptionDispenseEntity {
             String code,
             PatientPassagePrescriptionEntity prescription,
             PrescriptionDispenseCompletion completion,
+            BigDecimal totalAmount,
             BigDecimal paidAmount,
             PaymentCurrency currency,
             PrescriptionPaymentMethod paymentMethod,
@@ -76,6 +80,7 @@ public class PatientPassagePrescriptionDispenseEntity {
         this.code = code;
         this.prescription = prescription;
         this.completion = completion;
+        this.totalAmount = totalAmount;
         this.paidAmount = paidAmount;
         this.currency = currency;
         this.paymentMethod = paymentMethod;
@@ -89,10 +94,12 @@ public class PatientPassagePrescriptionDispenseEntity {
     public String getCode() { return code; }
     public PatientPassagePrescriptionEntity getPrescription() { return prescription; }
     public PrescriptionDispenseCompletion getCompletion() { return completion; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
     public BigDecimal getPaidAmount() { return paidAmount; }
     public PaymentCurrency getCurrency() { return currency; }
     public PrescriptionPaymentMethod getPaymentMethod() { return paymentMethod; }
     public String getNotes() { return notes; }
     public Instant getDispensedAt() { return dispensedAt; }
+    public String getDispensedByUserId() { return dispensedByUserId; }
     public String getDispensedByUsername() { return dispensedByUsername; }
 }

@@ -9,6 +9,7 @@ import com.hopital.patient.application.exception.InvalidResponsiblePersonnelExce
 import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
 import com.hopital.patient.application.exception.InvalidPrescriptionException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
+import com.hopital.patient.application.exception.PrescriptionDispenseNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
@@ -29,6 +30,13 @@ public class PatientExceptionHandler {
     @ExceptionHandler(PatientNotFoundException.class)
     ResponseEntity<ApiError> handleNotFound(PatientNotFoundException exception, HttpServletRequest request) {
         return error(HttpStatus.NOT_FOUND, "PATIENT_NOT_FOUND", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(PrescriptionDispenseNotFoundException.class)
+    ResponseEntity<ApiError> handleDispenseNotFound(
+            PrescriptionDispenseNotFoundException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.NOT_FOUND, "PRESCRIPTION_DISPENSE_NOT_FOUND", exception.getMessage(), request);
     }
 
     @ExceptionHandler(InvalidRegistrationHospitalException.class)

@@ -32,6 +32,14 @@ hospital:
     base-url: ${PERSONNEL_SERVICE_BASE_URL:http://personnel-service:8087}
   pharmacy-service:
     base-url: ${PHARMACY_SERVICE_BASE_URL:http://pharmacy-service:8089}
+  accounting-service:
+    base-url: ${ACCOUNTING_SERVICE_BASE_URL:http://accounting-service:8090}
+    # Une défaillance comptable ne doit pas retarder la délivrance : la file
+    # durable réessaie après ces délais réseau courts.
+    connect-timeout-ms: ${ACCOUNTING_OUTBOX_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${ACCOUNTING_OUTBOX_READ_TIMEOUT_MS:5000}
+    outbox:
+      retry-delay-ms: ${ACCOUNTING_OUTBOX_RETRY_DELAY_MS:30000}
 
 management:
   metrics:

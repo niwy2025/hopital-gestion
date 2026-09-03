@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.ClinicalEntryType;
@@ -43,6 +44,8 @@ import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseItemEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionItemEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
@@ -100,6 +103,9 @@ class PatientApplicationServiceTest {
 
     @Mock
     private PharmacyDispenseClient pharmacyDispenseClient;
+
+    @Mock
+    private PharmacyDispenseAccountingOutboxService pharmacyDispenseAccountingOutboxService;
 
     @InjectMocks
     private PatientApplicationService patientApplicationService;
@@ -471,6 +477,9 @@ class PatientApplicationServiceTest {
         when(patientPassagePrescriptionDispenseRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
         when(patientPassagePrescriptionDispenseRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(patientPassagePrescriptionDispenseItemRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pharmacyDispenseClient.recordDispense(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PharmacyDispenseClient.DispenseValuation(
+                        new java.math.BigDecimal("12500.00"), "CDF"));
 
         var response = patientApplicationService.dispensePrescription(
                 prescription.getId(),
@@ -483,12 +492,90 @@ class PatientApplicationServiceTest {
                 auditActor());
 
         assertThat(response.code()).startsWith("DSP-");
+        assertThat(response.totalAmount()).isEqualByComparingTo("12500.00");
         assertThat(response.items()).singleElement().satisfies(item ->
                 assertThat(item.medicineName()).isEqualTo("Amoxicilline"));
         assertThat(prescription.getStatus()).isEqualTo(PrescriptionStatus.DISPENSED);
-        verify(pharmacyDispenseClient).recordDispense(any(), any(), any(), any());
+        verify(pharmacyDispenseClient).recordDispense(any(), any(), any(), any(), any(), any());
+        verify(pharmacyDispenseAccountingOutboxService).enqueue(
+                response.id(), response.code());
         assertThat(patient.getAuditEvents()).singleElement().satisfies(event ->
                 assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.PRESCRIPTION_DISPENSED));
+    }
+
+    @Test
+    void doesNotQueueAccountingForAMedicineOutsideTheHospitalCatalogue() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260902-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.PHARMACY, "Pharmacie hospitalière", null, auditActor(), Instant.now());
+        PatientPassagePrescriptionEntity prescription = new PatientPassagePrescriptionEntity(
+                UUID.randomUUID(), "ORD-20260902-ABCD1234", passage, PrescriptionSource.MEDICAL,
+                null, null, null, auditActor(), Instant.now());
+        PatientPassagePrescriptionItemEntity prescriptionItem = new PatientPassagePrescriptionItemEntity(
+                UUID.randomUUID(), prescription, null, "Produit hors catalogue", null, null,
+                null, null, "1", null, 0);
+        when(patientPassagePrescriptionRepository.findById(prescription.getId())).thenReturn(Optional.of(prescription));
+        when(patientPassagePrescriptionItemRepository.findAllByPrescription_IdInOrderByDisplayOrderAsc(any()))
+                .thenReturn(List.of(prescriptionItem));
+        when(patientPassagePrescriptionDispenseRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
+        when(patientPassagePrescriptionDispenseRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(patientPassagePrescriptionDispenseItemRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pharmacyDispenseClient.recordDispense(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PharmacyDispenseClient.DispenseValuation(java.math.BigDecimal.ZERO, null));
+
+        patientApplicationService.dispensePrescription(
+                prescription.getId(),
+                new CreatePrescriptionDispenseRequest(true, java.math.BigDecimal.ZERO,
+                        com.hopital.patient.application.domain.PaymentCurrency.CDF,
+                        com.hopital.patient.application.domain.PrescriptionPaymentMethod.CASH,
+                        null, List.of(new PrescriptionDispenseItemRequest(prescriptionItem.getId(), "1"))),
+                new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
+                auditActor());
+
+        verifyNoInteractions(pharmacyDispenseAccountingOutboxService);
+    }
+
+    @Test
+    void exposesAnImmutableAccountingReferenceForOnePharmacyDispense() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260903-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.PHARMACY, "Pharmacie hospitalière", null, auditActor(), Instant.now());
+        PatientPassagePrescriptionEntity prescription = new PatientPassagePrescriptionEntity(
+                UUID.randomUUID(), "ORD-20260903-ABCD1234", passage, PrescriptionSource.EXTERNAL_PAPER,
+                "Dr. Mavungu", null, null, auditActor(), Instant.now());
+        PatientPassagePrescriptionItemEntity prescriptionItem = new PatientPassagePrescriptionItemEntity(
+                UUID.randomUUID(), prescription, UUID.randomUUID(), "Amoxicilline", "500 mg", "Voie orale",
+                "3 fois par jour", "7 jours", "21", null, 0);
+        PatientPassagePrescriptionDispenseEntity dispense = new PatientPassagePrescriptionDispenseEntity(
+                UUID.randomUUID(), "DSP-20260903-ABCD1234", prescription,
+                com.hopital.patient.application.domain.PrescriptionDispenseCompletion.COMPLETE,
+                new java.math.BigDecimal("15000.00"),
+                new java.math.BigDecimal("12500.00"),
+                com.hopital.patient.application.domain.PaymentCurrency.CDF,
+                com.hopital.patient.application.domain.PrescriptionPaymentMethod.MOBILE_MONEY,
+                "Paiement encaissé.", auditActor(), Instant.now());
+        PatientPassagePrescriptionDispenseItemEntity dispenseItem = new PatientPassagePrescriptionDispenseItemEntity(
+                UUID.randomUUID(), dispense, prescriptionItem, "21");
+        when(patientPassagePrescriptionDispenseRepository.findByCodeIgnoreCase(dispense.getCode()))
+                .thenReturn(Optional.of(dispense));
+        when(patientPassagePrescriptionDispenseItemRepository.findAllByDispense_IdInOrderByDispense_IdAsc(List.of(dispense.getId())))
+                .thenReturn(List.of(dispenseItem));
+
+        var response = patientApplicationService.resolvePharmacyDispenseAccountingReference(dispense.getCode());
+
+        assertThat(response.dispenseId()).isEqualTo(dispense.getId());
+        assertThat(response.dispenseCode()).isEqualTo("DSP-20260903-ABCD1234");
+        assertThat(response.hospitalId()).isEqualTo(patient.getRegistrationHospitalId());
+        assertThat(response.patientCode()).isEqualTo(patient.getCode());
+        assertThat(response.totalAmount()).isEqualByComparingTo("15000.00");
+        assertThat(response.paidAmount()).isEqualByComparingTo("12500.00");
+        assertThat(response.currency()).isEqualTo(com.hopital.patient.application.domain.PaymentCurrency.CDF);
+        assertThat(response.lines()).singleElement().satisfies(line -> {
+            assertThat(line.medicineId()).isEqualTo(prescriptionItem.getMedicineId());
+            assertThat(line.dispensedQuantity()).isEqualTo("21");
+        });
     }
 
     @Test

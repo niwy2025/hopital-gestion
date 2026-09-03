@@ -2,6 +2,7 @@ package com.hopital.pharmacy.infra.persistence.repository;
 
 import com.hopital.pharmacy.application.domain.AccountingPostingStatus;
 import com.hopital.pharmacy.infra.persistence.entity.StockEntryEntity;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface StockEntryRepository extends JpaRepository<StockEntryEntity, UUID> {
     boolean existsByCodeIgnoreCase(String code);
+    Optional<StockEntryEntity> findByCodeIgnoreCase(String code);
 
     @Query("""
             SELECT entry FROM StockEntryEntity entry

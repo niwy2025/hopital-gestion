@@ -1,5 +1,6 @@
 package com.hopital.patient.application.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.hopital.patient.application.domain.AccountingSynchronizationStatus;
 import com.hopital.patient.application.domain.PaymentCurrency;
 import com.hopital.patient.application.domain.PharmacyDispenseAccountingInvoiceStatus;
@@ -19,14 +20,14 @@ public record PrescriptionDispenseResponse(
         BigDecimal dueAmount,
         PaymentCurrency currency,
         PrescriptionPaymentMethod paymentMethod,
-        AccountingSynchronizationStatus accountingSynchronizationStatus,
+        @JsonAlias("accountingSynchronizationStatus") AccountingSynchronizationStatus accountingSyncStatus,
         UUID accountingInvoiceId,
         String accountingInvoiceCode,
         BigDecimal accountingTotalAmount,
         BigDecimal accountingPaidAmount,
         BigDecimal accountingDueAmount,
         PaymentCurrency accountingCurrency,
-        PharmacyDispenseAccountingInvoiceStatus accountingStatus,
+        @JsonAlias("accountingStatus") PharmacyDispenseAccountingInvoiceStatus accountingInvoiceStatus,
         Long accountingStateVersion,
         Instant accountingSynchronizedAt,
         String accountingLastPaymentReference,

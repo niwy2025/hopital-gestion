@@ -6,6 +6,7 @@ import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.domain.PatientDocumentType;
 import com.hopital.patient.application.domain.ClinicalEntryType;
 import com.hopital.patient.application.domain.ClinicalOrientation;
+import com.hopital.patient.application.domain.TriagePriority;
 import com.hopital.patient.application.domain.PrescriptionSource;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.AssignPatientPassageResponsiblePersonnelRequest;
@@ -17,6 +18,7 @@ import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
 import com.hopital.patient.application.dto.PatientPassageClinicalEntryResponse;
+import com.hopital.patient.application.dto.PatientPassageTriageAssessmentResponse;
 import com.hopital.patient.application.dto.PatientDocumentResponse;
 import com.hopital.patient.application.dto.PatientSummaryResponse;
 import com.hopital.patient.application.dto.PageResponse;
@@ -24,6 +26,7 @@ import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
+import com.hopital.patient.application.dto.CreatePatientPassageTriageAssessmentRequest;
 import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
 import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
 import com.hopital.patient.application.dto.PharmacyPrescriptionResponse;
@@ -198,6 +201,33 @@ public class PatientController {
             @Valid @RequestBody CreatePatientPassageClinicalEntryRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.status(HttpStatus.CREATED).body(patientApplicationService.addClinicalEntry(
+                patientId,
+                passageId,
+                request,
+                accessScope(jwt),
+                auditActor(jwt)));
+    }
+
+    @GetMapping("/{patientId}/passages/{passageId}/triage-assessments/search")
+    public ResponseEntity<PageResponse<PatientPassageTriageAssessmentResponse>> searchTriageAssessments(
+            @PathVariable("patientId") UUID patientId,
+            @PathVariable("passageId") UUID passageId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "priority", required = false) TriagePriority priority,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(patientApplicationService.searchTriageAssessments(
+                patientId, passageId, page, size, query, priority, accessScope(jwt)));
+    }
+
+    @PostMapping("/{patientId}/passages/{passageId}/triage-assessments")
+    public ResponseEntity<PatientPassageTriageAssessmentResponse> addTriageAssessment(
+            @PathVariable("patientId") UUID patientId,
+            @PathVariable("passageId") UUID passageId,
+            @Valid @RequestBody CreatePatientPassageTriageAssessmentRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(patientApplicationService.addTriageAssessment(
                 patientId,
                 passageId,
                 request,

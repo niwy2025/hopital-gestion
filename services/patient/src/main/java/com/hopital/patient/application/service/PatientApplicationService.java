@@ -14,6 +14,9 @@ import com.hopital.patient.application.domain.PharmacyDispenseAccountingEventTyp
 import com.hopital.patient.application.domain.PrescriptionSource;
 import com.hopital.patient.application.domain.PrescriptionStatus;
 import com.hopital.patient.application.domain.PrescriptionDispenseCompletion;
+import com.hopital.patient.application.domain.TriageConsciousnessLevel;
+import com.hopital.patient.application.domain.TriagePregnancyStatus;
+import com.hopital.patient.application.domain.TriagePriority;
 import com.hopital.patient.application.dto.CreatePrescriptionDispenseRequest;
 import com.hopital.patient.application.dto.CreatePharmacyExternalPrescriptionRequest;
 import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
@@ -21,6 +24,7 @@ import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
+import com.hopital.patient.application.dto.CreatePatientPassageTriageAssessmentRequest;
 import com.hopital.patient.application.dto.AssignPatientPassageResponsiblePersonnelRequest;
 import com.hopital.patient.application.dto.EmergencyContactResponse;
 import com.hopital.patient.application.dto.PageResponse;
@@ -32,6 +36,7 @@ import com.hopital.patient.application.dto.PatientResponse;
 import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
 import com.hopital.patient.application.dto.PatientPassageClinicalEntryResponse;
+import com.hopital.patient.application.dto.PatientPassageTriageAssessmentResponse;
 import com.hopital.patient.application.dto.PatientPassageLaboratoryReferenceResponse;
 import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
 import com.hopital.patient.application.dto.PharmacyPrescriptionResponse;
@@ -60,6 +65,7 @@ import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageTriageAssessmentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseItemEntity;
@@ -67,6 +73,7 @@ import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionIt
 import com.hopital.patient.infra.persistence.entity.PharmacyDispensePaymentSettlementEventEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageTriageAssessmentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionItemRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseItemRepository;
@@ -110,6 +117,7 @@ public class PatientApplicationService {
     private final PatientDocumentRepository patientDocumentRepository;
     private final PatientPassageRepository patientPassageRepository;
     private final PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository;
+    private final PatientPassageTriageAssessmentRepository patientPassageTriageAssessmentRepository;
     private final PatientPassagePrescriptionRepository patientPassagePrescriptionRepository;
     private final PatientPassagePrescriptionItemRepository patientPassagePrescriptionItemRepository;
     private final PatientPassagePrescriptionDispenseRepository patientPassagePrescriptionDispenseRepository;
@@ -125,6 +133,7 @@ public class PatientApplicationService {
             PatientDocumentRepository patientDocumentRepository,
             PatientPassageRepository patientPassageRepository,
             PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository,
+            PatientPassageTriageAssessmentRepository patientPassageTriageAssessmentRepository,
             PatientPassagePrescriptionRepository patientPassagePrescriptionRepository,
             PatientPassagePrescriptionItemRepository patientPassagePrescriptionItemRepository,
             PatientPassagePrescriptionDispenseRepository patientPassagePrescriptionDispenseRepository,
@@ -138,6 +147,7 @@ public class PatientApplicationService {
         this.patientDocumentRepository = patientDocumentRepository;
         this.patientPassageRepository = patientPassageRepository;
         this.patientPassageClinicalEntryRepository = patientPassageClinicalEntryRepository;
+        this.patientPassageTriageAssessmentRepository = patientPassageTriageAssessmentRepository;
         this.patientPassagePrescriptionRepository = patientPassagePrescriptionRepository;
         this.patientPassagePrescriptionItemRepository = patientPassagePrescriptionItemRepository;
         this.patientPassagePrescriptionDispenseRepository = patientPassagePrescriptionDispenseRepository;
@@ -351,6 +361,36 @@ public class PatientApplicationService {
                 entries.getSize(),
                 entries.getTotalElements(),
                 entries.getTotalPages());
+    }
+
+    /**
+     * Returns the append-only nursing triage history for one patient passage.
+     * It stays separate from the physician's clinical journal.
+     */
+    public PageResponse<PatientPassageTriageAssessmentResponse> searchTriageAssessments(
+            UUID patientId,
+            UUID passageId,
+            int page,
+            int size,
+            String query,
+            TriagePriority priority,
+            DataAccessScope accessScope) {
+        assertCanReadTriage(accessScope);
+        PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
+        var assessments = patientPassageTriageAssessmentRepository.search(
+                passage.getId(),
+                normalizeSearchFilter(query),
+                priority,
+                PageRequest.of(
+                        Math.max(page, 0),
+                        Math.min(Math.max(size, 1), 100),
+                        Sort.by("recordedAt").descending()));
+        return new PageResponse<>(
+                assessments.getContent().stream().map(this::toTriageAssessment).toList(),
+                assessments.getNumber(),
+                assessments.getSize(),
+                assessments.getTotalElements(),
+                assessments.getTotalPages());
     }
 
     /**
@@ -742,6 +782,66 @@ public class PatientApplicationService {
                 auditActor,
                 PatientAuditEventType.CLINICAL_ENTRY_ADDED,
                 "Évolution clinique ajoutée au passage " + passage.getCode() + ".",
+                recordedAt);
+        return response;
+    }
+
+    /**
+     * Appends a triage assessment made by an assigned nurse or hospital
+     * administrator. There is deliberately no automatic priority calculation:
+     * the recorded values inform, but never replace, clinical judgement.
+     */
+    @Transactional
+    public PatientPassageTriageAssessmentResponse addTriageAssessment(
+            UUID patientId,
+            UUID passageId,
+            CreatePatientPassageTriageAssessmentRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        assertCanWriteTriage(accessScope);
+        PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
+        if (passage.getStatus() != PatientPassageStatus.OPEN) {
+            throw new InvalidPatientPassageStateException(
+                    "Le triage ne peut être renseigné que sur un passage en cours.");
+        }
+
+        Instant recordedAt = Instant.now();
+        PatientPassageTriageAssessmentEntity assessment = new PatientPassageTriageAssessmentEntity(
+                UUID.randomUUID(),
+                passage.getId(),
+                request.chiefComplaint().trim(),
+                request.injury(),
+                request.priority(),
+                request.priorityReason().trim(),
+                request.heartRateBpm(),
+                request.respiratoryRatePerMinute(),
+                request.systolicBloodPressure(),
+                request.diastolicBloodPressure(),
+                request.temperatureCelsius(),
+                request.oxygenSaturationPercent(),
+                request.randomBloodGlucoseMgDl(),
+                request.painScore(),
+                request.weightKg(),
+                request.consciousnessLevel() == null
+                        ? TriageConsciousnessLevel.UNKNOWN
+                        : request.consciousnessLevel(),
+                request.pregnancyStatus() == null
+                        ? TriagePregnancyStatus.UNKNOWN
+                        : request.pregnancyStatus(),
+                request.capillaryRefillSeconds(),
+                trimToNull(request.oxygenSupport()),
+                request.oxygenFlowLitersPerMinute(),
+                request.dangerSigns(),
+                trimToNull(request.careOnArrival()),
+                trimToNull(request.handoverNotes()),
+                auditActor,
+                recordedAt);
+        PatientPassageTriageAssessmentResponse response = toTriageAssessment(
+                patientPassageTriageAssessmentRepository.save(assessment));
+        passage.getPatient().recordModification(
+                auditActor,
+                PatientAuditEventType.TRIAGE_RECORDED,
+                "Triage " + triagePriorityLabel(request.priority()) + " enregistré pour le passage " + passage.getCode() + ".",
                 recordedAt);
         return response;
     }
@@ -1523,6 +1623,18 @@ public class PatientApplicationService {
         }
     }
 
+    private void assertCanReadTriage(DataAccessScope accessScope) {
+        if (!accessScope.canReadTriage()) {
+            throw new DataAccessDeniedException("Votre rôle ne permet pas de consulter les fiches de triage.");
+        }
+    }
+
+    private void assertCanWriteTriage(DataAccessScope accessScope) {
+        if (!accessScope.canWriteTriage()) {
+            throw new DataAccessDeniedException("Votre rôle ne permet pas de saisir une fiche de triage.");
+        }
+    }
+
     private boolean canManagePassageStatus(DataAccessScope accessScope, PatientPassageEntity passage) {
         return accessScope.administrator()
                 || (accessScope.personnelId() != null
@@ -1592,6 +1704,44 @@ public class PatientApplicationService {
                 entry.getFollowUpOn(),
                 entry.getRecordedAt(),
                 entry.getRecordedByUsername());
+    }
+
+    private PatientPassageTriageAssessmentResponse toTriageAssessment(
+            PatientPassageTriageAssessmentEntity assessment) {
+        return new PatientPassageTriageAssessmentResponse(
+                assessment.getId(),
+                assessment.getPassageId(),
+                assessment.getChiefComplaint(),
+                assessment.isInjury(),
+                assessment.getPriority(),
+                assessment.getPriorityReason(),
+                assessment.getHeartRateBpm(),
+                assessment.getRespiratoryRatePerMinute(),
+                assessment.getSystolicBloodPressure(),
+                assessment.getDiastolicBloodPressure(),
+                assessment.getTemperatureCelsius(),
+                assessment.getOxygenSaturationPercent(),
+                assessment.getRandomBloodGlucoseMgDl(),
+                assessment.getPainScore(),
+                assessment.getWeightKg(),
+                assessment.getConsciousnessLevel(),
+                assessment.getPregnancyStatus(),
+                assessment.getCapillaryRefillSeconds(),
+                assessment.getOxygenSupport(),
+                assessment.getOxygenFlowLitersPerMinute(),
+                assessment.getDangerSigns(),
+                assessment.getCareOnArrival(),
+                assessment.getHandoverNotes(),
+                assessment.getRecordedAt(),
+                assessment.getRecordedByUsername());
+    }
+
+    private String triagePriorityLabel(TriagePriority priority) {
+        return switch (priority) {
+            case RED -> "rouge";
+            case YELLOW -> "jaune";
+            case GREEN -> "vert";
+        };
     }
 
     private PatientPassagePrescriptionResponse toPrescription(

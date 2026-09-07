@@ -20,6 +20,10 @@ import com.hopital.patient.application.domain.PharmacyDispenseAccountingEventTyp
 import com.hopital.patient.application.domain.PharmacyDispenseAccountingInvoiceStatus;
 import com.hopital.patient.application.domain.PrescriptionSource;
 import com.hopital.patient.application.domain.PrescriptionStatus;
+import com.hopital.patient.application.domain.TriageConsciousnessLevel;
+import com.hopital.patient.application.domain.TriageDangerSign;
+import com.hopital.patient.application.domain.TriagePregnancyStatus;
+import com.hopital.patient.application.domain.TriagePriority;
 import com.hopital.patient.application.dto.CreatePatientDocumentRequest;
 import com.hopital.patient.application.dto.CreatePatientRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageRequest;
@@ -31,6 +35,7 @@ import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.UpdatePatientStatusRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
+import com.hopital.patient.application.dto.CreatePatientPassageTriageAssessmentRequest;
 import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
 import com.hopital.patient.application.dto.CreatePrescriptionDispenseRequest;
 import com.hopital.patient.application.dto.CreatePharmacyExternalPrescriptionRequest;
@@ -45,6 +50,7 @@ import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageTriageAssessmentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseEntity;
@@ -53,6 +59,7 @@ import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionIt
 import com.hopital.patient.infra.persistence.entity.PharmacyDispensePaymentSettlementEventEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageTriageAssessmentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionItemRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseItemRepository;
@@ -64,6 +71,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -87,6 +95,9 @@ class PatientApplicationServiceTest {
 
     @Mock
     private PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository;
+
+    @Mock
+    private PatientPassageTriageAssessmentRepository patientPassageTriageAssessmentRepository;
 
     @Mock
     private PatientPassagePrescriptionRepository patientPassagePrescriptionRepository;
@@ -398,6 +409,87 @@ class PatientApplicationServiceTest {
             assertThat(item.entryType()).isEqualTo(ClinicalEntryType.CLINICAL_EVOLUTION);
             assertThat(item.orientation()).isEqualTo(ClinicalOrientation.FOLLOW_UP);
         });
+    }
+
+    @Test
+    void appendsTriageAssessmentForANurseWithoutMakingItAPhysicianClinicalEntry() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260907-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.EMERGENCY, "Accueil et triage", "Fièvre et fatigue", auditActor(), Instant.now());
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+        when(patientPassageTriageAssessmentRepository.save(any(PatientPassageTriageAssessmentEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = patientApplicationService.addTriageAssessment(
+                patient.getId(),
+                passage.getId(),
+                new CreatePatientPassageTriageAssessmentRequest(
+                        "Fièvre et fatigue importantes",
+                        false,
+                        TriagePriority.YELLOW,
+                        "Température élevée et malaise signalé à l’arrivée.",
+                        112,
+                        24,
+                        110,
+                        70,
+                        new java.math.BigDecimal("39.10"),
+                        95,
+                        null,
+                        6,
+                        null,
+                        TriageConsciousnessLevel.ALERT,
+                        TriagePregnancyStatus.UNKNOWN,
+                        2,
+                        "Air ambiant",
+                        null,
+                        Set.of(TriageDangerSign.SEVERE_PAIN),
+                        "Installation et hydratation orale.",
+                        "À transmettre au médecin de garde."),
+                new DataAccessScope(
+                        false,
+                        false,
+                        Set.of("NURSE"),
+                        UUID.randomUUID(),
+                        patient.getRegistrationHospitalId(),
+                        "HP-GOMA"),
+                auditActor());
+
+        assertThat(response.passageId()).isEqualTo(passage.getId());
+        assertThat(response.priority()).isEqualTo(TriagePriority.YELLOW);
+        assertThat(response.consciousnessLevel()).isEqualTo(TriageConsciousnessLevel.ALERT);
+        assertThat(response.dangerSigns()).containsExactly(TriageDangerSign.SEVERE_PAIN);
+        assertThat(patient.getAuditEvents()).singleElement().satisfies(event ->
+                assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.TRIAGE_RECORDED));
+    }
+
+    @Test
+    void doesNotAllowADoctorToWriteTriageWithoutNursingOrHospitalAdministrationRole() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260907-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
+
+        assertThatThrownBy(() -> patientApplicationService.addTriageAssessment(
+                patient.getId(),
+                passage.getId(),
+                new CreatePatientPassageTriageAssessmentRequest(
+                        "Contrôle avant consultation", false, TriagePriority.GREEN, "État stable.",
+                        null, null, null, null, null, null, null, null, null,
+                        TriageConsciousnessLevel.ALERT, TriagePregnancyStatus.NOT_APPLICABLE,
+                        null, null, null, Set.of(), null, null),
+                new DataAccessScope(
+                        false,
+                        false,
+                        Set.of("DOCTOR"),
+                        UUID.randomUUID(),
+                        patient.getRegistrationHospitalId(),
+                        "HP-GOMA"),
+                auditActor()))
+                .isInstanceOf(DataAccessDeniedException.class)
+                .hasMessageContaining("saisir une fiche de triage");
+
+        verifyNoInteractions(patientPassageRepository, patientPassageTriageAssessmentRepository);
     }
 
     @Test

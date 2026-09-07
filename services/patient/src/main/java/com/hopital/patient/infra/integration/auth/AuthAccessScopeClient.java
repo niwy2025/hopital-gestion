@@ -1,6 +1,8 @@
 package com.hopital.patient.infra.integration.auth;
 
 import com.hopital.patient.application.domain.DataAccessScope;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -26,6 +28,7 @@ public class AuthAccessScopeClient {
         return new DataAccessScope(
                 response.provinceWide(),
                 response.administrator(),
+                response.roleCodes() == null ? Set.of() : Set.copyOf(response.roleCodes()),
                 response.personnelId(),
                 response.hospitalId(),
                 response.hospitalCode());
@@ -34,6 +37,7 @@ public class AuthAccessScopeClient {
     private record AuthAccessScopeResponse(
             boolean provinceWide,
             boolean administrator,
+            List<String> roleCodes,
             UUID personnelId,
             UUID hospitalId,
             String hospitalCode) {

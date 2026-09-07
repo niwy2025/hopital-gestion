@@ -6,17 +6,18 @@ import java.util.List;
 public record DataAccessScopeResponse(
         boolean provinceWide,
         boolean administrator,
+        List<String> roleCodes,
         String personnelId,
         String hospitalId,
         String hospitalCode,
         List<String> hospitalLaboratoryCodes,
         String laboratoryCode) {
 
-    public static DataAccessScopeResponse provinceWideAdministratorScope() {
-        return new DataAccessScopeResponse(true, true, null, null, null, List.of(), null);
+    public static DataAccessScopeResponse provinceWideAdministratorScope(List<String> roleCodes) {
+        return new DataAccessScopeResponse(true, true, roleCodes, null, null, null, List.of(), null);
     }
 
-    public static DataAccessScopeResponse provinceWidePersonnelScope(String personnelId) {
-        return new DataAccessScopeResponse(true, false, personnelId, null, null, List.of(), null);
+    public static DataAccessScopeResponse provinceWidePersonnelScope(String personnelId, List<String> roleCodes) {
+        return new DataAccessScopeResponse(true, false, roleCodes, personnelId, null, null, List.of(), null);
     }
 }

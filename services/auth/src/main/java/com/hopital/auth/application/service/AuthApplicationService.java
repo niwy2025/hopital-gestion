@@ -91,12 +91,13 @@ public class AuthApplicationService {
             throw new AuthException("Session invalide.");
         }
         AccountResponse account = accountClient.findByIdentifier(username);
+        List<String> roleCodes = account.roles().stream().map(role -> role.code()).toList();
         if (isCentralAdministrator(account)) {
-            return DataAccessScopeResponse.provinceWideAdministratorScope();
+            return DataAccessScopeResponse.provinceWideAdministratorScope(roleCodes);
         }
         PersonnelAccessScopeResponse personnelScope = personnelAccessClient.resolveActiveScope(account.id());
         if ("PROVINCIAL".equals(personnelScope.scope())) {
-            return DataAccessScopeResponse.provinceWidePersonnelScope(personnelScope.personnelId());
+            return DataAccessScopeResponse.provinceWidePersonnelScope(personnelScope.personnelId(), roleCodes);
         }
         if ("REFERENCE_LABORATORY".equals(personnelScope.scope())) {
             if (personnelScope.laboratoryCode() == null || personnelScope.laboratoryCode().isBlank()) {
@@ -119,6 +120,7 @@ public class AuthApplicationService {
             return new DataAccessScopeResponse(
                     false,
                     false,
+                    roleCodes,
                     personnelScope.personnelId(),
                     null,
                     null,
@@ -134,6 +136,7 @@ public class AuthApplicationService {
             return new DataAccessScopeResponse(
                     false,
                     false,
+                    roleCodes,
                     personnelScope.personnelId(),
                     hospital.hospitalId(),
                     hospital.hospitalCode(),
@@ -143,6 +146,7 @@ public class AuthApplicationService {
         return new DataAccessScopeResponse(
                 false,
                 false,
+                roleCodes,
                 personnelScope.personnelId(),
                 hospital.hospitalId(),
                 hospital.hospitalCode(),

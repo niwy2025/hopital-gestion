@@ -1,6 +1,7 @@
 package com.hopital.accounting.infra.integration.auth;
 
 import com.hopital.accounting.application.domain.DataAccessScope;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -18,5 +19,5 @@ public class AuthAccessScopeClient {
         return new DataAccessScope(response.provinceWide(), response.administrator(), parseId(response.hospitalId()), response.hospitalCode());
     }
     private UUID parseId(String value) { return value == null || value.isBlank() ? null : UUID.fromString(value); }
-    private record Scope(boolean provinceWide, boolean administrator, String hospitalId, String hospitalCode) { }
+    private record Scope(boolean provinceWide, boolean administrator, List<String> roleCodes, String hospitalId, String hospitalCode) { }
 }

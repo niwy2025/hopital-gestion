@@ -39,6 +39,7 @@ public class AuthAccessScopeClient {
     private record AuthAccessScopeResponse(
             boolean provinceWide,
             boolean administrator,
+            List<String> roleCodes,
             String hospitalId,
             String hospitalCode,
             List<String> hospitalLaboratoryCodes) {

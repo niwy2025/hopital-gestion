@@ -43,8 +43,17 @@ public record DataAccessScope(
         return administrator || hasAnyRole("HOSPITAL_ADMIN", "DOCTOR", "NURSE");
     }
 
-    public boolean canWriteTriage() {
-        return administrator || hasAnyRole("HOSPITAL_ADMIN", "NURSE");
+    /**
+     * Triage remains primarily a nursing activity. A doctor may only add a
+     * reassessment when they are the personnel explicitly responsible for the
+     * passage; merely holding the doctor role is not sufficient.
+     */
+    public boolean canWriteTriage(UUID responsiblePersonnelId) {
+        return administrator
+                || hasAnyRole("HOSPITAL_ADMIN", "NURSE")
+                || (hasAnyRole("DOCTOR")
+                && personnelId != null
+                && personnelId.equals(responsiblePersonnelId));
     }
 
     private boolean hasAnyRole(String... expectedRoles) {

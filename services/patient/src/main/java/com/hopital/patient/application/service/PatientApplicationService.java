@@ -787,9 +787,10 @@ public class PatientApplicationService {
     }
 
     /**
-     * Appends a triage assessment made by an assigned nurse or hospital
-     * administrator. There is deliberately no automatic priority calculation:
-     * the recorded values inform, but never replace, clinical judgement.
+     * Appends a triage assessment made by a nurse, hospital administrator, or
+     * the doctor responsible for this passage. There is deliberately no
+     * automatic priority calculation: the recorded values inform, but never
+     * replace, clinical judgement.
      */
     @Transactional
     public PatientPassageTriageAssessmentResponse addTriageAssessment(
@@ -798,8 +799,8 @@ public class PatientApplicationService {
             CreatePatientPassageTriageAssessmentRequest request,
             DataAccessScope accessScope,
             AuditActor auditActor) {
-        assertCanWriteTriage(accessScope);
         PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
+        assertCanWriteTriage(accessScope, passage);
         if (passage.getStatus() != PatientPassageStatus.OPEN) {
             throw new InvalidPatientPassageStateException(
                     "Le triage ne peut être renseigné que sur un passage en cours.");
@@ -1629,9 +1630,10 @@ public class PatientApplicationService {
         }
     }
 
-    private void assertCanWriteTriage(DataAccessScope accessScope) {
-        if (!accessScope.canWriteTriage()) {
-            throw new DataAccessDeniedException("Votre rôle ne permet pas de saisir une fiche de triage.");
+    private void assertCanWriteTriage(DataAccessScope accessScope, PatientPassageEntity passage) {
+        if (!accessScope.canWriteTriage(passage.getResponsiblePersonnelId())) {
+            throw new DataAccessDeniedException(
+                    "Seul un infirmier, un administrateur d’hôpital ou le médecin responsable peut saisir une fiche de triage.");
         }
     }
 

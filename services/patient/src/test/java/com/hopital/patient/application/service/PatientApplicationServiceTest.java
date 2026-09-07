@@ -464,11 +464,48 @@ class PatientApplicationServiceTest {
     }
 
     @Test
-    void doesNotAllowADoctorToWriteTriageWithoutNursingOrHospitalAdministrationRole() {
+    void letsTheResponsibleDoctorAppendATriageReassessment() {
         PatientEntity patient = patient("HP-GOMA");
+        UUID responsiblePersonnelId = UUID.randomUUID();
         PatientPassageEntity passage = new PatientPassageEntity(
                 UUID.randomUUID(), "PAS-20260907-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
                 PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
+        passage.assignResponsiblePersonnel(
+                responsiblePersonnelId, "MED-001", "Kasongo Amina", "Médecin traitant", auditActor(), Instant.now());
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+        when(patientPassageTriageAssessmentRepository.save(any(PatientPassageTriageAssessmentEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = patientApplicationService.addTriageAssessment(
+                patient.getId(),
+                passage.getId(),
+                new CreatePatientPassageTriageAssessmentRequest(
+                        "Contrôle avant consultation", false, TriagePriority.GREEN, "État stable.",
+                        null, null, null, null, null, null, null, null, null,
+                        TriageConsciousnessLevel.ALERT, TriagePregnancyStatus.NOT_APPLICABLE,
+                        null, null, null, Set.of(), null, null),
+                new DataAccessScope(
+                        false,
+                        false,
+                        Set.of("DOCTOR"),
+                        responsiblePersonnelId,
+                        patient.getRegistrationHospitalId(),
+                        "HP-GOMA"),
+                auditActor());
+
+        assertThat(response.passageId()).isEqualTo(passage.getId());
+        verify(patientPassageTriageAssessmentRepository).save(any(PatientPassageTriageAssessmentEntity.class));
+    }
+
+    @Test
+    void doesNotAllowADoctorWhoIsNotResponsibleForThePassageToWriteTriage() {
+        PatientEntity patient = patient("HP-GOMA");
+        PatientPassageEntity passage = new PatientPassageEntity(
+                UUID.randomUUID(), "PAS-20260907-EFGH5678", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
+                PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
+        passage.assignResponsiblePersonnel(
+                UUID.randomUUID(), "MED-002", "Mbuyi André", "Médecin traitant", auditActor(), Instant.now());
+        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
 
         assertThatThrownBy(() -> patientApplicationService.addTriageAssessment(
                 patient.getId(),
@@ -487,9 +524,9 @@ class PatientApplicationServiceTest {
                         "HP-GOMA"),
                 auditActor()))
                 .isInstanceOf(DataAccessDeniedException.class)
-                .hasMessageContaining("saisir une fiche de triage");
+                .hasMessageContaining("médecin responsable");
 
-        verifyNoInteractions(patientPassageRepository, patientPassageTriageAssessmentRepository);
+        verifyNoInteractions(patientPassageTriageAssessmentRepository);
     }
 
     @Test

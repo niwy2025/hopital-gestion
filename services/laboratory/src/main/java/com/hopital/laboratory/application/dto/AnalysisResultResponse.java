@@ -2,6 +2,7 @@ package com.hopital.laboratory.application.dto;
 
 import com.hopital.laboratory.application.domain.AnalysisResultStatus;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record AnalysisResultResponse(
@@ -17,5 +18,6 @@ public record AnalysisResultResponse(
         AnalysisResultStatus status,
         Instant enteredAt,
         Instant validatedAt,
-        String validatedBy) {
+        String validatedBy,
+        List<AnalysisResultValueResponse> values) {
 }

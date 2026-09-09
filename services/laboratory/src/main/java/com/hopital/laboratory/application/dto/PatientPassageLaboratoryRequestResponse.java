@@ -24,6 +24,9 @@ public record PatientPassageLaboratoryRequestResponse(
         String clinicalIndication,
         AnalysisRequestStatus status,
         Instant createdAt,
+        UUID analysisDefinitionId,
+        SpecimenType requestedSpecimenType,
+        List<AnalysisParameterResponse> requestedParameters,
         List<SpecimenTimelineResponse> specimens,
         ResultTimelineResponse result) {
 
@@ -50,6 +53,7 @@ public record PatientPassageLaboratoryRequestResponse(
             AnalysisResultStatus status,
             Instant enteredAt,
             Instant validatedAt,
-            String validatedBy) {
+            String validatedBy,
+            List<AnalysisResultValueResponse> values) {
     }
 }

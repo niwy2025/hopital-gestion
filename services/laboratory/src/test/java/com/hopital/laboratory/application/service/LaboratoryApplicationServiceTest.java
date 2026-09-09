@@ -11,12 +11,15 @@ import static org.mockito.Mockito.when;
 import com.hopital.laboratory.application.domain.AnalysisPriority;
 import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
 import com.hopital.laboratory.application.domain.AnalysisResultStatus;
+import com.hopital.laboratory.application.domain.AnalysisResultFlag;
+import com.hopital.laboratory.application.domain.AnalysisValueType;
 import com.hopital.laboratory.application.domain.DataAccessScope;
 import com.hopital.laboratory.application.domain.LaboratoryType;
 import com.hopital.laboratory.application.domain.SpecimenStatus;
 import com.hopital.laboratory.application.domain.SpecimenType;
 import com.hopital.laboratory.application.dto.CreateAnalysisRequestRequest;
 import com.hopital.laboratory.application.dto.CreateAnalysisResultRequest;
+import com.hopital.laboratory.application.dto.CreateAnalysisResultValueRequest;
 import com.hopital.laboratory.application.dto.CreatePatientPassageAnalysisRequest;
 import com.hopital.laboratory.application.dto.CreateReferenceSpecimenCollectionRequest;
 import com.hopital.laboratory.application.dto.CreateSpecimenRequest;
@@ -26,10 +29,19 @@ import com.hopital.laboratory.application.dto.ValidateAnalysisResultRequest;
 import com.hopital.laboratory.application.exception.InvalidLaboratoryWorkflowException;
 import com.hopital.laboratory.infra.persistence.entity.AnalysisRequestEntity;
 import com.hopital.laboratory.infra.persistence.entity.AnalysisResultEntity;
+import com.hopital.laboratory.infra.persistence.entity.AnalysisDefinitionEntity;
+import com.hopital.laboratory.infra.persistence.entity.AnalysisDefinitionParameterEntity;
+import com.hopital.laboratory.infra.persistence.entity.AnalysisRequestParameterEntity;
 import com.hopital.laboratory.infra.persistence.entity.SpecimenEntity;
 import com.hopital.laboratory.infra.persistence.repository.AnalysisRequestRepository;
 import com.hopital.laboratory.infra.persistence.repository.AnalysisRequestEventRepository;
 import com.hopital.laboratory.infra.persistence.repository.AnalysisResultRepository;
+import com.hopital.laboratory.infra.persistence.repository.AnalysisDefinitionParameterRepository;
+import com.hopital.laboratory.infra.persistence.repository.AnalysisDefinitionRepository;
+import com.hopital.laboratory.infra.persistence.repository.AnalysisRequestParameterRepository;
+import com.hopital.laboratory.infra.persistence.repository.AnalysisResultInterpretationRepository;
+import com.hopital.laboratory.infra.persistence.repository.AnalysisResultValueRepository;
+import com.hopital.laboratory.infra.persistence.repository.DiseaseDefinitionRepository;
 import com.hopital.laboratory.infra.persistence.repository.SpecimenRepository;
 import com.hopital.laboratory.infra.integration.organization.HospitalLaboratoryReferenceClient;
 import com.hopital.laboratory.infra.integration.patient.PatientPassageReferenceClient;
@@ -61,6 +73,24 @@ class LaboratoryApplicationServiceTest {
 
     @Mock
     private AnalysisResultRepository analysisResultRepository;
+
+    @Mock
+    private AnalysisDefinitionRepository analysisDefinitionRepository;
+
+    @Mock
+    private AnalysisDefinitionParameterRepository analysisDefinitionParameterRepository;
+
+    @Mock
+    private AnalysisRequestParameterRepository analysisRequestParameterRepository;
+
+    @Mock
+    private AnalysisResultValueRepository analysisResultValueRepository;
+
+    @Mock
+    private DiseaseDefinitionRepository diseaseDefinitionRepository;
+
+    @Mock
+    private AnalysisResultInterpretationRepository analysisResultInterpretationRepository;
 
     @Mock
     private PatientPassageReferenceClient patientPassageReferenceClient;
@@ -135,6 +165,60 @@ class LaboratoryApplicationServiceTest {
                 "req-001", "12.4", null, null, null)))
                 .isInstanceOf(InvalidLaboratoryWorkflowException.class)
                 .hasMessageContaining("après la réception");
+    }
+
+    @Test
+    void recordsEveryTypedValuePrescribedByTheDoctor() {
+        AnalysisDefinitionEntity definition = new AnalysisDefinitionEntity(
+                UUID.randomUUID(), "HEMOGRAM", "Hémogramme", null, SpecimenType.BLOOD, Instant.now(), "admin");
+        AnalysisDefinitionParameterEntity sourceParameter = new AnalysisDefinitionParameterEntity(
+                UUID.randomUUID(), definition, "HEMATOCRIT", "Hématocrite", AnalysisValueType.PERCENTAGE,
+                "%", "Selon le laboratoire", null, true, 1);
+        AnalysisRequestEntity request = new AnalysisRequestEntity(
+                UUID.randomUUID(), "REQ-STRUCTURED", LaboratoryType.HOSPITAL, "LAB-HGR-001", "PAT-001",
+                "Patient", "ANL-001", definition.getName(), "dr.mbala", Instant.now(), UUID.randomUUID(),
+                UUID.randomUUID(), "HGR-001", AnalysisPriority.ROUTINE, null, definition, SpecimenType.BLOOD);
+        request.markSampleReceived();
+        AnalysisRequestParameterEntity requestParameter = new AnalysisRequestParameterEntity(
+                UUID.randomUUID(), request, sourceParameter);
+        when(analysisRequestRepository.findByCodeIgnoreCase("REQ-STRUCTURED")).thenReturn(Optional.of(request));
+        when(analysisResultRepository.existsByAnalysisRequest_Id(request.getId())).thenReturn(false);
+        when(analysisResultRepository.existsByCodeIgnoreCase(anyString())).thenReturn(false);
+        when(analysisResultRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analysisRequestParameterRepository.findAllByAnalysisRequest_IdOrderByDisplayOrderAsc(request.getId()))
+                .thenReturn(List.of(requestParameter));
+
+        var response = laboratoryApplicationService.enterAnalysisResult(new CreateAnalysisResultRequest(
+                "req-structured", null, null, null, "Tube conforme", List.of(
+                        new CreateAnalysisResultValueRequest(
+                                requestParameter.getId(), "38,5", AnalysisResultFlag.NORMAL, null))));
+
+        assertThat(response.resultValue()).isEqualTo("Hématocrite : 38,5 %");
+        assertThat(response.status()).isEqualTo(AnalysisResultStatus.ENTERED);
+        verify(analysisResultValueRepository).saveAll(any());
+    }
+
+    @Test
+    void rejectsAStructuredResultWhenARequiredParameterIsMissing() {
+        AnalysisDefinitionEntity definition = new AnalysisDefinitionEntity(
+                UUID.randomUUID(), "HEMOGRAM", "Hémogramme", null, SpecimenType.BLOOD, Instant.now(), "admin");
+        AnalysisDefinitionParameterEntity sourceParameter = new AnalysisDefinitionParameterEntity(
+                UUID.randomUUID(), definition, "HEMOGLOBIN", "Hémoglobine", AnalysisValueType.DECIMAL,
+                "g/dL", null, null, true, 1);
+        AnalysisRequestEntity request = new AnalysisRequestEntity(
+                UUID.randomUUID(), "REQ-MISSING", LaboratoryType.HOSPITAL, "LAB-HGR-001", "PAT-001",
+                "Patient", "ANL-002", definition.getName(), "dr.mbala", Instant.now(), UUID.randomUUID(),
+                UUID.randomUUID(), "HGR-001", AnalysisPriority.ROUTINE, null, definition, SpecimenType.BLOOD);
+        request.markSampleReceived();
+        when(analysisRequestRepository.findByCodeIgnoreCase("REQ-MISSING")).thenReturn(Optional.of(request));
+        when(analysisResultRepository.existsByAnalysisRequest_Id(request.getId())).thenReturn(false);
+        when(analysisRequestParameterRepository.findAllByAnalysisRequest_IdOrderByDisplayOrderAsc(request.getId()))
+                .thenReturn(List.of(new AnalysisRequestParameterEntity(UUID.randomUUID(), request, sourceParameter)));
+
+        assertThatThrownBy(() -> laboratoryApplicationService.enterAnalysisResult(
+                new CreateAnalysisResultRequest("req-missing", null, null, null, null, List.of())))
+                .isInstanceOf(InvalidLaboratoryWorkflowException.class)
+                .hasMessageContaining("paramètres obligatoires");
     }
 
     @Test

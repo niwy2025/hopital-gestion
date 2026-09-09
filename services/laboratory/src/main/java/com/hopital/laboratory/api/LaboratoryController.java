@@ -2,11 +2,18 @@ package com.hopital.laboratory.api;
 
 import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
 import com.hopital.laboratory.application.domain.DataAccessScope;
+import com.hopital.laboratory.application.domain.SpecimenType;
+import com.hopital.laboratory.application.dto.AnalysisDefinitionResponse;
 import com.hopital.laboratory.application.dto.AnalysisRequestResponse;
 import com.hopital.laboratory.application.dto.AnalysisRequestDetailResponse;
 import com.hopital.laboratory.application.dto.AnalysisResultResponse;
+import com.hopital.laboratory.application.dto.ClinicalInterpretationResponse;
+import com.hopital.laboratory.application.dto.CreateAnalysisDefinitionRequest;
 import com.hopital.laboratory.application.dto.CreateAnalysisRequestRequest;
 import com.hopital.laboratory.application.dto.CreateAnalysisResultRequest;
+import com.hopital.laboratory.application.dto.CreateClinicalInterpretationRequest;
+import com.hopital.laboratory.application.dto.CreateDiseaseRequest;
+import com.hopital.laboratory.application.dto.DiseaseResponse;
 import com.hopital.laboratory.application.dto.CreatePatientPassageAnalysisRequest;
 import com.hopital.laboratory.application.dto.CreateReferenceSpecimenCollectionRequest;
 import com.hopital.laboratory.application.dto.CreateSpecimenRequest;
@@ -28,6 +35,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -55,6 +63,44 @@ public class LaboratoryController {
     @GetMapping("/analysis-requests")
     public ResponseEntity<List<AnalysisRequestResponse>> listAnalysisRequests(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(laboratoryApplicationService.listAnalysisRequests(scope(jwt)));
+    }
+
+    @GetMapping("/analysis-definitions/search")
+    public ResponseEntity<PageResponse<AnalysisDefinitionResponse>> searchAnalysisDefinitions(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "specimenType", required = false) SpecimenType specimenType,
+            @RequestParam(name = "active", required = false) Boolean active) {
+        return ResponseEntity.ok(laboratoryApplicationService.searchAnalysisDefinitions(
+                page, size, query, specimenType, active));
+    }
+
+    @PostMapping("/analysis-definitions")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LABORATORY_BIOLOGIST')")
+    public ResponseEntity<AnalysisDefinitionResponse> createAnalysisDefinition(
+            @Valid @RequestBody CreateAnalysisDefinitionRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                laboratoryApplicationService.createAnalysisDefinition(request, requesterName(jwt)));
+    }
+
+    @GetMapping("/diseases/search")
+    public ResponseEntity<PageResponse<DiseaseResponse>> searchDiseases(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "active", required = false) Boolean active) {
+        return ResponseEntity.ok(laboratoryApplicationService.searchDiseases(page, size, query, active));
+    }
+
+    @PostMapping("/diseases")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR')")
+    public ResponseEntity<DiseaseResponse> createDisease(
+            @Valid @RequestBody CreateDiseaseRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                laboratoryApplicationService.createDisease(request, requesterName(jwt)));
     }
 
     @GetMapping("/analysis-requests/search")
@@ -254,6 +300,17 @@ public class LaboratoryController {
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(laboratoryApplicationService.validateAnalysisResult(
                 resultCode, requesterName(jwt), scope(jwt)));
+    }
+
+    @PostMapping("/analysis-results/{resultCode}/clinical-interpretation")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCTOR')")
+    public ResponseEntity<ClinicalInterpretationResponse> createClinicalInterpretation(
+            @PathVariable("resultCode") String resultCode,
+            @Valid @RequestBody CreateClinicalInterpretationRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                laboratoryApplicationService.createClinicalInterpretation(
+                        resultCode, request, requesterName(jwt), scope(jwt)));
     }
 
     @PatchMapping("/patient-passages/{passageId}/analysis-requests/{analysisRequestCode}/results/{resultCode}/validation")

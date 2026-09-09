@@ -68,11 +68,53 @@ Deux parcours sont disponibles au moment de créer la demande :
 {
   "laboratoryType": "REFERENCE",
   "laboratoryCode": "LRP-KC",
-  "analysisName": "Culture bactérienne",
+  "analysisDefinitionId": "9deba864-bf17-4b88-924b-fc0a39bb36de",
   "priority": "URGENT",
   "clinicalIndication": "Fièvre persistante malgré le traitement initial"
 }
 ```
+
+## Catalogue des analyses et prescription précise
+
+Le médecin ne transmet plus un simple libellé libre. Il sélectionne une
+définition active qui précise le type d’échantillon et les paramètres que le
+laboratoire devra rendre. La demande conserve un instantané de cette définition :
+une modification ultérieure du catalogue n’altère pas la prescription d’origine.
+
+- `GET /api/v1/laboratory/analysis-definitions/search?page=0&size=20&query=hémogramme&active=true`
+  recherche le catalogue avec pagination côté serveur ;
+- `POST /api/v1/laboratory/analysis-definitions` ajoute une définition pour un
+  administrateur ou un biologiste.
+
+```json
+{
+  "name": "Hémogramme (NFS)",
+  "description": "Numération formule sanguine sur sang total",
+  "specimenType": "BLOOD",
+  "parameters": [
+    {
+      "name": "Hémoglobine",
+      "valueType": "DECIMAL",
+      "unit": "g/dL",
+      "referenceRange": "Selon la méthode, l’âge et le sexe",
+      "qualitativeOptions": [],
+      "required": true
+    },
+    {
+      "name": "Hématocrite",
+      "valueType": "PERCENTAGE",
+      "unit": "%",
+      "referenceRange": "Selon la méthode, l’âge et le sexe",
+      "qualitativeOptions": [],
+      "required": true
+    }
+  ]
+}
+```
+
+Les types acceptés sont `DECIMAL`, `INTEGER`, `PERCENTAGE`, `TEXT`, `BOOLEAN`
+et `QUALITATIVE`. Un paramètre qualitatif fournit aussi sa liste de choix.
+Les codes du catalogue et des paramètres sont générés par le backend.
 
 Le passage doit rester `OPEN` pour créer une demande, prélever ou expédier.
 Le laboratoire de référence peut ensuite réceptionner, saisir et valider le
@@ -157,14 +199,44 @@ Le backend applique le périmètre actif du compte, indépendamment de l’inter
 L’affectation `REFERENCE_LABORATORY` est enregistrée par `personnel-service` et
 validée contre le référentiel des laboratoires de référence actifs.
 
-Exemple de saisie de résultat :
+Exemple de saisie structurée de résultat :
 
 ```json
 {
   "analysisRequestCode": "LAB-D9D23E25F084",
-  "resultValue": "12.4",
-  "unit": "g/dL",
-  "referenceRange": "12 - 16",
-  "comment": null
+  "comment": "Contrôle biologique effectué",
+  "values": [
+    {
+      "requestParameterId": "b845eb2c-e0c5-46eb-adbb-7279d9cae9f2",
+      "value": "12.4",
+      "abnormalFlag": "NORMAL",
+      "comment": null
+    }
+  ]
 }
 ```
+
+Pour une demande issue de l’ancien modèle sans paramètres, `resultValue`,
+`unit` et `referenceRange` restent acceptés afin de préserver l’historique.
+
+## Interprétation médicale et maladies
+
+La validation du biologiste confirme le compte rendu, mais ne pose pas le
+diagnostic. Après validation, un médecin ou un administrateur peut enregistrer
+une conclusion clinique séparée et sélectionner une ou plusieurs maladies :
+
+- `GET /api/v1/laboratory/diseases/search?page=0&size=20&query=anémie&active=true` ;
+- `POST /api/v1/laboratory/diseases` ajoute une maladie locale avec, si connu,
+  un code et une URI ICD ;
+- `POST /api/v1/laboratory/analysis-results/{resultCode}/clinical-interpretation`
+  rattache le diagnostic et la conclusion au résultat validé.
+
+```json
+{
+  "clinicalConclusion": "Tableau biologique compatible avec une anémie ; à corréler aux signes cliniques.",
+  "diseaseIds": ["0e1c05d1-2307-4990-8069-540354d79003"]
+}
+```
+
+Une seule interprétation clinique est créée par résultat afin d’éviter les
+diagnostics concurrents non tracés. L’auteur et la date sont enregistrés.

@@ -6,7 +6,97 @@
   },
   "item": [
     {
-      "name": "00 - Cycle des analyses",
+      "name": "00 - Catalogue et interprétation",
+      "item": [
+        {
+          "name": "Rechercher les analyses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/analysis-definitions/search?page=0&size=20&query=&active=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "analysis-definitions", "search"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "query", "value": "" },
+                { "key": "active", "value": "true" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Créer une analyse structurée",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hémogramme (NFS)\",\n  \"description\": \"Numération formule sanguine sur sang total\",\n  \"specimenType\": \"BLOOD\",\n  \"parameters\": [\n    {\n      \"name\": \"Hémoglobine\",\n      \"valueType\": \"DECIMAL\",\n      \"unit\": \"g/dL\",\n      \"referenceRange\": \"Selon la méthode, l’âge et le sexe\",\n      \"qualitativeOptions\": [],\n      \"required\": true\n    },\n    {\n      \"name\": \"Hématocrite\",\n      \"valueType\": \"PERCENTAGE\",\n      \"unit\": \"%\",\n      \"referenceRange\": \"Selon la méthode, l’âge et le sexe\",\n      \"qualitativeOptions\": [],\n      \"required\": true\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/analysis-definitions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "analysis-definitions"]
+            }
+          }
+        },
+        {
+          "name": "Rechercher les maladies",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/diseases/search?page=0&size=20&query=&active=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "diseases", "search"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "query", "value": "" },
+                { "key": "active", "value": "true" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ajouter une maladie",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anémie\",\n  \"description\": \"Diagnostic clinique à préciser\",\n  \"icdSystem\": \"ICD-11\",\n  \"icdCode\": null,\n  \"icdUri\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/diseases",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "diseases"]
+            }
+          }
+        },
+        {
+          "name": "Interpréter un résultat validé",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clinicalConclusion\": \"Conclusion clinique du médecin\",\n  \"diseaseIds\": [\"replace-with-disease-uuid\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/laboratory/analysis-results/RES-001/clinical-interpretation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "laboratory", "analysis-results", "RES-001", "clinical-interpretation"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Cycle des analyses",
       "item": [
         {
           "name": "List analysis requests",

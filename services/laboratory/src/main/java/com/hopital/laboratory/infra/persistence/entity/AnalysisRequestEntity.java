@@ -8,7 +8,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.FetchType;
+import com.hopital.laboratory.application.domain.SpecimenType;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -50,6 +54,14 @@ public class AnalysisRequestEntity {
 
     @Column(name = "analysis_name", nullable = false, length = 200)
     private String analysisName;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "analysis_definition_id")
+    private AnalysisDefinitionEntity analysisDefinition;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "requested_specimen_type", length = 30)
+    private SpecimenType requestedSpecimenType;
 
     @Column(name = "requester_name", length = 200)
     private String requesterName;
@@ -97,6 +109,8 @@ public class AnalysisRequestEntity {
                 null,
                 null,
                 AnalysisPriority.ROUTINE,
+                null,
+                null,
                 null);
     }
 
@@ -127,6 +141,8 @@ public class AnalysisRequestEntity {
                 null,
                 null,
                 AnalysisPriority.ROUTINE,
+                null,
+                null,
                 null);
     }
 
@@ -146,6 +162,29 @@ public class AnalysisRequestEntity {
             String originHospitalCode,
             AnalysisPriority priority,
             String clinicalIndication) {
+        this(id, code, laboratoryType, laboratoryCode, patientReference, patientName, analysisCode, analysisName,
+                requesterName, createdAt, patientPassageId, originHospitalId, originHospitalCode, priority,
+                clinicalIndication, null, null);
+    }
+
+    public AnalysisRequestEntity(
+            UUID id,
+            String code,
+            LaboratoryType laboratoryType,
+            String laboratoryCode,
+            String patientReference,
+            String patientName,
+            String analysisCode,
+            String analysisName,
+            String requesterName,
+            Instant createdAt,
+            UUID patientPassageId,
+            UUID originHospitalId,
+            String originHospitalCode,
+            AnalysisPriority priority,
+            String clinicalIndication,
+            AnalysisDefinitionEntity analysisDefinition,
+            SpecimenType requestedSpecimenType) {
         this.id = id;
         this.code = code;
         this.laboratoryType = laboratoryType;
@@ -157,6 +196,8 @@ public class AnalysisRequestEntity {
         this.originHospitalCode = originHospitalCode;
         this.analysisCode = analysisCode;
         this.analysisName = analysisName;
+        this.analysisDefinition = analysisDefinition;
+        this.requestedSpecimenType = requestedSpecimenType;
         this.requesterName = requesterName;
         this.priority = priority;
         this.clinicalIndication = clinicalIndication;
@@ -207,6 +248,10 @@ public class AnalysisRequestEntity {
     public String getAnalysisName() {
         return analysisName;
     }
+
+    public AnalysisDefinitionEntity getAnalysisDefinition() { return analysisDefinition; }
+
+    public SpecimenType getRequestedSpecimenType() { return requestedSpecimenType; }
 
     public String getRequesterName() {
         return requesterName;

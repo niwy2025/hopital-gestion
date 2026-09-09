@@ -7,5 +7,6 @@ public record AnalysisRequestDetailResponse(
         AnalysisRequestResponse request,
         List<SpecimenResponse> specimens,
         AnalysisResultResponse result,
-        List<AnalysisRequestEventResponse> events) {
+        List<AnalysisRequestEventResponse> events,
+        ClinicalInterpretationResponse clinicalInterpretation) {
 }

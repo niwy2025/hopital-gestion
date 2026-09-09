@@ -3,6 +3,8 @@ package com.hopital.laboratory.application.service;
 import com.hopital.laboratory.application.domain.AnalysisRequestStatus;
 import com.hopital.laboratory.application.domain.AnalysisRequestEventType;
 import com.hopital.laboratory.application.domain.AnalysisResultStatus;
+import com.hopital.laboratory.application.domain.AnalysisResultFlag;
+import com.hopital.laboratory.application.domain.AnalysisValueType;
 import com.hopital.laboratory.application.domain.AnalysisPriority;
 import com.hopital.laboratory.application.domain.DataAccessScope;
 import com.hopital.laboratory.application.domain.LaboratoryType;
@@ -11,6 +13,15 @@ import com.hopital.laboratory.application.dto.AnalysisRequestResponse;
 import com.hopital.laboratory.application.dto.AnalysisRequestEventResponse;
 import com.hopital.laboratory.application.dto.AnalysisRequestDetailResponse;
 import com.hopital.laboratory.application.dto.AnalysisResultResponse;
+import com.hopital.laboratory.application.dto.AnalysisDefinitionResponse;
+import com.hopital.laboratory.application.dto.AnalysisParameterResponse;
+import com.hopital.laboratory.application.dto.AnalysisResultValueResponse;
+import com.hopital.laboratory.application.dto.ClinicalInterpretationResponse;
+import com.hopital.laboratory.application.dto.CreateAnalysisDefinitionRequest;
+import com.hopital.laboratory.application.dto.CreateAnalysisResultValueRequest;
+import com.hopital.laboratory.application.dto.CreateClinicalInterpretationRequest;
+import com.hopital.laboratory.application.dto.CreateDiseaseRequest;
+import com.hopital.laboratory.application.dto.DiseaseResponse;
 import com.hopital.laboratory.application.dto.CreateAnalysisRequestRequest;
 import com.hopital.laboratory.application.dto.CreateAnalysisResultRequest;
 import com.hopital.laboratory.application.dto.CreatePatientPassageAnalysisRequest;
@@ -32,19 +43,34 @@ import com.hopital.laboratory.application.exception.LaboratoryResourceNotFoundEx
 import com.hopital.laboratory.infra.persistence.entity.AnalysisRequestEntity;
 import com.hopital.laboratory.infra.persistence.entity.AnalysisRequestEventEntity;
 import com.hopital.laboratory.infra.persistence.entity.AnalysisResultEntity;
+import com.hopital.laboratory.infra.persistence.entity.AnalysisDefinitionEntity;
+import com.hopital.laboratory.infra.persistence.entity.AnalysisDefinitionParameterEntity;
+import com.hopital.laboratory.infra.persistence.entity.AnalysisRequestParameterEntity;
+import com.hopital.laboratory.infra.persistence.entity.AnalysisResultInterpretationEntity;
+import com.hopital.laboratory.infra.persistence.entity.AnalysisResultValueEntity;
+import com.hopital.laboratory.infra.persistence.entity.DiseaseDefinitionEntity;
 import com.hopital.laboratory.infra.persistence.entity.SpecimenEntity;
 import com.hopital.laboratory.infra.persistence.repository.AnalysisRequestRepository;
 import com.hopital.laboratory.infra.persistence.repository.AnalysisRequestEventRepository;
 import com.hopital.laboratory.infra.persistence.repository.AnalysisResultRepository;
+import com.hopital.laboratory.infra.persistence.repository.AnalysisDefinitionParameterRepository;
+import com.hopital.laboratory.infra.persistence.repository.AnalysisDefinitionRepository;
+import com.hopital.laboratory.infra.persistence.repository.AnalysisRequestParameterRepository;
+import com.hopital.laboratory.infra.persistence.repository.AnalysisResultInterpretationRepository;
+import com.hopital.laboratory.infra.persistence.repository.AnalysisResultValueRepository;
+import com.hopital.laboratory.infra.persistence.repository.DiseaseDefinitionRepository;
 import com.hopital.laboratory.infra.persistence.repository.SpecimenRepository;
 import com.hopital.laboratory.infra.integration.organization.HospitalLaboratoryReferenceClient;
 import com.hopital.laboratory.infra.integration.patient.PatientPassageReferenceClient;
 import java.time.Instant;
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import org.springframework.data.domain.Page;
@@ -61,6 +87,12 @@ public class LaboratoryApplicationService {
     private final AnalysisRequestEventRepository analysisRequestEventRepository;
     private final SpecimenRepository specimenRepository;
     private final AnalysisResultRepository analysisResultRepository;
+    private final AnalysisDefinitionRepository analysisDefinitionRepository;
+    private final AnalysisDefinitionParameterRepository analysisDefinitionParameterRepository;
+    private final AnalysisRequestParameterRepository analysisRequestParameterRepository;
+    private final AnalysisResultValueRepository analysisResultValueRepository;
+    private final DiseaseDefinitionRepository diseaseDefinitionRepository;
+    private final AnalysisResultInterpretationRepository analysisResultInterpretationRepository;
     private final PatientPassageReferenceClient patientPassageReferenceClient;
     private final HospitalLaboratoryReferenceClient hospitalLaboratoryReferenceClient;
 
@@ -69,12 +101,24 @@ public class LaboratoryApplicationService {
             AnalysisRequestEventRepository analysisRequestEventRepository,
             SpecimenRepository specimenRepository,
             AnalysisResultRepository analysisResultRepository,
+            AnalysisDefinitionRepository analysisDefinitionRepository,
+            AnalysisDefinitionParameterRepository analysisDefinitionParameterRepository,
+            AnalysisRequestParameterRepository analysisRequestParameterRepository,
+            AnalysisResultValueRepository analysisResultValueRepository,
+            DiseaseDefinitionRepository diseaseDefinitionRepository,
+            AnalysisResultInterpretationRepository analysisResultInterpretationRepository,
             PatientPassageReferenceClient patientPassageReferenceClient,
             HospitalLaboratoryReferenceClient hospitalLaboratoryReferenceClient) {
         this.analysisRequestRepository = analysisRequestRepository;
         this.analysisRequestEventRepository = analysisRequestEventRepository;
         this.specimenRepository = specimenRepository;
         this.analysisResultRepository = analysisResultRepository;
+        this.analysisDefinitionRepository = analysisDefinitionRepository;
+        this.analysisDefinitionParameterRepository = analysisDefinitionParameterRepository;
+        this.analysisRequestParameterRepository = analysisRequestParameterRepository;
+        this.analysisResultValueRepository = analysisResultValueRepository;
+        this.diseaseDefinitionRepository = diseaseDefinitionRepository;
+        this.analysisResultInterpretationRepository = analysisResultInterpretationRepository;
         this.patientPassageReferenceClient = patientPassageReferenceClient;
         this.hospitalLaboratoryReferenceClient = hospitalLaboratoryReferenceClient;
     }
@@ -255,6 +299,82 @@ public class LaboratoryApplicationService {
                 pageRequest(page, size, "enteredAt")), this::toResponse);
     }
 
+    public PageResponse<AnalysisDefinitionResponse> searchAnalysisDefinitions(
+            int page, int size, String query, com.hopital.laboratory.application.domain.SpecimenType specimenType,
+            Boolean active) {
+        Page<AnalysisDefinitionEntity> definitions = analysisDefinitionRepository.search(
+                normalizeSearchFilter(query), specimenType, active, alphabeticalPageRequest(page, size, "name"));
+        return toPageResponse(definitions, this::toAnalysisDefinitionResponse);
+    }
+
+    @Transactional
+    public AnalysisDefinitionResponse createAnalysisDefinition(
+            CreateAnalysisDefinitionRequest request, String actorUsername) {
+        Instant now = Instant.now();
+        AnalysisDefinitionEntity definition = analysisDefinitionRepository.save(new AnalysisDefinitionEntity(
+                UUID.randomUUID(), generateAnalysisDefinitionCode(), request.name().trim(),
+                trimToNull(request.description()), request.specimenType(), now, trimToNull(actorUsername)));
+        List<AnalysisDefinitionParameterEntity> parameters = new ArrayList<>();
+        for (int index = 0; index < request.parameters().size(); index++) {
+            CreateAnalysisDefinitionRequest.Parameter parameter = request.parameters().get(index);
+            validateDefinitionParameter(parameter);
+            parameters.add(new AnalysisDefinitionParameterEntity(
+                    UUID.randomUUID(), definition, generateParameterCode(), parameter.name().trim(),
+                    parameter.valueType(), trimToNull(parameter.unit()), trimToNull(parameter.referenceRange()),
+                    joinOptions(parameter.qualitativeOptions()), parameter.required(), index + 1));
+        }
+        analysisDefinitionParameterRepository.saveAll(parameters);
+        return toAnalysisDefinitionResponse(definition, parameters);
+    }
+
+    public PageResponse<DiseaseResponse> searchDiseases(
+            int page, int size, String query, Boolean active) {
+        return toPageResponse(diseaseDefinitionRepository.search(
+                normalizeSearchFilter(query), active, alphabeticalPageRequest(page, size, "name")), this::toDiseaseResponse);
+    }
+
+    @Transactional
+    public DiseaseResponse createDisease(CreateDiseaseRequest request, String actorUsername) {
+        DiseaseDefinitionEntity disease = diseaseDefinitionRepository.save(new DiseaseDefinitionEntity(
+                UUID.randomUUID(), generateDiseaseCode(), request.name().trim(), trimToNull(request.description()),
+                trimToNull(request.icdSystem()), trimToNull(request.icdCode()), trimToNull(request.icdUri()),
+                Instant.now(), trimToNull(actorUsername)));
+        return toDiseaseResponse(disease);
+    }
+
+    @Transactional
+    public ClinicalInterpretationResponse createClinicalInterpretation(
+            String resultCode,
+            CreateClinicalInterpretationRequest request,
+            String doctorUsername,
+            DataAccessScope accessScope) {
+        AnalysisResultEntity result = analysisResultRepository.findByCodeIgnoreCase(normalizeCode(resultCode))
+                .orElseThrow(() -> new LaboratoryResourceNotFoundException("Le résultat", resultCode));
+        assertCanReadRequest(accessScope, result.getAnalysisRequest());
+        if (result.getStatus() != AnalysisResultStatus.VALIDATED) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "L'interprétation médicale ne peut être enregistrée qu'après la validation biologique du résultat.");
+        }
+        if (analysisResultInterpretationRepository.existsByAnalysisResult_Id(result.getId())) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "Une interprétation médicale existe déjà pour ce résultat.");
+        }
+        Set<DiseaseDefinitionEntity> diseases = diseaseDefinitionRepository.findAllByIdInAndActiveTrue(request.diseaseIds());
+        if (diseases.size() != request.diseaseIds().size()) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "Une ou plusieurs maladies sélectionnées sont introuvables ou désactivées.");
+        }
+        Instant now = Instant.now();
+        AnalysisResultInterpretationEntity interpretation = analysisResultInterpretationRepository.save(
+                new AnalysisResultInterpretationEntity(
+                        UUID.randomUUID(), result, request.clinicalConclusion().trim(),
+                        doctorUsername == null || doctorUsername.isBlank() ? "inconnu" : doctorUsername.trim(),
+                        now, diseases));
+        appendEvent(result.getAnalysisRequest(), AnalysisRequestEventType.CLINICAL_INTERPRETATION_RECORDED,
+                interpretation.getDoctorUsername(), "Interprétation médicale enregistrée.", now);
+        return toClinicalInterpretationResponse(interpretation);
+    }
+
     @Transactional
     public AnalysisRequestResponse createAnalysisRequest(CreateAnalysisRequestRequest request) {
         return createAnalysisRequest(request, request.requesterName(), DataAccessScope.provinceWideScope());
@@ -312,6 +432,17 @@ public class LaboratoryApplicationService {
             DataAccessScope accessScope) {
         PatientPassageReferenceClient.PatientPassageReference passage = resolveOpenPassage(passageId);
         assertCanAccessOriginHospital(accessScope, passage.hospitalId());
+        AnalysisDefinitionEntity definition = request.analysisDefinitionId() == null
+                ? null
+                : analysisDefinitionRepository.findById(request.analysisDefinitionId())
+                        .filter(AnalysisDefinitionEntity::isActive)
+                        .orElseThrow(() -> new LaboratoryResourceNotFoundException(
+                                "L'analyse du catalogue", request.analysisDefinitionId().toString()));
+        String analysisName = definition == null ? trimToNull(request.analysisName()) : definition.getName();
+        if (analysisName == null) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "Sélectionnez une analyse active du catalogue et précisez les paramètres attendus.");
+        }
         HospitalLaboratoryReferenceClient.HospitalReference hospital = hospitalLaboratoryReferenceClient
                 .resolveActiveHospital(passage.hospitalId());
         String laboratoryCode = normalizeCode(request.laboratoryCode());
@@ -338,15 +469,28 @@ public class LaboratoryApplicationService {
                 passage.patientCode(),
                 passage.patientName(),
                 generateAnalysisCode(),
-                request.analysisName().trim(),
+                analysisName,
                 trimToNull(requesterName),
                 Instant.now(),
                 passage.passageId(),
                 passage.hospitalId(),
                 passage.hospitalCode(),
                 request.priority() == null ? AnalysisPriority.ROUTINE : request.priority(),
-                trimToNull(request.clinicalIndication()));
+                trimToNull(request.clinicalIndication()),
+                definition,
+                definition == null ? null : definition.getSpecimenType());
         AnalysisRequestEntity savedRequest = analysisRequestRepository.save(analysisRequest);
+        if (definition != null) {
+            List<AnalysisDefinitionParameterEntity> parameters = analysisDefinitionParameterRepository
+                    .findAllByAnalysisDefinition_IdOrderByDisplayOrderAsc(definition.getId());
+            if (parameters.isEmpty()) {
+                throw new InvalidLaboratoryWorkflowException(
+                        "L'analyse sélectionnée ne définit aucun paramètre de résultat.");
+            }
+            analysisRequestParameterRepository.saveAll(parameters.stream()
+                    .map(parameter -> new AnalysisRequestParameterEntity(UUID.randomUUID(), savedRequest, parameter))
+                    .toList());
+        }
         appendEvent(savedRequest, AnalysisRequestEventType.REQUEST_CREATED, trimToNull(requesterName),
                 savedRequest.getLaboratoryType() == LaboratoryType.REFERENCE
                         ? "Demande référée vers le laboratoire " + savedRequest.getLaboratoryCode()
@@ -440,6 +584,7 @@ public class LaboratoryApplicationService {
             throw new InvalidLaboratoryWorkflowException(
                     "Un échantillon ne peut être prélevé que pour une demande en attente ou à refaire.");
         }
+        assertExpectedSpecimenType(analysisRequest, request.specimenType());
         Instant now = Instant.now();
         SpecimenEntity specimen = SpecimenEntity.collectedForReference(
                 UUID.randomUUID(),
@@ -726,7 +871,11 @@ public class LaboratoryApplicationService {
                 .map(event -> new AnalysisRequestEventResponse(
                         event.getType(), event.getActorUsername(), event.getNote(), event.getOccurredAt()))
                 .toList();
-        return new AnalysisRequestDetailResponse(toResponse(request), specimens, result, events);
+        ClinicalInterpretationResponse interpretation = result == null ? null : analysisResultInterpretationRepository
+                .findByAnalysisResult_Id(result.id())
+                .map(this::toClinicalInterpretationResponse)
+                .orElse(null);
+        return new AnalysisRequestDetailResponse(toResponse(request), specimens, result, events, interpretation);
     }
 
     private PatientPassageReferenceClient.PatientPassageReference resolveOpenPassage(UUID passageId) {
@@ -755,6 +904,7 @@ public class LaboratoryApplicationService {
             throw new InvalidLaboratoryWorkflowException(
                     "Cette demande possède déjà un échantillon. Créez une nouvelle demande si une autre analyse est nécessaire.");
         }
+        assertExpectedSpecimenType(analysisRequest, request.specimenType());
         String code = generateSpecimenCode();
         Instant receivedAt = Instant.now();
         SpecimenEntity specimen = new SpecimenEntity(
@@ -777,23 +927,144 @@ public class LaboratoryApplicationService {
         if (analysisResultRepository.existsByAnalysisRequest_Id(analysisRequest.getId())) {
             throw new InvalidLaboratoryWorkflowException("Un résultat existe déjà pour cette demande d'analyse.");
         }
+        List<AnalysisRequestParameterEntity> parameters = analysisRequestParameterRepository
+                .findAllByAnalysisRequest_IdOrderByDisplayOrderAsc(analysisRequest.getId());
+        List<CreateAnalysisResultValueRequest> submittedValues = request.values() == null ? List.of() : request.values();
+        if (!parameters.isEmpty()) {
+            validateSubmittedResultValues(parameters, submittedValues);
+        } else if (trimToNull(request.resultValue()) == null) {
+            throw new InvalidLaboratoryWorkflowException("Le résultat de cette analyse doit être renseigné.");
+        }
         String code = generateAnalysisResultCode();
+        String resultSummary = parameters.isEmpty()
+                ? request.resultValue().trim()
+                : buildResultSummary(parameters, submittedValues);
         AnalysisResultEntity analysisResult = new AnalysisResultEntity(
                 UUID.randomUUID(),
                 code,
                 analysisRequest,
-                request.resultValue().trim(),
-                trimToNull(request.unit()),
-                trimToNull(request.referenceRange()),
+                resultSummary,
+                parameters.isEmpty() ? trimToNull(request.unit()) : null,
+                parameters.isEmpty() ? trimToNull(request.referenceRange()) : null,
                 trimToNull(request.comment()),
                 Instant.now());
         analysisRequest.markResultEntered();
         AnalysisResultEntity savedResult = analysisResultRepository.save(analysisResult);
+        if (!parameters.isEmpty()) {
+            Map<UUID, AnalysisRequestParameterEntity> parameterById = parameters.stream()
+                    .collect(java.util.stream.Collectors.toMap(AnalysisRequestParameterEntity::getId, Function.identity()));
+            analysisResultValueRepository.saveAll(submittedValues.stream()
+                    .map(value -> toResultValueEntity(savedResult, parameterById.get(value.requestParameterId()), value))
+                    .toList());
+        }
         appendEvent(analysisRequest, AnalysisRequestEventType.RESULT_ENTERED, trimToNull(actorUsername), null, savedResult.getEnteredAt());
         return toResponse(savedResult);
     }
 
+    private void validateSubmittedResultValues(
+            List<AnalysisRequestParameterEntity> parameters,
+            List<CreateAnalysisResultValueRequest> values) {
+        Map<UUID, AnalysisRequestParameterEntity> parameterById = parameters.stream()
+                .collect(java.util.stream.Collectors.toMap(AnalysisRequestParameterEntity::getId, Function.identity()));
+        Set<UUID> submittedIds = new java.util.HashSet<>();
+        for (CreateAnalysisResultValueRequest value : values) {
+            if (!submittedIds.add(value.requestParameterId())) {
+                throw new InvalidLaboratoryWorkflowException("Un paramètre de résultat a été saisi plusieurs fois.");
+            }
+            AnalysisRequestParameterEntity parameter = parameterById.get(value.requestParameterId());
+            if (parameter == null) {
+                throw new InvalidLaboratoryWorkflowException(
+                        "Un paramètre ne fait pas partie de la prescription de cette demande.");
+            }
+            parseTypedValue(parameter, value.value());
+        }
+        boolean missingRequired = parameters.stream()
+                .anyMatch(parameter -> parameter.isRequired() && !submittedIds.contains(parameter.getId()));
+        if (missingRequired) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "Tous les paramètres obligatoires prescrits par le médecin doivent être renseignés.");
+        }
+    }
+
+    private AnalysisResultValueEntity toResultValueEntity(
+            AnalysisResultEntity result,
+            AnalysisRequestParameterEntity parameter,
+            CreateAnalysisResultValueRequest request) {
+        Object parsed = parseTypedValue(parameter, request.value());
+        BigDecimal numericValue = null;
+        Long integerValue = null;
+        String textValue = null;
+        Boolean booleanValue = null;
+        String qualitativeValue = null;
+        switch (parameter.getValueType()) {
+            case DECIMAL, PERCENTAGE -> numericValue = (BigDecimal) parsed;
+            case INTEGER -> integerValue = (Long) parsed;
+            case TEXT -> textValue = (String) parsed;
+            case BOOLEAN -> booleanValue = (Boolean) parsed;
+            case QUALITATIVE -> qualitativeValue = (String) parsed;
+        }
+        return new AnalysisResultValueEntity(
+                UUID.randomUUID(), result, parameter, numericValue, integerValue, textValue, booleanValue,
+                qualitativeValue,
+                request.abnormalFlag() == null ? AnalysisResultFlag.UNKNOWN : request.abnormalFlag(),
+                trimToNull(request.comment()));
+    }
+
+    private Object parseTypedValue(AnalysisRequestParameterEntity parameter, String rawValue) {
+        String value = rawValue == null ? "" : rawValue.trim();
+        if (value.isEmpty()) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "La valeur de " + parameter.getName() + " est obligatoire.");
+        }
+        try {
+            return switch (parameter.getValueType()) {
+                case DECIMAL, PERCENTAGE -> new BigDecimal(value.replace(',', '.'));
+                case INTEGER -> Long.valueOf(value);
+                case TEXT -> value;
+                case BOOLEAN -> parseBooleanValue(value, parameter.getName());
+                case QUALITATIVE -> validateQualitativeValue(parameter, value);
+            };
+        } catch (NumberFormatException exception) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "La valeur de " + parameter.getName() + " doit être numérique.");
+        }
+    }
+
+    private Boolean parseBooleanValue(String value, String parameterName) {
+        if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("oui") || value.equals("1")) return true;
+        if (value.equalsIgnoreCase("false") || value.equalsIgnoreCase("non") || value.equals("0")) return false;
+        throw new InvalidLaboratoryWorkflowException(
+                "La valeur de " + parameterName + " doit être Oui ou Non.");
+    }
+
+    private String validateQualitativeValue(AnalysisRequestParameterEntity parameter, String value) {
+        List<String> options = splitOptions(parameter.getQualitativeOptions());
+        if (!options.isEmpty() && options.stream().noneMatch(option -> option.equalsIgnoreCase(value))) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "La valeur de " + parameter.getName() + " doit être choisie dans la liste prévue.");
+        }
+        return value;
+    }
+
+    private String buildResultSummary(
+            List<AnalysisRequestParameterEntity> parameters,
+            List<CreateAnalysisResultValueRequest> values) {
+        Map<UUID, String> valueByParameter = values.stream().collect(java.util.stream.Collectors.toMap(
+                CreateAnalysisResultValueRequest::requestParameterId,
+                CreateAnalysisResultValueRequest::value));
+        String summary = parameters.stream()
+                .filter(parameter -> valueByParameter.containsKey(parameter.getId()))
+                .map(parameter -> parameter.getName() + " : " + valueByParameter.get(parameter.getId()).trim()
+                        + (parameter.getUnit() == null ? "" : " " + parameter.getUnit()))
+                .collect(java.util.stream.Collectors.joining(" ; "));
+        return summary.length() <= 1000 ? summary : summary.substring(0, 997) + "...";
+    }
+
     private AnalysisRequestResponse toResponse(AnalysisRequestEntity analysisRequest) {
+        List<AnalysisParameterResponse> parameters = analysisRequestParameterRepository
+                .findAllByAnalysisRequest_IdOrderByDisplayOrderAsc(analysisRequest.getId()).stream()
+                .map(this::toAnalysisParameterResponse)
+                .toList();
         return new AnalysisRequestResponse(
                 analysisRequest.getId(),
                 analysisRequest.getCode(),
@@ -810,7 +1081,10 @@ public class LaboratoryApplicationService {
                 analysisRequest.getClinicalIndication(),
                 analysisRequest.getStatus(),
                 analysisRequest.getCreatedAt(),
-                analysisRequest.getPatientPassageId());
+                analysisRequest.getPatientPassageId(),
+                analysisRequest.getAnalysisDefinition() == null ? null : analysisRequest.getAnalysisDefinition().getId(),
+                analysisRequest.getRequestedSpecimenType(),
+                parameters);
     }
 
     private SpecimenResponse toResponse(SpecimenEntity specimen) {
@@ -837,6 +1111,10 @@ public class LaboratoryApplicationService {
 
     private AnalysisResultResponse toResponse(AnalysisResultEntity analysisResult) {
         AnalysisRequestEntity analysisRequest = analysisResult.getAnalysisRequest();
+        List<AnalysisResultValueResponse> values = analysisResultValueRepository
+                .findAllByAnalysisResult_IdOrderByRequestParameter_DisplayOrderAsc(analysisResult.getId()).stream()
+                .map(this::toAnalysisResultValueResponse)
+                .toList();
         return new AnalysisResultResponse(
                 analysisResult.getId(),
                 analysisResult.getCode(),
@@ -850,7 +1128,71 @@ public class LaboratoryApplicationService {
                 analysisResult.getStatus(),
                 analysisResult.getEnteredAt(),
                 analysisResult.getValidatedAt(),
-                analysisResult.getValidatedBy());
+                analysisResult.getValidatedBy(),
+                values);
+    }
+
+    private AnalysisDefinitionResponse toAnalysisDefinitionResponse(AnalysisDefinitionEntity definition) {
+        return toAnalysisDefinitionResponse(definition, analysisDefinitionParameterRepository
+                .findAllByAnalysisDefinition_IdOrderByDisplayOrderAsc(definition.getId()));
+    }
+
+    private AnalysisDefinitionResponse toAnalysisDefinitionResponse(
+            AnalysisDefinitionEntity definition,
+            List<AnalysisDefinitionParameterEntity> parameters) {
+        return new AnalysisDefinitionResponse(
+                definition.getId(), definition.getCode(), definition.getName(), definition.getDescription(),
+                definition.getSpecimenType(), definition.isActive(),
+                parameters.stream().map(this::toAnalysisParameterResponse).toList(), definition.getCreatedAt());
+    }
+
+    private AnalysisParameterResponse toAnalysisParameterResponse(AnalysisDefinitionParameterEntity parameter) {
+        return new AnalysisParameterResponse(
+                parameter.getId(), parameter.getCode(), parameter.getName(), parameter.getValueType(),
+                parameter.getUnit(), parameter.getReferenceRange(), splitOptions(parameter.getQualitativeOptions()),
+                parameter.isRequired(), parameter.getDisplayOrder());
+    }
+
+    private AnalysisParameterResponse toAnalysisParameterResponse(AnalysisRequestParameterEntity parameter) {
+        return new AnalysisParameterResponse(
+                parameter.getId(), parameter.getCode(), parameter.getName(), parameter.getValueType(),
+                parameter.getUnit(), parameter.getReferenceRange(), splitOptions(parameter.getQualitativeOptions()),
+                parameter.isRequired(), parameter.getDisplayOrder());
+    }
+
+    private AnalysisResultValueResponse toAnalysisResultValueResponse(AnalysisResultValueEntity value) {
+        AnalysisRequestParameterEntity parameter = value.getRequestParameter();
+        return new AnalysisResultValueResponse(
+                parameter.getId(), parameter.getCode(), parameter.getName(), parameter.getValueType(),
+                formatStoredValue(value), parameter.getUnit(), parameter.getReferenceRange(),
+                value.getAbnormalFlag(), value.getComment());
+    }
+
+    private String formatStoredValue(AnalysisResultValueEntity value) {
+        return switch (value.getRequestParameter().getValueType()) {
+            case DECIMAL, PERCENTAGE -> value.getNumericValue().stripTrailingZeros().toPlainString();
+            case INTEGER -> value.getIntegerValue().toString();
+            case TEXT -> value.getTextValue();
+            case BOOLEAN -> Boolean.TRUE.equals(value.getBooleanValue()) ? "Oui" : "Non";
+            case QUALITATIVE -> value.getQualitativeValue();
+        };
+    }
+
+    private DiseaseResponse toDiseaseResponse(DiseaseDefinitionEntity disease) {
+        return new DiseaseResponse(
+                disease.getId(), disease.getCode(), disease.getName(), disease.getDescription(),
+                disease.getIcdSystem(), disease.getIcdCode(), disease.getIcdUri(), disease.isActive(), disease.getCreatedAt());
+    }
+
+    private ClinicalInterpretationResponse toClinicalInterpretationResponse(
+            AnalysisResultInterpretationEntity interpretation) {
+        return new ClinicalInterpretationResponse(
+                interpretation.getId(), interpretation.getAnalysisResult().getCode(),
+                interpretation.getClinicalConclusion(), interpretation.getDoctorUsername(),
+                interpretation.getInterpretedAt(), interpretation.getDiseases().stream()
+                        .sorted(java.util.Comparator.comparing(DiseaseDefinitionEntity::getName))
+                        .map(this::toDiseaseResponse)
+                        .toList());
     }
 
     private String normalizeCode(String code) {
@@ -891,12 +1233,60 @@ public class LaboratoryApplicationService {
         throw new IllegalStateException("Impossible de générer un code unique de résultat d'analyse.");
     }
 
+    private String generateAnalysisDefinitionCode() {
+        for (int attempt = 0; attempt < 8; attempt++) {
+            String code = "ANA-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT);
+            if (!analysisDefinitionRepository.existsByCodeIgnoreCase(code)) return code;
+        }
+        throw new IllegalStateException("Impossible de générer un code unique d'analyse.");
+    }
+
+    private String generateParameterCode() {
+        return "PAR-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT);
+    }
+
+    private String generateDiseaseCode() {
+        for (int attempt = 0; attempt < 8; attempt++) {
+            String code = "MAL-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT);
+            if (!diseaseDefinitionRepository.existsByCodeIgnoreCase(code)) return code;
+        }
+        throw new IllegalStateException("Impossible de générer un code unique de maladie.");
+    }
+
+    private void validateDefinitionParameter(CreateAnalysisDefinitionRequest.Parameter parameter) {
+        List<String> options = parameter.qualitativeOptions() == null ? List.of() : parameter.qualitativeOptions().stream()
+                .map(String::trim).filter(value -> !value.isEmpty()).distinct().toList();
+        if (parameter.valueType() == AnalysisValueType.QUALITATIVE && options.isEmpty()) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "Un paramètre qualitatif doit proposer au moins une valeur possible.");
+        }
+        if (parameter.valueType() != AnalysisValueType.QUALITATIVE && !options.isEmpty()) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "Les choix prédéfinis sont réservés aux paramètres qualitatifs.");
+        }
+    }
+
+    private String joinOptions(List<String> options) {
+        if (options == null) return null;
+        String joined = options.stream().map(String::trim).filter(value -> !value.isEmpty()).distinct()
+                .collect(java.util.stream.Collectors.joining("\u001F"));
+        return joined.isEmpty() ? null : joined;
+    }
+
+    private List<String> splitOptions(String options) {
+        return options == null || options.isBlank() ? List.of() : List.of(options.split("\u001F", -1));
+    }
+
     private String normalizeSearchFilter(String value) {
         return value == null ? "" : value.trim();
     }
 
     private PageRequest pageRequest(int page, int size, String sortField) {
         return PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by(sortField).descending());
+    }
+
+    private PageRequest alphabeticalPageRequest(int page, int size, String sortField) {
+        return PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by(sortField).ascending());
     }
 
     private <T, R> PageResponse<R> toPageResponse(Page<T> page, Function<T, R> mapper) {
@@ -959,7 +1349,15 @@ public class LaboratoryApplicationService {
                         result.getStatus(),
                         result.getEnteredAt(),
                         result.getValidatedAt(),
-                        result.getValidatedBy());
+                        result.getValidatedBy(),
+                        analysisResultValueRepository
+                                .findAllByAnalysisResult_IdOrderByRequestParameter_DisplayOrderAsc(result.getId()).stream()
+                                .map(this::toAnalysisResultValueResponse)
+                                .toList());
+        List<AnalysisParameterResponse> requestedParameters = analysisRequestParameterRepository
+                .findAllByAnalysisRequest_IdOrderByDisplayOrderAsc(request.getId()).stream()
+                .map(this::toAnalysisParameterResponse)
+                .toList();
         return new PatientPassageLaboratoryRequestResponse(
                 request.getId(),
                 request.getPatientPassageId(),
@@ -973,6 +1371,9 @@ public class LaboratoryApplicationService {
                 request.getClinicalIndication(),
                 request.getStatus(),
                 request.getCreatedAt(),
+                request.getAnalysisDefinition() == null ? null : request.getAnalysisDefinition().getId(),
+                request.getRequestedSpecimenType(),
+                requestedParameters,
                 specimenTimeline,
                 resultTimeline);
     }
@@ -1017,6 +1418,17 @@ public class LaboratoryApplicationService {
         }
         if (!accessScope.canAccessLaboratory(request.getLaboratoryCode())) {
             throw new DataAccessDeniedException();
+        }
+    }
+
+    private void assertExpectedSpecimenType(
+            AnalysisRequestEntity analysisRequest,
+            com.hopital.laboratory.application.domain.SpecimenType specimenType) {
+        if (analysisRequest.getRequestedSpecimenType() != null
+                && analysisRequest.getRequestedSpecimenType() != specimenType) {
+            throw new InvalidLaboratoryWorkflowException(
+                    "Cette analyse exige un échantillon de type "
+                            + analysisRequest.getRequestedSpecimenType().name() + ".");
         }
     }
 

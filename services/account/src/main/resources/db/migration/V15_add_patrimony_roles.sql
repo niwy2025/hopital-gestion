@@ -1,0 +1,39 @@
+INSERT INTO roles(code,label) VALUES ('INTENDANT','Intendant·e'),('MAINTENANCE_TECHNICIAN','Technicien·ne de maintenance') ON CONFLICT(code) DO NOTHING;
+INSERT INTO permissions(code,description) VALUES
+('PATRIMONY_READ','Consulter le patrimoine hospitalier'),
+('PATRIMONY_WRITE','Enregistrer et affecter les biens et locaux'),
+('PATRIMONY_MAINTAIN','Suivre les pannes et la maintenance'),
+('PATRIMONY_VALIDATE','Valider les sorties du patrimoine'),
+('BED_OCCUPANCY_WRITE','Réserver, attribuer et libérer les lits'),
+('ASSET_ACCOUNTING_WRITE','Qualifier les biens dans le registre comptable')
+ON CONFLICT(code) DO NOTHING;
+INSERT INTO role_permissions(role_id,permission_id)
+SELECT r.id,p.id FROM (VALUES
+('ADMIN','PATRIMONY_READ'),
+('ADMIN','PATRIMONY_WRITE'),
+('ADMIN','PATRIMONY_MAINTAIN'),
+('ADMIN','PATRIMONY_VALIDATE'),
+('ADMIN','BED_OCCUPANCY_WRITE'),
+('ADMIN','ASSET_ACCOUNTING_WRITE'),
+('HOSPITAL_ADMIN','PATRIMONY_READ'),
+('HOSPITAL_ADMIN','PATRIMONY_WRITE'),
+('HOSPITAL_ADMIN','PATRIMONY_MAINTAIN'),
+('HOSPITAL_ADMIN','PATRIMONY_VALIDATE'),
+('HOSPITAL_ADMIN','BED_OCCUPANCY_WRITE'),
+('INTENDANT','PATRIMONY_READ'),
+('INTENDANT','PATRIMONY_WRITE'),
+('INTENDANT','PATRIMONY_MAINTAIN'),
+('MAINTENANCE_TECHNICIAN','PATRIMONY_READ'),
+('MAINTENANCE_TECHNICIAN','PATRIMONY_MAINTAIN'),
+('HOSPITAL_ACCOUNTANT','PATRIMONY_READ'),
+('HOSPITAL_ACCOUNTANT','ASSET_ACCOUNTING_WRITE'),
+('FINANCE_MANAGER','PATRIMONY_READ'),
+('FINANCE_MANAGER','ASSET_ACCOUNTING_WRITE'),
+('FINANCE_AUDITOR','PATRIMONY_READ'),
+('DOCTOR','BED_OCCUPANCY_WRITE'),
+('NURSE','BED_OCCUPANCY_WRITE'),
+('RECEPTIONIST','BED_OCCUPANCY_WRITE')
+) AS seeds(role_code,permission_code)
+JOIN roles r ON r.code=seeds.role_code JOIN permissions p ON p.code=seeds.permission_code
+ON CONFLICT(role_id,permission_id) DO NOTHING;
+

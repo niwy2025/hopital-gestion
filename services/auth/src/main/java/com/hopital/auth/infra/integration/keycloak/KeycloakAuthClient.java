@@ -36,6 +36,8 @@ public class KeycloakAuthClient {
     private static final Set<String> MANAGED_ROLE_CODES = Set.of(
             "ADMIN",
             "HOSPITAL_ADMIN",
+            "INTENDANT",
+            "MAINTENANCE_TECHNICIAN",
             "DOCTOR",
             "NURSE",
             "RECEPTIONIST",

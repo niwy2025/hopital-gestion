@@ -38,12 +38,14 @@ public class PatientTransferService {
     private final PatientTransferRepository transfers;
     private final PatientPassageRepository passages;
     private final HospitalReferenceClient hospitals;
+    private final PatientHospitalizationOutboxService hospitalizationOutbox;
 
     public PatientTransferService(PatientTransferRepository transfers, PatientPassageRepository passages,
-            HospitalReferenceClient hospitals) {
+            HospitalReferenceClient hospitals, PatientHospitalizationOutboxService hospitalizationOutbox) {
         this.transfers = transfers;
         this.passages = passages;
         this.hospitals = hospitals;
+        this.hospitalizationOutbox = hospitalizationOutbox;
     }
 
     public PageResponse<PatientTransferSummaryResponse> search(int page, int size, String query,
@@ -131,6 +133,7 @@ public class PatientTransferService {
         if (transfer.getDestinationHospitalId() != null) hospitals.resolveActiveHospital(transfer.getDestinationHospitalId());
         Instant now = Instant.now();
         source.changeStatus(PatientPassageStatus.TRANSFERRED, actor, now);
+        hospitalizationOutbox.enqueue(source.getId());
         transfer.dispatch(actor, now);
         audit(transfer, PatientAuditEventType.TRANSFER_DISPATCHED, actor);
         return response(transfer, scope);

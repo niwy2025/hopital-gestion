@@ -244,29 +244,86 @@ public class PatrimonyService {
 
     @Transactional
     public Map<String,Object> occupy(UUID key, PatrimonyRequests.Bed r, PatrimonyScope s) {
-        s.require("beds"); var a=assetRow(key,true); s.checkHospital(id(a,"hospitalId"));
-        if (!"BED".equals(a.get("categoryCode")) || !"AVAILABLE".equals(a.get("status")) || Boolean.TRUE.equals(a.get("cleaningRequired"))) conflict("Ce lit n’est pas disponible pour un patient.");
-        if (id(a,"locationId")==null || !"ROOM".equals(location(id(a,"locationId"),id(a,"hospitalId")).get("kind"))) conflict("Affectez d’abord ce lit à une salle active.");
-        var passage=clients.passage(r.passageId());
-        if (!id(a,"hospitalId").equals(passage.hospitalId()) || !"OPEN".equals(passage.status())) conflict("Choisissez un passage en cours dans cet hôpital.");
-        var existing=db.list("SELECT * FROM patrimony_bed_stays WHERE asset_id=:id AND status<>'RELEASED'",params("id",key));
-        if (!existing.isEmpty()) {
-            if (r.passageId().equals(id(existing.get(0),"passageId"))) {
-                if (!r.reserved() && "RESERVED".equals(existing.get(0).get("status"))) {
-                    db.update("UPDATE patrimony_bed_stays SET status='OCCUPIED' WHERE id=:id",params("id",id(existing.get(0),"id")));
-                    existing.get(0).put("status","OCCUPIED");
-                    event(key,null,id(a,"hospitalId"),"BED_ASSIGNED","Réservation confirmée : lit occupé",s);
-                }
-                return existing.get(0);
+        s.require("beds"); lockPassage(r.passageId());
+        var reference=clients.passage(r.passageId());s.checkHospital(reference.hospitalId());
+        var current=activeStay(r.passageId());
+        if(current!=null && !key.equals(id(current,"assetId"))) conflict("Ce passage occupe déjà un lit. Utilisez le changement de lit depuis son dossier.");
+        return assignBedLocked(r.passageId(),new PatrimonyRequests.BedAssignment(key,current==null?null:id(current,"id"),r.reserved(),r.note()),s,reference);
+    }
+
+    @Transactional
+    public Map<String,Object> assignPassageBed(UUID passageId,PatrimonyRequests.BedAssignment r,PatrimonyScope s) {
+        s.require("beds"); lockPassage(passageId);
+        return assignBedLocked(passageId,r,s,clients.passage(passageId));
+    }
+
+    private Map<String,Object> assignBedLocked(UUID passageId,PatrimonyRequests.BedAssignment r,PatrimonyScope s,PatrimonyClients.Passage reference) {
+        s.checkHospital(reference.hospitalId());
+        if(!"OPEN".equals(reference.status())) conflict("Le passage n’est plus en cours.");
+        var before=activeStay(passageId);
+        var keys=new java.util.ArrayList<UUID>();keys.add(r.bedId());
+        if(before!=null && !r.bedId().equals(id(before,"assetId")))keys.add(id(before,"assetId"));
+        // Ordre commun à tous les changements : passage, puis lits triés.
+        db.list("SELECT id FROM patrimony_assets WHERE id IN (:ids) ORDER BY id FOR UPDATE",params("ids",keys));
+        var current=activeStay(passageId);
+        if(!Objects.equals(r.expectedStayId(),current==null?null:id(current,"id"))) conflict("L’affectation a changé. Actualisez le dossier avant de réessayer.");
+        var a=assetRow(r.bedId(),false);s.checkHospital(id(a,"hospitalId"));
+        if(!reference.hospitalId().equals(id(a,"hospitalId"))) conflict("Choisissez un lit du même hôpital que le passage.");
+        if(!"BED".equals(a.get("categoryCode")) || !"AVAILABLE".equals(a.get("status")) || Boolean.TRUE.equals(a.get("cleaningRequired")))
+            conflict("Ce lit n’est pas disponible pour un patient.");
+        if(id(a,"locationId")==null) conflict("Affectez ce lit à une salle active.");
+        var room=location(id(a,"locationId"),id(a,"hospitalId"));
+        if(!"ROOM".equals(room.get("kind"))) conflict("Le lit doit être rattaché à une salle active.");
+        if(current!=null && r.bedId().equals(id(current,"assetId"))) {
+            if("RESERVED".equals(current.get("status")) && !r.reserved()) {
+                db.update("UPDATE patrimony_bed_stays SET status='OCCUPIED',occupied_at=:at,confirmed_by=:by WHERE id=:id",
+                        params("id",id(current,"id"),"by",s.username(),"at",java.sql.Timestamp.from(java.time.Instant.now())));
+                event(r.bedId(),null,reference.hospitalId(),"BED_ASSIGNED","Réservation confirmée : lit occupé",s);
             }
-            conflict("Ce lit est déjà réservé ou occupé.");
+            return activeStay(passageId);
+        }
+        if(db.count("SELECT count(*) FROM patrimony_bed_stays WHERE asset_id=:id AND status<>'RELEASED'",params("id",r.bedId()))>0)
+            conflict("Le lit choisi vient d’être réservé ou occupé. L’ancien lit est conservé.");
+        if(current!=null && "OCCUPIED".equals(current.get("status")) && r.reserved())
+            conflict("Pour changer de lit, confirmez l’installation dans le nouveau lit. Une simple réservation ne libère pas le lit occupé.");
+        // Toutes les validations précèdent la libération ; une erreur SQL annule les deux écritures.
+        var transitionAt=java.time.Instant.now();
+        if(current!=null) {
+            transitionAt=notBeforeStay(transitionAt,current);
+            releaseStayLocked(assetRow(id(current,"assetId"),false),current,r.note(),"BED_CHANGE",transitionAt,s);
         }
         UUID stay=UUID.randomUUID();
-        db.update("INSERT INTO patrimony_bed_stays(id,asset_id,passage_id,passage_code,patient_code,status,started_by,note) VALUES(:id,:asset,:passage,:code,:patient,:status,:by,:note)",
-                params("id",stay,"asset",key,"passage",r.passageId(),"code",passage.passageCode(),"patient",passage.patientCode(),"status",r.reserved()?"RESERVED":"OCCUPIED","by",s.username(),"note",r.note()));
-        event(key,null,id(a,"hospitalId"),"BED_ASSIGNED","Lit "+(r.reserved()?"réservé":"occupé"),s);
-        return Map.of("id",stay);
+        String building=(String)db.one("""
+                SELECT COALESCE(g.name,p.name) name FROM patrimony_locations l
+                LEFT JOIN patrimony_locations p ON p.id=l.parent_id LEFT JOIN patrimony_locations g ON g.id=p.parent_id WHERE l.id=:id
+                """,params("id",id(room,"id"))).get("name");
+        db.update("""
+                INSERT INTO patrimony_bed_stays(id,asset_id,passage_id,passage_code,patient_code,patient_name,status,started_by,note,
+                started_at,occupied_at,confirmed_by,bed_code,bed_name,room_id,room_name,building_name,service_name)
+                VALUES(:id,:asset,:passage,:code,:patient,:patientName,:status,:by,:note,
+                :at,CASE WHEN :status='OCCUPIED' THEN CAST(:at AS TIMESTAMPTZ) END,CASE WHEN :status='OCCUPIED' THEN :by END,:bedCode,:bedName,:room,:roomName,:building,:service)
+                """,params("id",stay,"asset",r.bedId(),"passage",passageId,"code",reference.passageCode(),"patient",reference.patientCode(),
+                "patientName",reference.patientName(),"status",r.reserved()?"RESERVED":"OCCUPIED","by",s.username(),"note",r.note(),
+                "bedCode",a.get("code"),"bedName",a.get("name"),"room",id(room,"id"),"roomName",room.get("name"),"building",building,
+                "service",room.get("serviceName")==null?reference.serviceName():room.get("serviceName"),"at",java.sql.Timestamp.from(transitionAt)));
+        event(r.bedId(),null,reference.hospitalId(),"BED_ASSIGNED",r.reserved()?"Lit réservé":"Lit occupé",s);
+        return activeStay(passageId);
     }
+
+    public Map<String,Object> hospitalization(UUID passageId,int page,int size,PatrimonyScope s) {
+        s.require("beds");var passage=clients.passage(passageId);s.checkHospital(passage.hospitalId());
+        page=Math.max(0,page);size=Math.min(100,Math.max(1,size));
+        var p=params("passage",passageId,"limit",size,"offset",(long)page*size);
+        long count=db.count("SELECT count(*) FROM patrimony_bed_stays WHERE passage_id=:passage",p);
+        var history=db.list("SELECT * FROM patrimony_bed_stays WHERE passage_id=:passage ORDER BY started_at DESC,id LIMIT :limit OFFSET :offset",p);
+        var result=new java.util.LinkedHashMap<String,Object>();
+        result.put("passageId",passageId);result.put("passageCode",passage.passageCode());result.put("hospitalId",passage.hospitalId());
+        result.put("patientName",passage.patientName());result.put("patientCode",passage.patientCode());result.put("passageStatus",passage.status());
+        result.put("serviceName",passage.serviceName());result.put("current",activeStay(passageId));
+        result.put("history",new PageResponse<>(history,page,size,count,(int)Math.ceil((double)count/size)));
+        result.put("canManage","OPEN".equals(passage.status()));return result;
+    }
+
     public Map<String,Object> bed(UUID key, PatrimonyScope s) {
         if (!s.allows("read")) s.require("beds");
         var a=assetRow(key,false); s.checkHospital(id(a,"hospitalId"));
@@ -278,18 +335,70 @@ public class PatrimonyService {
         }
         return a;
     }
+
+    @Transactional
+    public void releasePassageBed(UUID passageId,PatrimonyRequests.BedRelease r,PatrimonyScope s) {
+        s.require("beds");lockPassage(passageId);
+        var reference=clients.passage(passageId);s.checkHospital(reference.hospitalId());
+        var current=activeStay(passageId);
+        if(current==null) return;
+        var a=assetRow(id(current,"assetId"),true);s.checkHospital(id(a,"hospitalId"));
+        current=activeStay(passageId);
+        if(current==null)return;
+        if(!r.expectedStayId().equals(id(current,"id"))) conflict("L’affectation a changé. Actualisez le dossier.");
+        releaseStayLocked(a,current,r.note(),"MANUAL",java.time.Instant.now(),s);
+    }
+
     @Transactional
     public void release(UUID key, String note, PatrimonyScope s) {
-        s.require("beds"); var a=assetRow(key,true); s.checkHospital(id(a,"hospitalId")); releaseLocked(a,note,s);
+        s.require("beds");
+        var a=assetRow(key,false);s.checkHospital(id(a,"hospitalId"));
+        var rows=db.list("SELECT id,passage_id FROM patrimony_bed_stays WHERE asset_id=:id AND status<>'RELEASED'",params("id",key));
+        if(rows.isEmpty())return;
+        releasePassageBed(id(rows.get(0),"passageId"),new PatrimonyRequests.BedRelease(id(rows.get(0),"id"),note),s);
     }
-    public void releaseLocked(Map<String,Object> a, String note, PatrimonyScope s) {
-        UUID key=id(a,"id");
-        int updated=db.update("UPDATE patrimony_bed_stays SET status='RELEASED',ended_at=now(),ended_by=:by,note=:note WHERE asset_id=:id AND status<>'RELEASED'",params("id",key,"by",s.username(),"note",note));
+
+    /** File de sortie et contrôle périodique convergent sur la même opération idempotente. */
+    @Transactional
+    public void reconcilePassageBed(UUID passageId) {
+        lockPassage(passageId);
+        var stay=activeStay(passageId);if(stay==null)return;
+        var a=assetRow(id(stay,"assetId"),true);
+        var reference=clients.passage(passageId);
+        if(Set.of("CLOSED","CANCELLED","TRANSFERRED").contains(reference.status()))
+            releaseStayLocked(a,stay,"Fin du passage",reference.status(),reference.closedAt()==null?java.time.Instant.now():reference.closedAt(),
+                    new PatrimonyScope(true,null,Set.of("ADMIN"),"system","Système"));
+    }
+
+    private void releaseStayLocked(Map<String,Object> a,Map<String,Object> stay,String note,String reason,java.time.Instant at,PatrimonyScope s) {
+        at=notBeforeStay(at,stay);
+        int updated=db.update("""
+                UPDATE patrimony_bed_stays SET status='RELEASED',ended_at=:at,ended_by=:by,release_note=:note,release_reason=:reason
+                WHERE id=:id AND status<>'RELEASED'
+                """,params("id",id(stay,"id"),"at",java.sql.Timestamp.from(at),"by",s.username(),"note",note,"reason",reason));
         if(updated>0) {
-            db.update("UPDATE patrimony_assets SET cleaning_required=true,version=version+1 WHERE id=:id",params("id",key));
-            event(key,null,id(a,"hospitalId"),"BED_RELEASED","Lit libéré ; nettoyage requis",s);
+            boolean dirty=stay.get("occupiedAt")!=null || "OCCUPIED".equals(stay.get("status"));
+            db.update("UPDATE patrimony_assets SET cleaning_required=cleaning_required OR :dirty,version=version+1 WHERE id=:id",
+                    params("id",id(a,"id"),"dirty",dirty));
+            event(id(a,"id"),null,id(a,"hospitalId"),"BED_RELEASED",dirty?"Lit libéré ; nettoyage requis":"Réservation libérée, sans occupation",s);
         }
     }
+
+    private Map<String,Object> activeStay(UUID passageId) {
+        var rows=db.list("SELECT * FROM patrimony_bed_stays WHERE passage_id=:id AND status<>'RELEASED'",params("id",passageId));
+        return rows.isEmpty()?null:rows.get(0);
+    }
+    private static java.time.Instant notBeforeStay(java.time.Instant at,Map<String,Object> stay) {
+        for(String key:java.util.List.of("startedAt","occupiedAt"))if(stay.get(key)!=null) {
+            var start=java.time.Instant.parse(stay.get(key).toString());
+            if(at.isBefore(start))at=start;
+        }
+        return at;
+    }
+    private void lockPassage(UUID passageId) {
+        db.list("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))",params("key","hospitalization:"+passageId));
+    }
+
     public Map<String,Object> accountingReference(UUID key) {
         var a=assetRow(key,false);
         a.keySet().retainAll(Set.of("id","code","name","hospitalId","hospitalName","categoryCode","purchaseCost","currency","receivedOn","commissionedOn","acquisitionSource","supplierName","ownerName","status","version"));

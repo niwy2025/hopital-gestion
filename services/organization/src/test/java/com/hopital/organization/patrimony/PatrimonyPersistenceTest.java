@@ -25,12 +25,13 @@ import org.springframework.web.server.ResponseStatusException;
 
 @JdbcTest
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
-@Import({PatrimonyService.class,PatrimonyRepository.class,PatrimonyJobs.class})
+@Import({PatrimonyService.class,PatrimonyRepository.class,PatrimonyJobs.class,HospitalizationBoardService.class})
 @EnabledIfEnvironmentVariable(named="PATRIMONY_POSTGRES_TEST",matches="true")
 class PatrimonyPersistenceTest {
     @Autowired PatrimonyService service;
     @Autowired PatrimonyRepository db;
     @Autowired PatrimonyJobs jobs;
+    @Autowired HospitalizationBoardService board;
     @MockBean PatrimonyClients clients;
     UUID hospital=UUID.randomUUID(), other=UUID.randomUUID(), room;
     PatrimonyScope steward=scope("INTENDANT",hospital,"intendant");
@@ -98,14 +99,104 @@ class PatrimonyPersistenceTest {
     @Test void refusesAnotherHospitalPassageAndUnavailableBed() {
         UUID bed=asset("BED"), p=UUID.randomUUID();
         when(clients.passage(p)).thenReturn(new PatrimonyClients.Passage(p,"PAS","PAT",other,"OPEN"));
-        assertThatThrownBy(()->service.occupy(bed,new PatrimonyRequests.Bed(p,false,null),nurse)).hasMessageContaining("cet hôpital");
+        assertThatThrownBy(()->service.occupy(bed,new PatrimonyRequests.Bed(p,false,null),nurse)).hasMessageContaining("autre hôpital");
         service.move(bed,new PatrimonyRequests.Movement("FAULT",null,null,null,"Roue cassée"),steward);
         assertThatThrownBy(()->service.occupy(bed,new PatrimonyRequests.Bed(passage(),false,null),nurse)).hasMessageContaining("disponible");
     }
     @Test void databasePreventsTwoBedsForSamePassage() {
         UUID bed=asset("BED"), second=asset("BED"), p=passage();
         service.occupy(bed,new PatrimonyRequests.Bed(p,false,null),nurse);
-        assertThatThrownBy(()->service.occupy(second,new PatrimonyRequests.Bed(p,false,null),nurse)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(()->service.occupy(second,new PatrimonyRequests.Bed(p,false,null),nurse)).isInstanceOf(ResponseStatusException.class);
+    }
+    @Test void bedChangeKeepsPreviousBedOnConflictAndRejectsStaleScreen() {
+        UUID bed=asset("BED"), target=asset("BED"), available=asset("BED"), p=passage();
+        var first=service.assignPassageBed(p,new PatrimonyRequests.BedAssignment(bed,null,false,"Installation"),nurse);
+        service.occupy(target,new PatrimonyRequests.Bed(passage(),false,"Autre patient"),nurse);
+        assertThatThrownBy(()->service.assignPassageBed(p,new PatrimonyRequests.BedAssignment(target,id(first,"id"),false,"Déplacement"),nurse)).hasMessageContaining("ancien lit");
+        assertThat(db.one("SELECT * FROM patrimony_bed_stays WHERE id=:id",params("id",id(first,"id"))).get("status")).isEqualTo("OCCUPIED");
+        assertThat(service.asset(bed,steward).get("cleaningRequired")).isEqualTo(false);
+        assertThatThrownBy(()->service.assignPassageBed(p,new PatrimonyRequests.BedAssignment(available,null,false,"Écran périmé"),nurse)).hasMessageContaining("changé");
+        assertThatThrownBy(()->service.assignPassageBed(p,new PatrimonyRequests.BedAssignment(available,id(first,"id"),true,"Réserver un autre lit"),nurse)).hasMessageContaining("simple réservation");
+        var moved=service.assignPassageBed(p,new PatrimonyRequests.BedAssignment(available,id(first,"id"),false,"Isolement"),nurse);
+        assertThat(id(moved,"assetId")).isEqualTo(available);
+        assertThat(service.asset(bed,steward).get("cleaningRequired")).isEqualTo(true);
+        var history=db.one("SELECT * FROM patrimony_bed_stays WHERE id=:id",params("id",id(first,"id")));
+        assertThat(history.get("releaseReason")).isEqualTo("BED_CHANGE");
+        assertThat(history.get("note")).isEqualTo("Installation");
+        assertThat(history.get("releaseNote")).isEqualTo("Isolement");
+        assertThat(history.get("occupiedAt")).isNotNull();assertThat(history.get("endedAt")).isNotNull();
+        assertThat(history.get("endedAt")).isEqualTo(moved.get("startedAt"));
+        assertThat(moved.get("occupiedAt")).isEqualTo(moved.get("startedAt"));
+        assertThatThrownBy(()->service.releasePassageBed(p,new PatrimonyRequests.BedRelease(id(first,"id"),"Ancien écran"),nurse)).hasMessageContaining("changé");
+    }
+    @Test void cancellationOfReservationDoesNotRequireCleaningAndPreservesLocationHistory() {
+        UUID bed=asset("BED"), p=passage();
+        var first=service.assignPassageBed(p,new PatrimonyRequests.BedAssignment(bed,null,true,"Admission prévue"),nurse);
+        service.releasePassageBed(p,new PatrimonyRequests.BedRelease(id(first,"id"),"Annulation"),nurse);
+        service.releasePassageBed(p,new PatrimonyRequests.BedRelease(id(first,"id"),"Doublon"),nurse);
+        assertThat(service.asset(bed,steward).get("cleaningRequired")).isEqualTo(false);
+        UUID building=id(db.one("SELECT parent_id FROM patrimony_locations WHERE id=:id",params("id",room)),"parentId");
+        UUID newRoom=id(service.createLocation(new PatrimonyRequests.Location(hospital,building,"ROOM","Autre salle","Chirurgie"),steward),"id");
+        service.move(bed,new PatrimonyRequests.Movement("MOVE",newRoom,null,null,"Déplacement matériel"),steward);
+        var old=db.one("SELECT * FROM patrimony_bed_stays WHERE id=:id",params("id",id(first,"id")));
+        assertThat(old.get("roomId")).isEqualTo(room.toString());
+        assertThat(old.get("occupiedAt")).isNull();
+        assertThatThrownBy(()->service.hospitalization(p,0,10,steward)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(()->service.hospitalization(p,0,10,scope("NURSE",other,"autre"))).isInstanceOf(ResponseStatusException.class);
+        var record=service.hospitalization(p,0,1,nurse);
+        assertThat(record.get("current")).isNull();
+        assertThat(((com.hopital.organization.application.dto.PageResponse<?>)record.get("history")).totalElements()).isEqualTo(1);
+    }
+    @Test void boardPaginatesFiltersAndNeverDisclosesPatientIdentityToSteward() {
+        UUID bed=asset("BED"),p=passage();asset("BED");
+        when(clients.passage(p)).thenReturn(new PatrimonyClients.Passage(p,"PAS-SECRET","PAT-SECRET",hospital,"OPEN","Identité confidentielle","Médecine",null));
+        service.occupy(bed,new PatrimonyRequests.Bed(p,false,"Installation"),nurse);
+        var care=board.board(0,1,"",null,null,room,"","",nurse);
+        var page=(com.hopital.organization.application.dto.PageResponse<?>)care.get("beds");
+        assertThat(page.items()).hasSize(1);assertThat(page.totalElements()).isEqualTo(2);
+        assertThat(board.board(0,12,"SECRET",null,null,null,"","",nurse).toString()).contains("Identité confidentielle");
+        assertThat(board.board(0,12,"",null,null,null,"","",steward).toString()).doesNotContain("patientName","patientCode","passageId","SECRET","confidentielle");
+        var hidden=(com.hopital.organization.application.dto.PageResponse<?>)board.board(0,12,"SECRET",null,null,null,"","",steward).get("beds");
+        assertThat(hidden.totalElements()).isZero();
+        var otherPage=(com.hopital.organization.application.dto.PageResponse<?>)board.board(0,12,"",null,null,null,"","",scope("NURSE",other,"autre")).get("beds");
+        assertThat(otherPage.totalElements()).isZero();
+        assertThat(((com.hopital.organization.application.dto.PageResponse<?>)board.board(0,12,"",null,null,null,"","FREE",nurse).get("beds")).totalElements()).isEqualTo(1);
+        UUID building=id(db.one("SELECT parent_id FROM patrimony_locations WHERE id=:id",params("id",room)),"parentId");
+        assertThat(((com.hopital.organization.application.dto.PageResponse<?>)board.board(0,12,"",null,building,room,"Médecine","",nurse).get("beds")).totalElements()).isEqualTo(2);
+        assertThat(((com.hopital.organization.application.dto.PageResponse<?>)board.board(0,12,"",null,UUID.randomUUID(),null,"","",nurse).get("beds")).totalElements()).isZero();
+        assertThat(board.locations("ROOM","Salle",null,building,0,30,nurse).items()).hasSize(1);
+        assertThat(board.locations("ROOM","Salle",null,UUID.randomUUID(),0,30,nurse).items()).isEmpty();
+        assertThatThrownBy(()->board.board(0,12,"",other,null,null,"","",nurse)).isInstanceOf(ResponseStatusException.class);
+        assertThat(board.board(0,12,"",null,null,null,"","",new PatrimonyScope(true,null,Set.of("ADMIN"),"admin","admin"))).containsKeys("beds","counts");
+    }
+    @Test void reconciliationIsIdempotentAndDoesNotReleaseReopenedPassage() {
+        UUID bed=asset("BED"),p=passage();
+        service.occupy(bed,new PatrimonyRequests.Bed(p,false,"Installation"),nurse);
+        service.reconcilePassageBed(p); // sortie ancienne, mais passage actuellement ouvert
+        assertThat(service.bed(bed,nurse).get("passageId")).isEqualTo(p.toString());
+        when(clients.passage(p)).thenReturn(new PatrimonyClients.Passage(p,"PAS","PAT",hospital,"TRANSFERRED"));
+        service.reconcilePassageBed(p);service.reconcilePassageBed(p);
+        assertThat(service.bed(bed,nurse).get("passageId")).isNull();
+        assertThat(db.count("SELECT count(*) FROM patrimony_events WHERE asset_id=:id AND kind='BED_RELEASED'",params("id",bed))).isEqualTo(1);
+    }
+    @Test void concurrentChangesToSameTargetKeepOneWinnerAndOtherPatientsOldBed() throws Exception {
+        UUID first=asset("BED"),second=asset("BED"),target=asset("BED"),p1=passage(),p2=passage();
+        UUID s1=id(service.occupy(first,new PatrimonyRequests.Bed(p1,false,"Installation"),nurse),"id");
+        UUID s2=id(service.occupy(second,new PatrimonyRequests.Bed(p2,false,"Installation"),nurse),"id");
+        // Les transactions des deux utilisateurs doivent voir les mêmes fixtures.
+        org.springframework.test.context.transaction.TestTransaction.flagForCommit();
+        org.springframework.test.context.transaction.TestTransaction.end();
+        var gate=new java.util.concurrent.CountDownLatch(1);
+        try(var executor=java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var f1=executor.submit(()->{gate.await();try{service.assignPassageBed(p1,new PatrimonyRequests.BedAssignment(target,s1,false,"Changement"),nurse);return true;}catch(ResponseStatusException e){return false;}});
+            var f2=executor.submit(()->{gate.await();try{service.assignPassageBed(p2,new PatrimonyRequests.BedAssignment(target,s2,false,"Changement"),nurse);return true;}catch(ResponseStatusException e){return false;}});
+            gate.countDown();boolean won1=f1.get(15,java.util.concurrent.TimeUnit.SECONDS),won2=f2.get(15,java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(won1^won2).isTrue();
+            UUID loser=won1?p2:p1,previous=won1?second:first;
+            assertThat(db.one("SELECT asset_id FROM patrimony_bed_stays WHERE passage_id=:id AND status<>'RELEASED'",params("id",loser)).get("assetId")).isEqualTo(previous.toString());
+            assertThat(service.asset(previous,steward).get("cleaningRequired")).isEqualTo(false);
+            assertThat(db.count("SELECT count(*) FROM patrimony_bed_stays WHERE asset_id=:id AND status<>'RELEASED'",params("id",target))).isEqualTo(1);
+        } finally { org.springframework.test.context.transaction.TestTransaction.start(); }
     }
     @Test void loansReturnsAndPhysicalControlsKeepHistory() {
         UUID key=asset("BED");

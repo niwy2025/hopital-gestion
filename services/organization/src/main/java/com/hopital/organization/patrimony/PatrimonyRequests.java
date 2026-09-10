@@ -30,4 +30,7 @@ public final class PatrimonyRequests {
     public record Note(@NotBlank @Size(max=1000) String note) { }
     public record Assignment(UUID personnelId, @NotBlank @Size(max=2000) String note) { }
     public record LocationStatus(boolean active) { }
+    public record BedAssignment(@NotNull UUID bedId, UUID expectedStayId, boolean reserved,
+            @NotBlank @Size(max=1000) String note) { }
+    public record BedRelease(@NotNull UUID expectedStayId, @NotBlank @Size(max=1000) String note) { }
 }

@@ -114,6 +114,7 @@ public class PatientApplicationService {
             "image/webp");
 
     private final PatientRepository patientRepository;
+    private final PatientHospitalizationOutboxService hospitalizationOutbox;
     private final PatientDocumentRepository patientDocumentRepository;
     private final PatientPassageRepository patientPassageRepository;
     private final PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository;
@@ -130,6 +131,7 @@ public class PatientApplicationService {
 
     public PatientApplicationService(
             PatientRepository patientRepository,
+            PatientHospitalizationOutboxService hospitalizationOutbox,
             PatientDocumentRepository patientDocumentRepository,
             PatientPassageRepository patientPassageRepository,
             PatientPassageClinicalEntryRepository patientPassageClinicalEntryRepository,
@@ -144,6 +146,7 @@ public class PatientApplicationService {
             PharmacyDispenseAccountingOutboxService pharmacyDispenseAccountingOutboxService,
             PharmacyDispensePaymentSettlementEventRepository pharmacyDispensePaymentSettlementEventRepository) {
         this.patientRepository = patientRepository;
+        this.hospitalizationOutbox = hospitalizationOutbox;
         this.patientDocumentRepository = patientDocumentRepository;
         this.patientPassageRepository = patientPassageRepository;
         this.patientPassageClinicalEntryRepository = patientPassageClinicalEntryRepository;
@@ -1082,6 +1085,7 @@ public class PatientApplicationService {
         }
         if (passage.getStatus() != request.status()) {
             passage.changeStatus(request.status(), auditActor, Instant.now());
+            if (request.status() != PatientPassageStatus.OPEN) hospitalizationOutbox.enqueue(passage.getId());
         }
         return toPassage(passage);
     }

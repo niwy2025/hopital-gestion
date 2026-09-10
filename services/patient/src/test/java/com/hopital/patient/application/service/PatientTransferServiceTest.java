@@ -40,6 +40,7 @@ class PatientTransferServiceTest {
     @Mock PatientPassageRepository passages;
     @Mock HospitalReferenceClient hospitals;
     @InjectMocks PatientTransferService service;
+    @Mock PatientHospitalizationOutboxService hospitalizationOutbox;
     private final UUID origin = UUID.randomUUID();
     private final UUID destination = UUID.randomUUID();
     private final UUID doctorId = UUID.randomUUID();
@@ -116,6 +117,7 @@ class PatientTransferServiceTest {
         assertThat(result.externalFacilityName()).isEqualTo("Clinique externe");
         assertThat(result.destinationPassageId()).isNull();
         assertThat(source.getStatus()).isEqualTo(PatientPassageStatus.TRANSFERRED);
+        verify(hospitalizationOutbox).enqueue(source.getId());
         assertThat(service.dispatch(transfer.getId(), sender(), actor)).isEqualTo(result);
         verifyNoInteractions(hospitals);
     }

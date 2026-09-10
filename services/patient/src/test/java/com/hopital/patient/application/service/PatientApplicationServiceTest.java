@@ -126,6 +126,7 @@ class PatientApplicationServiceTest {
     @Mock
     private PharmacyDispensePaymentSettlementEventRepository pharmacyDispensePaymentSettlementEventRepository;
 
+    @Mock PatientHospitalizationOutboxService hospitalizationOutbox;
     @InjectMocks
     private PatientApplicationService patientApplicationService;
 
@@ -290,6 +291,7 @@ class PatientApplicationServiceTest {
                 auditActor());
 
         assertThat(response.status()).isEqualTo(PatientPassageStatus.CLOSED);
+        verify(hospitalizationOutbox).enqueue(passage.getId());
         assertThat(response.closedByUsername()).isEqualTo("operateur.accueil");
     }
 

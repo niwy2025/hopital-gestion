@@ -31,7 +31,7 @@ public class PatrimonyClients {
         return new PatrimonyScope(response.administrator(), response.laboratoryCode()==null?response.hospitalId():null, response.roleCodes(), jwt.getSubject(), jwt.getClaimAsString("preferred_username"));
     }
     public Passage passage(UUID id) {
-        var response = patients.get().uri("/internal/patients/passages/{id}/laboratory-reference", id).retrieve().body(Passage.class);
+        var response = patients.get().uri("/internal/patients/passages/{id}/hospitalization-reference", id).retrieve().body(Passage.class);
         if (response == null) throw new IllegalStateException("Passage indisponible");
         return response;
     }
@@ -46,5 +46,10 @@ public class PatrimonyClients {
     }
     public record Personnel(UUID id, String firstName, String lastName, String middleName) { }
     public record Scope(boolean administrator, UUID hospitalId, Set<String> roleCodes, String laboratoryCode) { }
-    public record Passage(UUID passageId, String passageCode, String patientCode, UUID hospitalId, String status) { }
+    public record Passage(UUID passageId, String passageCode, String patientCode, UUID hospitalId, String status,
+            String patientName, String serviceName, java.time.Instant closedAt) {
+        public Passage(UUID passageId,String passageCode,String patientCode,UUID hospitalId,String status) {
+            this(passageId,passageCode,patientCode,hospitalId,status,null,null,null);
+        }
+    }
 }

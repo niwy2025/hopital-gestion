@@ -12,4 +12,7 @@ public class InternalPatrimonyController {
     public InternalPatrimonyController(PatrimonyService service) { this.service=service; }
     @GetMapping("/internal/organizations/patrimony/assets/{id}/accounting-reference")
     public Map<String,Object> reference(@PathVariable("id") UUID id) { return service.accountingReference(id); }
+    @org.springframework.web.bind.annotation.PostMapping("/internal/organizations/patrimony/passages/{id}/reconcile")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void reconcile(@PathVariable("id") UUID id) { service.reconcilePassageBed(id); }
 }

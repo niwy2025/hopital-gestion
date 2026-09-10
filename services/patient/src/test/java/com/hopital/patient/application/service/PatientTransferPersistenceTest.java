@@ -34,7 +34,7 @@ import org.springframework.data.domain.PageRequest;
 
 @DataJpaTest(properties = { "spring.jpa.hibernate.ddl-auto=validate", "spring.jpa.show-sql=false" })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import(PatientTransferService.class)
+@Import({PatientTransferService.class,PatientHospitalizationOutboxService.class,PatientTransferPersistenceTest.Config.class})
 @EnabledIfEnvironmentVariable(named = "TRANSFER_POSTGRES_TEST", matches = "true")
 class PatientTransferPersistenceTest {
     @Autowired PatientTransferService service;
@@ -43,6 +43,14 @@ class PatientTransferPersistenceTest {
     @Autowired PatientTransferRepository transfers;
     @Autowired EntityManager entityManager;
     @MockBean HospitalReferenceClient hospitals;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @org.springframework.boot.test.context.TestConfiguration
+    static class Config {
+        @org.springframework.context.annotation.Bean
+        org.springframework.web.client.RestClient.Builder restClientBuilder() { return org.springframework.web.client.RestClient.builder(); }
+        @org.springframework.context.annotation.Bean
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate(javax.sql.DataSource source) { return new org.springframework.jdbc.core.JdbcTemplate(source); }
+    }
     private final UUID origin = UUID.randomUUID();
     private final UUID destination = UUID.randomUUID();
     private final AuditActor actor = new AuditActor("test-actor", "medecin.test");
@@ -81,6 +89,7 @@ class PatientTransferPersistenceTest {
         assertThat(service.search(0, 20, "", null, "INCOMING", origin, null, null, receiver).totalElements()).isEqualTo(1);
         assertThat(patients.search("", "DEST", null, null, PageRequest.of(0, 20)).getTotalElements()).isZero();
         service.dispatch(created.id(), admin, actor);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM patient_hospitalization_outbox WHERE passage_id=? AND status='PENDING'",Long.class,source.getId())).isEqualTo(1);
         entityManager.flush();
         entityManager.clear();
         var received = service.receive(created.id(),

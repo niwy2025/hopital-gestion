@@ -26,8 +26,32 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/organizations/patrimony")
 public class PatrimonyController {
-    private final PatrimonyService service; private final PatrimonyClients clients;
-    public PatrimonyController(PatrimonyService service, PatrimonyClients clients) { this.service=service; this.clients=clients; }
+    private final PatrimonyService service; private final PatrimonyClients clients; private final HospitalizationBoardService board;
+    public PatrimonyController(PatrimonyService service, PatrimonyClients clients, HospitalizationBoardService board) { this.service=service; this.clients=clients; this.board=board; }
+    @GetMapping("/bed-board")
+    public Map<String,Object> board(@RequestParam(name="page",defaultValue="0") int page,@RequestParam(name="size",defaultValue="12") int size,
+        @RequestParam(name="query",defaultValue="") String query,@RequestParam(name="hospitalId",required=false) UUID hospital,
+        @RequestParam(name="buildingId",required=false) UUID building,@RequestParam(name="roomId",required=false) UUID room,
+        @RequestParam(name="service",defaultValue="") String unit,@RequestParam(name="state",defaultValue="") String state,@AuthenticationPrincipal Jwt jwt) {
+        return board.board(page,size,query,hospital,building,room,unit,state,clients.scope(jwt));
+    }
+    @GetMapping("/bed-locations/search")
+    public PageResponse<Map<String,Object>> bedLocations(@RequestParam(name="kind") String kind,@RequestParam(name="query",defaultValue="") String query,
+        @RequestParam(name="hospitalId",required=false) UUID hospital,@RequestParam(name="buildingId",required=false) UUID building,
+        @RequestParam(name="page",defaultValue="0") int page,@RequestParam(name="size",defaultValue="30") int size,@AuthenticationPrincipal Jwt jwt) {
+        return board.locations(kind,query,hospital,building,page,size,clients.scope(jwt));
+    }
+    @GetMapping("/passages/{id}/hospitalization")
+    public Map<String,Object> hospitalization(@PathVariable("id") UUID id,@RequestParam(name="page",defaultValue="0") int page,
+        @RequestParam(name="size",defaultValue="10") int size,@AuthenticationPrincipal Jwt jwt) { return service.hospitalization(id,page,size,clients.scope(jwt)); }
+    @PostMapping("/passages/{id}/bed-assignment")
+    public Map<String,Object> bedAssignment(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.BedAssignment r,@AuthenticationPrincipal Jwt jwt) {
+        return service.assignPassageBed(id,r,clients.scope(jwt));
+    }
+    @PostMapping("/passages/{id}/bed-release") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void bedRelease(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.BedRelease r,@AuthenticationPrincipal Jwt jwt) {
+        service.releasePassageBed(id,r,clients.scope(jwt));
+    }
     @GetMapping("/{resource}/search")
     public PageResponse<Map<String,Object>> search(@PathVariable("resource") String resource,
             @RequestParam(name="page",defaultValue="0") int page,@RequestParam(name="size",defaultValue="20") int size,

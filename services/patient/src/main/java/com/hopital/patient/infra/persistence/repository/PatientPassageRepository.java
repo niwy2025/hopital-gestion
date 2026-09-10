@@ -3,10 +3,13 @@ package com.hopital.patient.infra.persistence.repository;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
+import jakarta.persistence.LockModeType;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,10 +17,17 @@ public interface PatientPassageRepository extends JpaRepository<PatientPassageEn
 
     boolean existsByCodeIgnoreCase(String code);
 
+    boolean existsByPatient_IdAndHospitalCodeIgnoreCase(UUID patientId, String hospitalCode);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT passage FROM PatientPassageEntity passage WHERE passage.id = :id")
+    Optional<PatientPassageEntity> findForUpdate(@Param("id") UUID id);
+
     @Query("""
             SELECT passage
             FROM PatientPassageEntity passage
             WHERE passage.patient.id = :patientId
+              AND (:hospitalCode = '' OR LOWER(passage.hospitalCode) = LOWER(:hospitalCode))
               AND (:query = ''
                     OR LOWER(passage.code) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(COALESCE(passage.serviceName, '')) LIKE LOWER(CONCAT('%', :query, '%'))
@@ -27,6 +37,7 @@ public interface PatientPassageRepository extends JpaRepository<PatientPassageEn
             """)
     Page<PatientPassageEntity> search(
             @Param("patientId") UUID patientId,
+            @Param("hospitalCode") String hospitalCode,
             @Param("query") String query,
             @Param("type") PatientPassageType type,
             @Param("status") PatientPassageStatus status,

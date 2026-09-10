@@ -2,6 +2,10 @@ package com.hopital.patient.application.domain;
 
 public enum PatientAuditEventType {
     CREATED,
+    TRANSFER_REQUESTED,
+    TRANSFER_DISPATCHED,
+    TRANSFER_RECEIVED,
+    TRANSFER_CANCELLED,
     UPDATED,
     STATUS_CHANGED,
     TRIAGE_RECORDED,

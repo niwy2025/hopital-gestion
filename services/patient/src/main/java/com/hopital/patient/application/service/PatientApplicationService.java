@@ -163,8 +163,7 @@ public class PatientApplicationService {
     public List<PatientSummaryResponse> listPatients(DataAccessScope accessScope) {
         List<PatientEntity> patients = accessScope.provinceWide()
                 ? patientRepository.findAllByOrderByLastNameAscFirstNameAsc()
-                : patientRepository.findAllByRegistrationHospitalCodeIgnoreCaseOrderByLastNameAscFirstNameAsc(
-                        accessScope.hospitalCode());
+                : patientRepository.findAllAccessibleToHospital(requiredHospitalCode(accessScope));
         return patients.stream().map(this::toSummary).toList();
     }
 
@@ -177,7 +176,7 @@ public class PatientApplicationService {
             DataAccessScope accessScope) {
         var patients = patientRepository.search(
                 normalizeSearchFilter(query),
-                accessScope.provinceWide() ? "" : accessScope.hospitalCode(),
+                accessScope.provinceWide() ? "" : requiredHospitalCode(accessScope),
                 accessScope.provinceWide() ? hospitalId : null,
                 active,
                 PageRequest.of(
@@ -195,7 +194,7 @@ public class PatientApplicationService {
     public PatientResponse getPatient(UUID patientId, DataAccessScope accessScope) {
         PatientEntity patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
-        assertAccess(accessScope, patient.getRegistrationHospitalCode());
+        assertPatientAccess(accessScope, patient);
         return toDetails(patient);
     }
 
@@ -209,9 +208,10 @@ public class PatientApplicationService {
             DataAccessScope accessScope) {
         PatientEntity patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
-        assertAccess(accessScope, patient.getRegistrationHospitalCode());
+        assertPatientAccess(accessScope, patient);
         var passages = patientPassageRepository.search(
                 patientId,
+                accessScope.provinceWide() ? "" : requiredHospitalCode(accessScope),
                 normalizeSearchFilter(query),
                 type,
                 status,
@@ -306,7 +306,7 @@ public class PatientApplicationService {
     public PatientPassageSummaryResponse getPassage(UUID passageId, DataAccessScope accessScope) {
         PatientPassageEntity passage = patientPassageRepository.findById(passageId)
                 .orElseThrow(() -> new PatientNotFoundException(passageId.toString()));
-        assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
+        assertAccess(accessScope, passage.getHospitalCode());
         return toPassageSummary(passage, canManagePassageStatus(accessScope, passage));
     }
 
@@ -1005,7 +1005,7 @@ public class PatientApplicationService {
             AuditActor auditActor) {
         PatientEntity patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
-        assertAccess(accessScope, patient.getRegistrationHospitalCode());
+        assertPatientAccess(accessScope, patient);
 
         HospitalReferenceClient.HospitalReference hospital = resolvePassageHospital(request.hospitalId(), accessScope);
         PatientPassageEntity passage = new PatientPassageEntity(
@@ -1033,7 +1033,7 @@ public class PatientApplicationService {
             AuditActor auditActor) {
         PatientEntity patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
-        assertAccess(accessScope, patient.getRegistrationHospitalCode());
+        assertPatientAccess(accessScope, patient);
         assertNoDuplicate(request, patient.getId());
         patient.updateProfile(
                 request.firstName().trim(),
@@ -1060,13 +1060,16 @@ public class PatientApplicationService {
             UpdatePatientPassageStatusRequest request,
             DataAccessScope accessScope,
             AuditActor auditActor) {
-        PatientPassageEntity passage = patientPassageRepository.findById(passageId)
+        PatientPassageEntity passage = patientPassageRepository.findForUpdate(passageId)
                 .orElseThrow(() -> new PatientNotFoundException(passageId.toString()));
         if (!passage.getPatient().getId().equals(patientId)) {
             throw new PatientNotFoundException(passageId.toString());
         }
-        assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
+        assertAccess(accessScope, passage.getHospitalCode());
         assertCanManagePassageStatus(accessScope, passage);
+        if (passage.getStatus() == PatientPassageStatus.TRANSFERRED || request.status() == PatientPassageStatus.TRANSFERRED) {
+            throw new InvalidPatientPassageStateException("Le statut transféré est géré uniquement par le circuit de transfert.");
+        }
         if (request.status() == PatientPassageStatus.CLOSED && passage.getResponsiblePersonnelId() == null) {
             throw new InvalidPatientPassageStateException(
                     "Un personnel responsable doit être affecté avant de terminer le passage.");
@@ -1095,7 +1098,7 @@ public class PatientApplicationService {
         if (!passage.getPatient().getId().equals(patientId)) {
             throw new PatientNotFoundException(passageId.toString());
         }
-        assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
+        assertAccess(accessScope, passage.getHospitalCode());
         if (passage.getStatus() != PatientPassageStatus.OPEN) {
             throw new InvalidPatientPassageStateException(
                     "Le personnel responsable ne peut être modifié que sur un passage en cours.");
@@ -1112,7 +1115,7 @@ public class PatientApplicationService {
             AuditActor auditActor) {
         PatientEntity patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
-        assertAccess(accessScope, patient.getRegistrationHospitalCode());
+        assertPatientAccess(accessScope, patient);
         if (patient.isActive() != request.active()) {
             patient.setActive(request.active());
             patient.recordModification(
@@ -1356,7 +1359,7 @@ public class PatientApplicationService {
     private PatientEntity getPatientForScope(UUID patientId, DataAccessScope accessScope) {
         PatientEntity patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
-        assertAccess(accessScope, patient.getRegistrationHospitalCode());
+        assertPatientAccess(accessScope, patient);
         return patient;
     }
 
@@ -1588,6 +1591,14 @@ public class PatientApplicationService {
         }
     }
 
+    private void assertPatientAccess(DataAccessScope scope, PatientEntity patient) {
+        if (!scope.canAccessHospital(patient.getRegistrationHospitalCode())
+                && !patientPassageRepository.existsByPatient_IdAndHospitalCodeIgnoreCase(
+                        patient.getId(), requiredHospitalCode(scope))) {
+            throw new DataAccessDeniedException();
+        }
+    }
+
     private PatientPassageEntity getPassageForPatientScope(
             UUID patientId,
             UUID passageId,
@@ -1597,7 +1608,7 @@ public class PatientApplicationService {
         if (!passage.getPatient().getId().equals(patientId)) {
             throw new PatientNotFoundException(passageId.toString());
         }
-        assertAccess(accessScope, passage.getPatient().getRegistrationHospitalCode());
+        assertAccess(accessScope, passage.getHospitalCode());
         return passage;
     }
 

@@ -36,6 +36,9 @@ public class HospitalReferenceClient {
         }
     }
 
-    public record HospitalReference(UUID hospitalId, String hospitalCode, boolean active) {
+    public record HospitalReference(UUID hospitalId, String hospitalCode, boolean active, String hospitalName) {
+        public HospitalReference(UUID hospitalId, String hospitalCode, boolean active) {
+            this(hospitalId, hospitalCode, active, hospitalCode);
+        }
     }
 }

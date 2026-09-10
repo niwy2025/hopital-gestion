@@ -184,6 +184,10 @@ Le numéro de dossier est généré côté serveur : il ne doit pas être fourni
 le client. Les listes paginées ne renvoient pas les coordonnées sensibles ;
 elles restent disponibles sur la fiche détaillée.
 
+## Transferts hospitaliers
+
+Voir le [circuit de transfert des patients](patient-transfers.md) : préparation, départ, réception interne et fiche de liaison imprimable pour les structures externes.
+
 ## Réponse d'erreur
 
 Les erreurs suivent le format commun :

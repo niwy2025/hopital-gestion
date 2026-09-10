@@ -1,0 +1,7 @@
+package com.hopital.patient.application.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record CancelPatientTransferRequest(@NotBlank @Size(max = 1000) String reason) {
+}

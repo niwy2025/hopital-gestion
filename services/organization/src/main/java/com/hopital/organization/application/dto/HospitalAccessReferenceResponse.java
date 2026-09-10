@@ -9,5 +9,6 @@ public record HospitalAccessReferenceResponse(
         String hospitalCode,
         boolean active,
         List<String> hospitalLaboratoryCodes,
-        List<HospitalLaboratoryAccessReference> hospitalLaboratories) {
+        List<HospitalLaboratoryAccessReference> hospitalLaboratories,
+        String hospitalName) {
 }

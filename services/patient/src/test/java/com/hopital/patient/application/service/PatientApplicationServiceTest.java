@@ -280,7 +280,7 @@ class PatientApplicationServiceTest {
                 PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
         passage.assignResponsiblePersonnel(
                 responsiblePersonnelId, "MED-001", "Kasongo Amina", "Médecin traitant", auditActor(), Instant.now());
-        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+        when(patientPassageRepository.findForUpdate(passage.getId())).thenReturn(Optional.of(passage));
 
         PatientPassageResponse response = patientApplicationService.updatePassageStatus(
                 patient.getId(),
@@ -302,7 +302,7 @@ class PatientApplicationServiceTest {
                 PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
         passage.assignResponsiblePersonnel(
                 responsiblePersonnelId, "MED-001", "Kasongo Amina", "Médecin traitant", auditActor(), Instant.now());
-        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+        when(patientPassageRepository.findForUpdate(passage.getId())).thenReturn(Optional.of(passage));
         when(patientPassagePrescriptionRepository.existsByPassage_IdAndStatusIn(any(), any())).thenReturn(true);
 
         assertThatThrownBy(() -> patientApplicationService.updatePassageStatus(
@@ -323,7 +323,7 @@ class PatientApplicationServiceTest {
                 PatientPassageType.CONSULTATION, "Consultations externes", null, auditActor(), Instant.now());
         passage.assignResponsiblePersonnel(
                 UUID.randomUUID(), "MED-001", "Kasongo Amina", "Médecin traitant", auditActor(), Instant.now());
-        when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
+        when(patientPassageRepository.findForUpdate(passage.getId())).thenReturn(Optional.of(passage));
 
         assertThatThrownBy(() -> patientApplicationService.updatePassageStatus(
                 patient.getId(),
@@ -949,6 +949,47 @@ class PatientApplicationServiceTest {
             assertThat(event.getType()).isEqualTo(com.hopital.patient.application.domain.PatientAuditEventType.DOCUMENT_ADDED);
             assertThat(event.getOperatorUsername()).isEqualTo("operateur.accueil");
         });
+    }
+
+    @Test
+    void receivingHospitalCanReadPatientAfterItsOwnPassageExists() {
+        PatientEntity patient = patient("ORIGIN");
+        when(patientRepository.findById(patient.getId())).thenReturn(Optional.of(patient));
+        when(patientPassageRepository.existsByPatient_IdAndHospitalCodeIgnoreCase(patient.getId(), "DEST"))
+                .thenReturn(true);
+        var response = patientApplicationService.getPatient(patient.getId(), new DataAccessScope(false, "DEST"));
+        assertThat(response.id()).isEqualTo(patient.getId());
+        assertThat(response.registrationHospitalCode()).isEqualTo("ORIGIN");
+        assertThatThrownBy(() -> patientApplicationService.getPatient(patient.getId(), new DataAccessScope(false, "THIRD")))
+                .isInstanceOf(DataAccessDeniedException.class);
+    }
+
+    @Test
+    void receivingHospitalCanReadItsPassageButNotTheOriginPassage() {
+        PatientEntity patient = patient("ORIGIN");
+        var arrival = new PatientPassageEntity(UUID.randomUUID(), "PAS-ARRIVAL", patient, UUID.randomUUID(), "DEST",
+                PatientPassageType.EMERGENCY, "Urgences", "Transfert", auditActor(), Instant.now());
+        when(patientPassageRepository.findById(arrival.getId())).thenReturn(Optional.of(arrival));
+        assertThat(patientApplicationService.getPassage(arrival.getId(), new DataAccessScope(false, "DEST")).id())
+                .isEqualTo(arrival.getId());
+        assertThatThrownBy(() -> patientApplicationService.getPassage(arrival.getId(), new DataAccessScope(false, "ORIGIN")))
+                .isInstanceOf(DataAccessDeniedException.class);
+    }
+
+    @Test
+    void genericStatusUpdateCannotBypassTransferWorkflowOrReopenTransferredPassage() {
+        PatientEntity patient = patient("ORIGIN");
+        var passage = new PatientPassageEntity(UUID.randomUUID(), "PAS-ORIGIN", patient, patient.getRegistrationHospitalId(), "ORIGIN",
+                PatientPassageType.CONSULTATION, null, null, auditActor(), Instant.now());
+        when(patientPassageRepository.findForUpdate(passage.getId())).thenReturn(Optional.of(passage));
+        var admin = new DataAccessScope(true, "");
+        assertThatThrownBy(() -> patientApplicationService.updatePassageStatus(patient.getId(), passage.getId(),
+                new UpdatePatientPassageStatusRequest(PatientPassageStatus.TRANSFERRED), admin, auditActor()))
+                .isInstanceOf(com.hopital.patient.application.exception.InvalidPatientPassageStateException.class);
+        passage.changeStatus(PatientPassageStatus.TRANSFERRED, auditActor(), Instant.now());
+        assertThatThrownBy(() -> patientApplicationService.updatePassageStatus(patient.getId(), passage.getId(),
+                new UpdatePatientPassageStatusRequest(PatientPassageStatus.OPEN), admin, auditActor()))
+                .isInstanceOf(com.hopital.patient.application.exception.InvalidPatientPassageStateException.class);
     }
 
     private PatientEntity patient(String hospitalCode) {

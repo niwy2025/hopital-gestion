@@ -131,7 +131,7 @@ public class OrganizationApplicationService {
                 .map(laboratory -> new HospitalLaboratoryAccessReference(laboratory.getCode(), laboratory.getName()))
                 .toList();
         return new HospitalAccessReferenceResponse(
-                hospital.getId(), hospital.getCode(), hospital.isActive(), laboratoryCodes, laboratories);
+                hospital.getId(), hospital.getCode(), hospital.isActive(), laboratoryCodes, laboratories, hospital.getName());
     }
 
     public List<ReferenceLaboratoryResponse> listReferenceLaboratories() {

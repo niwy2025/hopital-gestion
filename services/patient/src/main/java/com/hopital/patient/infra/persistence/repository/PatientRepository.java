@@ -25,6 +25,15 @@ public interface PatientRepository extends JpaRepository<PatientEntity, UUID> {
     List<PatientEntity> findAllByRegistrationHospitalCodeIgnoreCaseOrderByLastNameAscFirstNameAsc(String registrationHospitalCode);
 
     @Query("""
+            SELECT patient FROM PatientEntity patient
+            WHERE LOWER(patient.registrationHospitalCode) = LOWER(:hospitalCode)
+              OR EXISTS (SELECT passage.id FROM PatientPassageEntity passage
+                         WHERE passage.patient.id = patient.id AND LOWER(passage.hospitalCode) = LOWER(:hospitalCode))
+            ORDER BY patient.lastName, patient.firstName
+            """)
+    List<PatientEntity> findAllAccessibleToHospital(@Param("hospitalCode") String hospitalCode);
+
+    @Query("""
             SELECT patient
             FROM PatientEntity patient
             WHERE LOWER(patient.lastName) = LOWER(:lastName)
@@ -52,8 +61,12 @@ public interface PatientRepository extends JpaRepository<PatientEntity, UUID> {
                     OR LOWER(COALESCE(patient.nationalIdentifier, '')) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(COALESCE(patient.phoneNumber, '')) LIKE LOWER(CONCAT('%', :query, '%'))
                     OR LOWER(patient.registrationHospitalCode) LIKE LOWER(CONCAT('%', :query, '%')))
-              AND (:hospitalCode = '' OR LOWER(patient.registrationHospitalCode) = LOWER(:hospitalCode))
-              AND (:hospitalId IS NULL OR patient.registrationHospitalId = :hospitalId)
+              AND (:hospitalCode = '' OR LOWER(patient.registrationHospitalCode) = LOWER(:hospitalCode)
+                    OR EXISTS (SELECT passage.id FROM PatientPassageEntity passage
+                               WHERE passage.patient.id = patient.id AND LOWER(passage.hospitalCode) = LOWER(:hospitalCode)))
+              AND (:hospitalId IS NULL OR patient.registrationHospitalId = :hospitalId
+                    OR EXISTS (SELECT passage.id FROM PatientPassageEntity passage
+                               WHERE passage.patient.id = patient.id AND passage.hospitalId = :hospitalId))
               AND (:active IS NULL OR patient.active = :active)
             """)
     Page<PatientEntity> search(

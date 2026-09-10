@@ -54,6 +54,230 @@
           }
         }
       ]
+    },
+    {
+      "name": "Transferts des patients",
+      "description": "Préparer avec le médecin responsable. Confirmer le départ avec le compte de l’hôpital source. Réceptionner avec un compte de l’hôpital destinataire. Un transfert externe n’a pas d’étape de réception dans la plateforme.",
+      "item": [
+        {
+          "name": "Rechercher les transferts",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/patients/transfers/search?page=0&size=20&query="
+          }
+        },
+        {
+          "name": "Transferts entrants à réceptionner",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/patients/transfers/search?page=0&size=20&direction=INCOMING&status=IN_TRANSIT"
+          }
+        },
+        {
+          "name": "Préparer un transfert interne",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/patients/passages/{{passage_id}}/transfers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destinationHospitalId\": \"{{destination_hospital_id}}\",\n  \"reason\": \"Orientation pour poursuite des soins\",\n  \"clinicalSummary\": \"Synthèse rédigée par le médecin responsable.\",\n  \"treatmentAndInstructions\": \"Traitements administrés, allergies et consignes à compléter.\",\n  \"transportDetails\": \"Transport à organiser entre les équipes\",\n  \"urgent\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) { pm.environment.set('transfer_id', pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Préparer un transfert externe",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/patients/passages/{{passage_id}}/transfers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destinationHospitalId\": null,\n  \"reason\": \"Orientation pour poursuite des soins\",\n  \"clinicalSummary\": \"Synthèse rédigée par le médecin responsable.\",\n  \"treatmentAndInstructions\": \"Traitements administrés, allergies et consignes à compléter.\",\n  \"transportDetails\": \"Transport à organiser entre les équipes\",\n  \"urgent\": false,\n  \"externalFacilityName\": \"Structure hors plateforme (exemple)\",\n  \"externalFacilityAddress\": \"Ville et adresse à compléter\",\n  \"destinationContact\": \"Téléphone du service destinataire\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) { pm.environment.set('transfer_id', pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Voir la fiche de liaison",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/patients/transfers/{{transfer_id}}"
+          }
+        },
+        {
+          "name": "Confirmer le départ",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/patients/transfers/{{transfer_id}}/dispatch"
+          }
+        },
+        {
+          "name": "Réceptionner dans l’hôpital destinataire",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/patients/transfers/{{transfer_id}}/receive",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"CONSULTATION\",\n  \"serviceName\": \"Consultations externes\",\n  \"receptionNote\": \"Arrivée constatée par l’équipe d’accueil.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Annuler avant le départ",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/patients/transfers/{{transfer_id}}/cancel",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Transfert annulé avant le départ.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   ]
 }

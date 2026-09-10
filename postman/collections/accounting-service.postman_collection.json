@@ -6,6 +6,129 @@
   },
   "item": [
     {
+      "name": "Registre des immobilisations",
+      "item": [
+        {
+          "name": "Biens à qualifier",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounting/fixed-assets/search?page=0&size=20&hospitalId={{hospital_id}}&status=PENDING"
+          }
+        },
+        {
+          "name": "Fiche comptable",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounting/fixed-assets/{{patrimony_asset_id}}"
+          }
+        },
+        {
+          "name": "Qualifier",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/accounting/fixed-assets/{{patrimony_asset_id}}/classification",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"classification\": \"IMMOBILIZATION\",\n  \"accountingValue\": 100,\n  \"residualValue\": 0,\n  \"startOn\": \"2026-09-01\",\n  \"usefulLifeMonths\": 60,\n  \"assetAccountId\": \"{{asset_account_id}}\",\n  \"depreciationAccountId\": \"{{depreciation_account_id}}\",\n  \"expenseAccountId\": \"{{depreciation_expense_account_id}}\",\n  \"depreciable\": true,\n  \"note\": \"Qualification et durée validées\",\n  \"version\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Plan",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/accounting/fixed-assets/{{patrimony_asset_id}}/schedule?page=0&size=20"
+          }
+        },
+        {
+          "name": "Préparer brouillon",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/accounting/fixed-assets/{{patrimony_asset_id}}/installments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"journalId\": \"{{depreciation_journal_id}}\",\n  \"installment\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "00 - Vue comptable",
       "item": [
         {

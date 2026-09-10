@@ -34,3 +34,44 @@ jobs:
 
       - name: Build and test
         run: mvn --batch-mode --no-transfer-progress verify
+
+  patrimony-postgres:
+    name: Patrimoine PostgreSQL (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        include:
+          - service: organization
+            tests: PatrimonyPersistenceTest
+          - service: accounting
+            tests: FixedAssetPersistenceTest,FixedAssetAmountTest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PATRIMONY_POSTGRES_TEST: 'true'
+      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/postgres
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: ci-test-only
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: '**/pom.xml'
+      - name: Vérifier les migrations et les invariants PostgreSQL
+        run: mvn --batch-mode --no-transfer-progress -pl services/${{ matrix.service }} -Dtest=${{ matrix.tests }} test

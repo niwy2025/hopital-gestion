@@ -27,6 +27,9 @@ services/accounting/              Facturation, caisse, journaux et états compta
 
 ## Briques incluses
 
+Le module [Patrimoine et intendance](docs/api/patrimony.md) couvre les locaux,
+biens, lits, interventions, documents et leur registre comptable par hôpital.
+
 - **Spring Boot** pour les services Java (`api-gateway`, `auth-service`, `account-service`, `notification-service`, `organization-service`, `laboratory-service`, `patient-service`, `pharmacy-service`, `personnel-service`, `accounting-service`).
 - **Docker Compose** pour orchestrer les dépendances et services locaux.
 - **Kong** comme gateway interne, conservée pour les intégrations qui l'utilisent.

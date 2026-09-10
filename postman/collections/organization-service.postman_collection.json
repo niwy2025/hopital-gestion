@@ -6,6 +6,833 @@
   },
   "item": [
     {
+      "name": "Patrimoine et intendance",
+      "item": [
+        {
+          "name": "Catégories",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/categories"
+          }
+        },
+        {
+          "name": "Rechercher assets",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/search?page=0&size=20&query=&hospitalId={{hospital_id}}"
+          }
+        },
+        {
+          "name": "Rechercher locations",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/locations/search?page=0&size=20&query=&hospitalId={{hospital_id}}"
+          }
+        },
+        {
+          "name": "Rechercher beds",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/beds/search?page=0&size=20&query=&hospitalId={{hospital_id}}"
+          }
+        },
+        {
+          "name": "Rechercher operations",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/operations/search?page=0&size=20&query=&hospitalId={{hospital_id}}"
+          }
+        },
+        {
+          "name": "Rechercher events",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/events/search?page=0&size=20&query=&hospitalId={{hospital_id}}"
+          }
+        },
+        {
+          "name": "Rechercher documents",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/documents/search?page=0&size=20&query=&hospitalId={{hospital_id}}"
+          }
+        },
+        {
+          "name": "Créer un bâtiment",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/locations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hospitalId\": \"{{hospital_id}}\",\n  \"kind\": \"BUILDING\",\n  \"name\": \"Pavillon principal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) pm.environment.set(\"patrimony_building_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Créer une salle",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/locations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hospitalId\": \"{{hospital_id}}\",\n  \"kind\": \"ROOM\",\n  \"name\": \"Salle 1\",\n  \"parentId\": \"{{patrimony_building_id}}\",\n  \"serviceName\": \"Médecine\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) pm.environment.set(\"patrimony_location_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enregistrer un lit",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hospitalId\": \"{{hospital_id}}\",\n  \"categoryCode\": \"BED\",\n  \"name\": \"Lit médicalisé\",\n  \"locationId\": \"{{patrimony_location_id}}\",\n  \"acquisitionSource\": \"PURCHASE\",\n  \"receivedOn\": \"2026-09-10\",\n  \"purchaseCost\": 100,\n  \"currency\": \"USD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) pm.environment.set(\"patrimony_asset_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fiche du bien",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}"
+          }
+        },
+        {
+          "name": "Étiquette QR",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}/label"
+          }
+        },
+        {
+          "name": "Déplacer",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}/movements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"MOVE\",\n  \"locationId\": \"{{patrimony_location_id}}\",\n  \"note\": \"Déplacement vérifié\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Contrôle physique",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}/movements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"INVENTORY_FOUND\",\n  \"note\": \"Présence constatée\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Prêter",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}/movements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"LOAN\",\n  \"recipient\": \"Centre partenaire\",\n  \"dueOn\": \"2027-01-01\",\n  \"note\": \"Prêt autorisé\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Retour",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}/movements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"RETURN\",\n  \"note\": \"Bien rendu et contrôlé\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Responsable",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}/assignment",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"personnelId\": \"{{personnel_id}}\",\n  \"note\": \"Responsabilité confiée\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Demande de maintenance",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}/operations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"MAINTENANCE\",\n  \"reason\": \"Entretien préventif\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) pm.environment.set(\"patrimony_operation_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Démarrer",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/operations/{{patrimony_operation_id}}/decision",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"START\",\n  \"note\": \"Reçu à l’atelier\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Terminer",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/operations/{{patrimony_operation_id}}/decision",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"COMPLETE\",\n  \"note\": \"Tests concluants\",\n  \"cost\": 10,\n  \"operational\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Demande de réforme",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}/operations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"RETIREMENT\",\n  \"reason\": \"Irréparable\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) pm.environment.set(\"patrimony_operation_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Valider sortie — autre administrateur",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/operations/{{patrimony_operation_id}}/decision",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"COMPLETE\",\n  \"note\": \"Réforme approuvée\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Ajouter un document",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}/documents",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"MANUAL\",\n  \"fileName\": \"notice.pdf\",\n  \"contentType\": \"application/pdf\",\n  \"base64\": \"{{patrimony_document_base64}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) pm.environment.set(\"patrimony_document_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Télécharger document",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/documents/{{patrimony_document_id}}"
+          }
+        },
+        {
+          "name": "Réserver lit",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/beds/{{patrimony_asset_id}}/occupancy",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"passageId\": \"{{passage_id}}\",\n  \"reserved\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Occuper lit",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/beds/{{patrimony_asset_id}}/occupancy",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"passageId\": \"{{passage_id}}\",\n  \"reserved\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Libérer lit",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/beds/{{patrimony_asset_id}}/release",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Sortie de salle\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Confirmer nettoyage",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/organizations/patrimony/assets/{{patrimony_asset_id}}/movements",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"CLEANED\",\n  \"note\": \"Désinfection terminée\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "00 - Référentiel provincial",
       "item": [
         {

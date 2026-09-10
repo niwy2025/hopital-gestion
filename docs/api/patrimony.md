@@ -82,11 +82,55 @@ Après libération, le nettoyage doit être confirmé par l’intendance. Imposs
 de déplacer, prêter ou mettre en maintenance un lit occupé. Une panne peut être
 signalée sans effacer l’occupation : l’équipe doit d’abord déplacer le patient.
 
-La fin/transfert/annulation du passage est réconciliée en arrière-plan
-(30 lits par lot, une minute entre les lots par défaut). Une indisponibilité du
-service patient **ne libère pas le lit**. La libération manuelle reste immédiate.
-Ce délai peut augmenter avec une grande file ; il n’existe pas de callback
-synchrone bloquant la clôture du passage.
+La fin/transfert/annulation du passage alimente une outbox persistante dans
+patient-service, dans la même transaction que le changement de statut.
+La livraison asynchrone est tentée toutes les 5 secondes, par lots de 10,
+avec reprise après 30 secondes en cas d'indisponibilité. En complément,
+30 lits par minute sont réconciliés depuis organization-service.
+Une indisponibilité du service patient **ne libère pas le lit**.
+Le destinataire relit l'état actuel du passage : doublons et anciens événements
+ne libèrent pas un passage actuellement rouvert. La libération manuelle reste
+immédiate. Les délais augmentent avec la taille de la file ; aucun appel
+interservices synchrone ne bloque la clôture.
+
+### Hospitalisation intégrée au passage
+
+Depuis le dossier du passage, **Gérer l'hospitalisation** ouvre
+`/passages-patients/[id]/hospitalisation`. Le soignant choisit un lit du même
+hôpital : réservation ou occupation immédiate, confirmation d'arrivée,
+changement motivé et libération. Seul un passage ouvert accepte une affectation.
+Les formulaires envoient l'identifiant de l'affectation affichée
+(`expectedStayId`, ou null à la première affectation). Un écran périmé reçoit 409.
+
+Le changement de lit est atomique dans la base organisation : verrou par passage,
+puis verrouillage des lits par UUID trié. La disponibilité du lit cible est
+vérifiée avant la libération. Un concurrent ou une erreur annule l'ensemble,
+sans faire perdre l'ancien lit. Une réservation annulée sans occupation ne
+nécessite pas de nettoyage ; un lit occupé puis libéré, oui.
+
+Le tableau **Lits et occupation** présente des cartes, une pagination serveur
+(12/24/60 lits), une recherche et des filtres hôpital, bâtiment, salle,
+service et état. Les compteurs respectent les filtres d'emplacement et de
+recherche, indépendamment du filtre d'état. L'intendance ne reçoit aucune
+identité, code patient ou identifiant de passage, même en cherchant ces valeurs.
+
+L'historique paginé conserve les noms du lit/salle/bâtiment/service au moment
+de l'affectation, les opérateurs, motifs, dates de réservation, occupation et
+libération. Les anciennes traces sont conservées et signalées comme telles ;
+les heures d'occupation manquantes ne sont pas inventées.
+Ces durées préparent un futur calcul tarifaire : **aucune facturation automatique**.
+
+Déploiement de cette extension (sans suppression de données) :
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.prod.yml up -d --build organization-service patient-service
+# Puis dans le dépôt frontend :
+docker compose --env-file .env -f docker-compose.production.yml up -d --build hopital-front
+```
+
+Migrations nouvelles : organization V6, patient V21. Aucun rôle supplémentaire
+ni nouveau conteneur. Reconstruire les deux services ensemble pour la nouvelle
+référence interne d'hospitalisation.
 
 ### Maintenance et comptabilité
 
@@ -141,6 +185,11 @@ Toutes les mutations requièrent un jeton et les droits du périmètre.
 | GET | /assets/{id}/label | QR SVG encodé, numéro d’inventaire |
 | GET / POST | /beds/{id} / /beds/{id}/occupancy | Fiche minimale / réservation-occupation |
 | POST | /beds/{id}/release | Libération justifiée |
+| GET | /bed-board | Cartes des lits : page, size, query, hospitalId, buildingId, roomId, service, state |
+| GET | /bed-locations/search | Choix paginés : kind=BUILDING ou ROOM, query, hospitalId, buildingId |
+| GET | /passages/{id}/hospitalization | Affectation courante et historique (page, size) |
+| POST | /passages/{id}/bed-assignment | bedId, expectedStayId, reserved, note |
+| POST | /passages/{id}/bed-release | expectedStayId, note |
 
 Pagination : page indexée à zéro, size 1–100, query, hospitalId (admin),
 status, category, locationId, assetId selon registre. Organisation renvoie
@@ -157,6 +206,8 @@ Les routes `/internal/organizations/patrimony/assets/{id}/accounting-reference`
 et `/internal/accounting/patrimony-assets/{id}` restent privées au réseau
 des services, selon le modèle existant. Ne pas publier les ports des services
 directement ni ajouter de route gateway `/internal`.
+Il en va de même pour `GET /internal/patients/passages/{id}/hospitalization-reference`
+et `POST /internal/organizations/patrimony/passages/{id}/reconcile`.
 
 ## Vérification
 
@@ -173,4 +224,7 @@ mvn -pl services/organization -Dtest=PatrimonyPersistenceTest test
 Pour accounting, utiliser une autre base vide et
 `-pl services/accounting -Dtest=FixedAssetPersistenceTest,FixedAssetAmountTest`.
 Ces tests sont également exécutés par le job CI PostgreSQL.
+Pour patient, sur une autre base jetable : `TRANSFER_POSTGRES_TEST=true`,
+les mêmes variables de datasource, puis
+`mvn -pl services/patient -Dtest=PatientTransferPersistenceTest,PatientHospitalizationOutboxPersistenceTest test`.
 Dans le front : `node --test tests/patrimony-actions.test.cjs`, `npm run build`.

@@ -46,6 +46,8 @@ jobs:
             tests: PatrimonyPersistenceTest
           - service: accounting
             tests: FixedAssetPersistenceTest,FixedAssetAmountTest
+          - service: patient
+            tests: PatientTransferPersistenceTest,PatientHospitalizationOutboxPersistenceTest
     services:
       postgres:
         image: postgres:16-alpine
@@ -60,6 +62,7 @@ jobs:
           --health-retries 12
     env:
       PATRIMONY_POSTGRES_TEST: 'true'
+      TRANSFER_POSTGRES_TEST: 'true'
       SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/postgres
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: ci-test-only

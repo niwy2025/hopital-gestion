@@ -227,6 +227,194 @@
       "name": "04 - Organisation",
       "item": [
         {
+          "name": "Hospitalisation et disponibilité des lits",
+          "description": "Choisir passage_id et patrimony_asset_id. Lire la fiche avant chaque changement : l'affectation attendue protège contre un écran périmé. Aucune facturation automatique.",
+          "item": [
+            {
+              "name": "Cartes des lits (pagination et filtres)",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/organizations/patrimony/bed-board?page=0&size=12&hospitalId={{hospital_id}}&query=&service=&state="
+              }
+            },
+            {
+              "name": "Rechercher un bâtiment",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/organizations/patrimony/bed-locations/search?kind=BUILDING&page=0&size=30&hospitalId={{hospital_id}}&query="
+              }
+            },
+            {
+              "name": "Rechercher une salle",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/organizations/patrimony/bed-locations/search?kind=ROOM&page=0&size=30&hospitalId={{hospital_id}}&query="
+              }
+            },
+            {
+              "name": "Lire l'hospitalisation et l'historique",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/organizations/patrimony/passages/{{passage_id}}/hospitalization?page=0&size=10"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "  const record = pm.response.json();",
+                      "  pm.collectionVariables.set('expected_bed_stay_json', JSON.stringify(record.current ? record.current.id : null));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Réserver ou changer de lit",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/organizations/patrimony/passages/{{passage_id}}/bed-assignment",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bedId\": \"{{patrimony_asset_id}}\",\n  \"expectedStayId\": {{expected_bed_stay_json}},\n  \"reserved\": true,\n  \"note\": \"Admission prévue / motif du changement\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Confirmer l'arrivée (même lit)",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/organizations/patrimony/passages/{{passage_id}}/bed-assignment",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bedId\": \"{{patrimony_asset_id}}\",\n  \"expectedStayId\": {{expected_bed_stay_json}},\n  \"reserved\": false,\n  \"note\": \"Arrivée du patient\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Libérer le lit sans fermer le passage",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/organizations/patrimony/passages/{{passage_id}}/bed-release",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"expectedStayId\": {{expected_bed_stay_json}},\n  \"note\": \"Libération demandée par l'équipe de soins\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
           "name": "Patrimoine et intendance",
           "item": [
             {

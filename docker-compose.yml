@@ -12,15 +12,17 @@ x-container-logging: &container-logging
 x-spring-service: &spring-service
   <<: *container-logging
   restart: unless-stopped
-  # Une JVM sans limite voit toute la RAM de Docker et peut réserver un heap
-  # disproportionné. Ces plafonds restent modifiables dans .env.
-  mem_limit: ${SPRING_SERVICE_MEMORY_LIMIT:-512m}
-  mem_reservation: ${SPRING_SERVICE_MEMORY_RESERVATION:-256m}
-  memswap_limit: ${SPRING_SERVICE_MEMORY_LIMIT:-512m}
+  # Ce profil garde assez de marge native autour du heap de 192 Mo tout en
+  # empêchant les dix JVM applicatives de monopoliser la mémoire de l'hôte.
+  # Les 128 Mo de swap supplémentaires absorbent les pics sans augmenter le
+  # plafond de RAM et tous les seuils restent ajustables dans .env.
+  mem_limit: ${SPRING_SERVICE_MEMORY_LIMIT:-384m}
+  mem_reservation: ${SPRING_SERVICE_MEMORY_RESERVATION:-192m}
+  memswap_limit: ${SPRING_SERVICE_MEMORY_SWAP_LIMIT:-512m}
   pids_limit: ${SPRING_SERVICE_PIDS_LIMIT:-160}
 
 x-spring-jvm: &spring-jvm
-  JAVA_TOOL_OPTIONS: ${SPRING_JAVA_TOOL_OPTIONS:--Xms96m -Xmx256m -XX:MaxMetaspaceSize=160m -XX:MaxDirectMemorySize=64m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+  JAVA_TOOL_OPTIONS: ${SPRING_JAVA_TOOL_OPTIONS:--Xms64m -Xmx192m -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=64m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError}
 
 services:
   # Une seule instance PostgreSQL, avec une base logique par microservice.

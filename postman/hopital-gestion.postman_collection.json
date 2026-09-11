@@ -1536,6 +1536,374 @@
       "name": "08 - Comptabilité",
       "item": [
         {
+          "name": "Prestations, tarifs et frais à facturer",
+          "description": "Premier lot : aucun paiement ni écriture comptable. Définir billing_date (YYYY-MM-DD), hospital_id, patient_passage_id et billing_request_id (UUID généré une fois par nouvelle ligne, conservé sur une reprise). Les prix de ces exemples sont fictifs. Les frais pharmacie ne se ressaisissent pas ici.",
+          "item": [
+            {
+              "name": "Rechercher les prestations",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/services/search?hospitalId={{hospital_id}}&page=0&size=20&query=&category=&active=true"
+              }
+            },
+            {
+              "name": "Créer une prestation (responsable financier)",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/services",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"hospitalId\": \"{{hospital_id}}\",\n  \"name\": \"Consultation générale\",\n  \"category\": \"CONSULTATION\",\n  \"description\": \"Consultation réalisée à l'hôpital\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code >= 200 && pm.response.code < 300) pm.collectionVariables.set(\"billing_service_id\", pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Consulter la prestation",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/services/{{billing_service_id}}"
+              }
+            },
+            {
+              "name": "Modifier une prestation (version attendue)",
+              "request": {
+                "method": "PUT",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/services/{{billing_service_id}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Consultation générale\",\n  \"category\": \"CONSULTATION\",\n  \"description\": \"Consultation réalisée\",\n  \"active\": true,\n  \"version\": 0,\n  \"reason\": \"Description précisée\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Historique des tarifs",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/services/{{billing_service_id}}/tariffs/search?page=0&size=20"
+              }
+            },
+            {
+              "name": "Ajouter un tarif daté (prix fictif de test)",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/services/{{billing_service_id}}/tariffs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"effectiveFrom\": \"{{billing_date}}\",\n  \"currency\": \"CDF\",\n  \"unit\": \"ACT\",\n  \"unitPrice\": 5000,\n  \"reason\": \"Tarif de test à remplacer par celui validé par l'hôpital\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code >= 200 && pm.response.code < 300) pm.collectionVariables.set(\"billing_tariff_id\", pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Annuler un tarif futur uniquement",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/services/{{billing_service_id}}/tariffs/{{billing_tariff_id}}/cancel",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason\": \"Tarif futur retiré\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Journal du catalogue",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/services/{{billing_service_id}}/events/search?page=0&size=20"
+              }
+            },
+            {
+              "name": "Rechercher un passage (référence administrative)",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/passages/search?hospitalId={{hospital_id}}&page=0&size=20&query="
+              }
+            },
+            {
+              "name": "Frais et totaux du passage",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/passages/{{patient_passage_id}}?page=0&size=20&query=&status="
+              }
+            },
+            {
+              "name": "Vérifier le prix applicable",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/passages/{{patient_passage_id}}/quote?serviceId={{billing_service_id}}&performedOn={{billing_date}}&quantity=1&currency=CDF"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200) pm.collectionVariables.set(\"billing_tariff_id\", pm.response.json().tariff.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ajouter une ligne (clé conservée pour les reprises)",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/passages/{{patient_passage_id}}/charges",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"serviceId\": \"{{billing_service_id}}\",\n  \"tariffId\": \"{{billing_tariff_id}}\",\n  \"performedOn\": \"{{billing_date}}\",\n  \"quantity\": 1,\n  \"currency\": \"CDF\",\n  \"requestId\": \"{{billing_request_id}}\",\n  \"note\": \"Consultation réalisée\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code >= 200 && pm.response.code < 300) pm.collectionVariables.set(\"billing_charge_id\", pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Annuler une ligne avec motif",
+              "request": {
+                "method": "POST",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/accounting/billing/passages/{{patient_passage_id}}/charges/{{billing_charge_id}}/cancel",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason\": \"Saisie en double constatée\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
           "name": "Registre des immobilisations",
           "item": [
             {

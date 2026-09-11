@@ -78,6 +78,10 @@ coût de sortie du parcours patient.
 
 ## API publique
 
+Le catalogue des prestations, les tarifs datés par hôpital et les frais de passage
+à facturer sont décrits dans [Prestations et frais de passage](billing.md).
+Ces frais préparatoires ne génèrent pas encore de factures ni d'écritures.
+
 Toutes les routes publiques passent par l'API Gateway et demandent un jeton
 d'accès valide. Les listes utilisent `page`, `size` et `query`; elles sont
 paginées côté serveur.

@@ -14,6 +14,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PatientPassageRepository extends JpaRepository<PatientPassageEntity, UUID> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths="patient")
+    @Query("""
+        SELECT passage FROM PatientPassageEntity passage JOIN passage.patient patient
+        WHERE passage.hospitalId=:hospital AND (:query='' OR
+          LOWER(passage.code) LIKE LOWER(CONCAT('%',:query,'%')) OR LOWER(patient.code) LIKE LOWER(CONCAT('%',:query,'%')) OR
+          LOWER(patient.lastName) LIKE LOWER(CONCAT('%',:query,'%')) OR LOWER(patient.firstName) LIKE LOWER(CONCAT('%',:query,'%')) OR
+          LOWER(COALESCE(patient.middleName,'')) LIKE LOWER(CONCAT('%',:query,'%')))
+        """)
+    Page<PatientPassageEntity> searchBilling(@Param("hospital") UUID hospital,@Param("query") String query,Pageable pageable);
 
     boolean existsByCodeIgnoreCase(String code);
 

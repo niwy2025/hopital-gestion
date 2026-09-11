@@ -67,6 +67,19 @@ class PatientTransferPersistenceTest {
                 PatientPassageType.CONSULTATION, null, null, actor, Instant.now()));
     }
 
+    @Test void billingReferencesAreHospitalScopedAndAdministrativeOnly() throws Exception {
+        var passage=source();
+        jdbc.update("UPDATE patient_passages SET reason='CONFIDENTIAL_DIAGNOSIS' WHERE id=?",passage.getId());
+        assertThat(passages.searchBilling(origin,"Marie",PageRequest.of(0,10)).getTotalElements()).isEqualTo(1);
+        assertThat(passages.searchBilling(destination,"",PageRequest.of(0,10)).getTotalElements()).isZero();
+        assertThat(passages.searchBilling(origin,"CONFIDENTIAL_DIAGNOSIS",PageRequest.of(0,10)).getTotalElements()).isZero();
+        var controller=new com.hopital.patient.api.InternalBillingController(passages);
+        var ref=controller.get(passage.getId());
+        assertThat(ref.patientName()).contains("Marie");
+        var json=new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules().writeValueAsString(ref);
+        assertThat(json).doesNotContain("reason","clinical","diagnosis","CONFIDENTIAL");
+    }
+
     @Test void persistsTransferAndScopesBothSidesWithoutDuplicatingPatient() {
         var source = source();
         UUID patientId = source.getPatient().getId();

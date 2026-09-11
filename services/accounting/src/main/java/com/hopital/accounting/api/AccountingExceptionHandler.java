@@ -18,7 +18,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 public class AccountingExceptionHandler {
     @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
     ResponseEntity<ApiError> fixedAsset(org.springframework.web.server.ResponseStatusException exception, HttpServletRequest request) {
-        return ResponseEntity.status(exception.getStatusCode()).body(new ApiError(Instant.now(), exception.getStatusCode().value(), "FIXED_ASSET_ERROR", exception.getReason(), request.getRequestURI()));
+        String code = request.getRequestURI().startsWith("/api/v1/accounting/billing") ? "BILLING_ERROR" : "FIXED_ASSET_ERROR";
+        return ResponseEntity.status(exception.getStatusCode()).body(new ApiError(Instant.now(), exception.getStatusCode().value(), code, exception.getReason(), request.getRequestURI()));
     }
     @ExceptionHandler(AccountingResourceNotFoundException.class)
     ResponseEntity<ApiError> notFound(AccountingResourceNotFoundException exception, HttpServletRequest request) {

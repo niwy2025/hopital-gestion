@@ -45,7 +45,7 @@ jobs:
           - service: organization
             tests: PatrimonyPersistenceTest
           - service: accounting
-            tests: FixedAssetPersistenceTest,FixedAssetAmountTest
+            tests: FixedAssetPersistenceTest,FixedAssetAmountTest,BillingPersistenceTest,BillingAmountTest,BillingAuthorizationTest
           - service: patient
             tests: PatientTransferPersistenceTest,PatientHospitalizationOutboxPersistenceTest
     services:

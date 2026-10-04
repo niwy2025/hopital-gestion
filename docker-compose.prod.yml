@@ -14,10 +14,9 @@ services:
     restart: unless-stopped
 
   postgres:
-    # PostgreSQL reste uniquement sur le réseau Docker interne. Cette base
-    # n'a pas besoin d'un port hôte et ne peut ainsi plus bloquer le démarrage
-    # de la plateforme à cause d'un conflit de port.
-    ports: !reset []
+    # Le port d'administration reste lié à la boucle locale. Il est accessible
+    # depuis pgAdmin uniquement au travers d'un tunnel SSH vers le serveur.
+    ports: !override ["127.0.0.1:${POSTGRES_HOST_PORT:-54320}:5432"]
     restart: unless-stopped
 
   kafka:

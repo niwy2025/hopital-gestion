@@ -13,6 +13,7 @@ import com.hopital.patient.application.domain.ClinicalOrientation;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.EmergencyContactRelationship;
 import com.hopital.patient.application.domain.Gender;
+import com.hopital.patient.application.domain.PatientCoverageType;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.domain.PatientDocumentType;
@@ -64,6 +65,8 @@ import com.hopital.patient.infra.persistence.repository.PatientPassagePrescripti
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseItemRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseRepository;
+import com.hopital.patient.infra.persistence.repository.PartnerCompanyMemberRepository;
+import com.hopital.patient.infra.persistence.repository.PartnerCompanyRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import com.hopital.patient.infra.persistence.repository.PharmacyDispensePaymentSettlementEventRepository;
@@ -127,6 +130,16 @@ class PatientApplicationServiceTest {
     private PharmacyDispensePaymentSettlementEventRepository pharmacyDispensePaymentSettlementEventRepository;
 
     @Mock PatientHospitalizationOutboxService hospitalizationOutbox;
+
+    @Mock
+    private PartnerCompanyApplicationService partnerCompanyApplicationService;
+
+    @Mock
+    private PartnerCompanyRepository partnerCompanyRepository;
+
+    @Mock
+    private PartnerCompanyMemberRepository partnerCompanyMemberRepository;
+
     @InjectMocks
     private PatientApplicationService patientApplicationService;
 
@@ -154,7 +167,11 @@ class PatientApplicationServiceTest {
                         "Jean Kasongo",
                         "+243 810 000 000",
                         EmergencyContactRelationship.SIBLING)),
-                hospitalId), new DataAccessScope(true, null), auditActor());
+                hospitalId,
+                PatientCoverageType.PRIVATE,
+                null,
+                null,
+                null), new DataAccessScope(true, null), auditActor());
 
         assertThat(response.code()).startsWith("PAT-");
         assertThat(response.registrationHospitalCode()).isEqualTo("HP-GOMA");
@@ -213,11 +230,15 @@ class PatientApplicationServiceTest {
                 Gender.FEMALE,
                 "+243 900 000 001",
                 "aminata@example.cd",
-                        "Goma",
-                        List.of(new EmergencyContactRequest(
-                                "Jean Kasongo",
-                                "+243 810 000 000",
-                        EmergencyContactRelationship.SIBLING))), new DataAccessScope(false, "HP-GOMA"), auditActor());
+                "Goma",
+                List.of(new EmergencyContactRequest(
+                        "Jean Kasongo",
+                        "+243 810 000 000",
+                        EmergencyContactRelationship.SIBLING)),
+                PatientCoverageType.PRIVATE,
+                null,
+                null,
+                null), new DataAccessScope(false, "HP-GOMA"), auditActor());
 
         assertThat(response.firstName()).isEqualTo("Aminata");
         assertThat(response.registrationHospitalId()).isEqualTo(registrationHospitalId);

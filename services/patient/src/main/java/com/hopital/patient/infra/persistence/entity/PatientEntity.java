@@ -4,6 +4,7 @@ import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.EmergencyContactRelationship;
 import com.hopital.patient.application.domain.PatientAuditEventType;
+import com.hopital.patient.application.domain.PatientCoverageType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -67,6 +68,16 @@ public class PatientEntity {
     @Column(name = "registration_hospital_code", nullable = false, length = 30)
     private String registrationHospitalCode;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "coverage_type", nullable = false, length = 20)
+    private PatientCoverageType coverageType = PatientCoverageType.PRIVATE;
+
+    @Column(name = "partner_company_id")
+    private UUID partnerCompanyId;
+
+    @Column(name = "partner_company_member_id")
+    private UUID partnerCompanyMemberId;
+
     @Column(nullable = false)
     private boolean active;
 
@@ -123,8 +134,18 @@ public class PatientEntity {
         this.nationalIdentifier = nationalIdentifier;
         this.registrationHospitalId = registrationHospitalId;
         this.registrationHospitalCode = registrationHospitalCode;
+        this.coverageType = PatientCoverageType.PRIVATE;
         this.active = true;
         this.createdAt = createdAt;
+    }
+
+    public void assignCoverage(
+            PatientCoverageType coverageType,
+            UUID partnerCompanyId,
+            UUID partnerCompanyMemberId) {
+        this.coverageType = coverageType;
+        this.partnerCompanyId = partnerCompanyId;
+        this.partnerCompanyMemberId = partnerCompanyMemberId;
     }
 
     public UUID getId() {
@@ -244,6 +265,18 @@ public class PatientEntity {
 
     public String getRegistrationHospitalCode() {
         return registrationHospitalCode;
+    }
+
+    public PatientCoverageType getCoverageType() {
+        return coverageType;
+    }
+
+    public UUID getPartnerCompanyId() {
+        return partnerCompanyId;
+    }
+
+    public UUID getPartnerCompanyMemberId() {
+        return partnerCompanyMemberId;
     }
 
     public boolean isActive() {

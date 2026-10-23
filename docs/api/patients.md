@@ -17,6 +17,15 @@ défaut `http://localhost:8888`.
 | `GET` | `/api/v1/patients/{patientId}` | Consulte la fiche complète d’un patient. |
 | `GET` | `/api/v1/patients/{patientId}/passages?page=0&size=20` | Consulte l’historique des passages d’un dossier. |
 | `POST` | `/api/v1/patients` | Crée un dossier patient. |
+| `GET` | `/api/v1/patients/partner-companies?hospitalId={uuid}` | Liste paginée des entreprises conventionnées de l’hôpital. |
+| `POST` | `/api/v1/patients/partner-companies` | Crée une entreprise conventionnée pour un hôpital. |
+| `GET` | `/api/v1/patients/partner-companies/{companyId}` | Consulte une entreprise conventionnée. |
+| `PUT` | `/api/v1/patients/partner-companies/{companyId}` | Met à jour une entreprise conventionnée. |
+| `PATCH` | `/api/v1/patients/partner-companies/{companyId}/status` | Active ou désactive une entreprise. |
+| `GET` | `/api/v1/patients/partner-companies/{companyId}/members` | Liste les personnes liées (titulaires / ayants droit). |
+| `POST` | `/api/v1/patients/partner-companies/{companyId}/members` | Ajoute une personne liée. |
+| `PUT` | `/api/v1/patients/partner-companies/{companyId}/members/{memberId}` | Met à jour une personne liée. |
+| `PATCH` | `/api/v1/patients/partner-companies/{companyId}/members/{memberId}/status` | Active ou désactive une personne liée. |
 | `POST` | `/api/v1/patients/{patientId}/passages` | Enregistre une arrivée dans le parcours du patient. |
 | `PATCH` | `/api/v1/patients/{patientId}/passages/{passageId}/responsible-personnel` | Affecte le personnel responsable d’un passage en cours. |
 | `GET` | `/api/v1/patients/{patientId}/passages/{passageId}/clinical-entries/search?page=0&size=20&query=toux&entryType=CLINICAL_EVOLUTION&orientation=LABORATORY` | Consulte le journal clinique paginé d’un passage. |
@@ -33,6 +42,22 @@ défaut `http://localhost:8888`.
 Les listes destinées à l'interface utilisent l'endpoint `search`. `page` est
 indexé à partir de `0`, `size` accepte au plus `100` éléments et la réponse
 contient `items`, `page`, `size`, `totalElements` et `totalPages`.
+
+## Prise en charge Privé / Conventionné
+
+Chaque dossier patient porte un `coverageType` :
+
+- `PRIVATE` — le patient paie lui-même ; aucune entreprise n’est rattachée.
+- `CONVENTION` — prise en charge via une entreprise conventionnée de
+  **l’hôpital d’enregistrement**, avec une personne liée (titulaire ou ayant
+  droit) et un document de preuve `CONVENTION_CARNET` (carnet de fois).
+
+Les entreprises sont scopées par `hospitalId`. Les personnes liées ont un rôle
+`EMPLOYEE` (titulaire) ou `DEPENDENT` (ayant droit, avec `sponsorMemberId`).
+
+À la création d’un patient `CONVENTION`, le corps JSON inclut
+`partnerCompanyId`, `partnerCompanyMemberId` et `conventionCarnet` (même
+structure qu’un document patient).
 
 ## Passage hospitalier
 

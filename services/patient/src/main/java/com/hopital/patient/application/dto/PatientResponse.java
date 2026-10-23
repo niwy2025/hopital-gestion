@@ -1,6 +1,7 @@
 package com.hopital.patient.application.dto;
 
 import com.hopital.patient.application.domain.Gender;
+import com.hopital.patient.application.domain.PatientCoverageType;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -21,6 +22,11 @@ public record PatientResponse(
         List<EmergencyContactResponse> emergencyContacts,
         UUID registrationHospitalId,
         String registrationHospitalCode,
+        PatientCoverageType coverageType,
+        UUID partnerCompanyId,
+        String partnerCompanyName,
+        UUID partnerCompanyMemberId,
+        String partnerCompanyMemberName,
         boolean active,
         Instant createdAt,
         String createdByUsername,

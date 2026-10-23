@@ -7,6 +7,7 @@ import com.hopital.patient.application.domain.ClinicalOrientation;
 import com.hopital.patient.application.domain.DataAccessScope;
 import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.PatientAuditEventType;
+import com.hopital.patient.application.domain.PatientCoverageType;
 import com.hopital.patient.application.domain.PatientDocumentType;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
@@ -53,6 +54,7 @@ import com.hopital.patient.application.dto.UpdatePatientRequest;
 import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.DuplicatePatientException;
+import com.hopital.patient.application.exception.InvalidPatientCoverageException;
 import com.hopital.patient.application.exception.InvalidPatientDocumentException;
 import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
 import com.hopital.patient.application.exception.InvalidPrescriptionException;
@@ -61,6 +63,8 @@ import com.hopital.patient.application.exception.PrescriptionDispenseNotFoundExc
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
 import com.hopital.patient.infra.integration.pharmacy.PharmacyDispenseClient;
 import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
+import com.hopital.patient.infra.persistence.entity.PartnerCompanyEntity;
+import com.hopital.patient.infra.persistence.entity.PartnerCompanyMemberEntity;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
@@ -78,6 +82,8 @@ import com.hopital.patient.infra.persistence.repository.PatientPassagePrescripti
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseItemRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseRepository;
+import com.hopital.patient.infra.persistence.repository.PartnerCompanyMemberRepository;
+import com.hopital.patient.infra.persistence.repository.PartnerCompanyRepository;
 import com.hopital.patient.infra.persistence.repository.PatientDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientRepository;
 import com.hopital.patient.infra.persistence.repository.PharmacyDispensePaymentSettlementEventRepository;
@@ -128,6 +134,9 @@ public class PatientApplicationService {
     private final PharmacyDispenseClient pharmacyDispenseClient;
     private final PharmacyDispenseAccountingOutboxService pharmacyDispenseAccountingOutboxService;
     private final PharmacyDispensePaymentSettlementEventRepository pharmacyDispensePaymentSettlementEventRepository;
+    private final PartnerCompanyApplicationService partnerCompanyApplicationService;
+    private final PartnerCompanyRepository partnerCompanyRepository;
+    private final PartnerCompanyMemberRepository partnerCompanyMemberRepository;
 
     public PatientApplicationService(
             PatientRepository patientRepository,
@@ -144,7 +153,10 @@ public class PatientApplicationService {
             PersonnelReferenceClient personnelReferenceClient,
             PharmacyDispenseClient pharmacyDispenseClient,
             PharmacyDispenseAccountingOutboxService pharmacyDispenseAccountingOutboxService,
-            PharmacyDispensePaymentSettlementEventRepository pharmacyDispensePaymentSettlementEventRepository) {
+            PharmacyDispensePaymentSettlementEventRepository pharmacyDispensePaymentSettlementEventRepository,
+            PartnerCompanyApplicationService partnerCompanyApplicationService,
+            PartnerCompanyRepository partnerCompanyRepository,
+            PartnerCompanyMemberRepository partnerCompanyMemberRepository) {
         this.patientRepository = patientRepository;
         this.hospitalizationOutbox = hospitalizationOutbox;
         this.patientDocumentRepository = patientDocumentRepository;
@@ -160,6 +172,9 @@ public class PatientApplicationService {
         this.pharmacyDispenseClient = pharmacyDispenseClient;
         this.pharmacyDispenseAccountingOutboxService = pharmacyDispenseAccountingOutboxService;
         this.pharmacyDispensePaymentSettlementEventRepository = pharmacyDispensePaymentSettlementEventRepository;
+        this.partnerCompanyApplicationService = partnerCompanyApplicationService;
+        this.partnerCompanyRepository = partnerCompanyRepository;
+        this.partnerCompanyMemberRepository = partnerCompanyMemberRepository;
     }
 
     /** Compatibility endpoint for existing dependent forms. New registry screens use the paginated search endpoint. */
@@ -971,6 +986,13 @@ public class PatientApplicationService {
         assertAccess(accessScope, registrationHospitalCode);
 
         assertNoDuplicate(request);
+        CoverageAssignment coverage = resolveCoverageAssignment(
+                request.coverageType(),
+                request.partnerCompanyId(),
+                request.partnerCompanyMemberId(),
+                hospital.hospitalId(),
+                true,
+                request.conventionCarnet());
 
         Instant createdAt = Instant.now();
         PatientEntity patient = new PatientEntity(
@@ -988,6 +1010,7 @@ public class PatientApplicationService {
                 hospital.hospitalId(),
                 registrationHospitalCode,
                 createdAt);
+        patient.assignCoverage(coverage.coverageType(), coverage.partnerCompanyId(), coverage.partnerCompanyMemberId());
         for (int index = 0; index < request.emergencyContacts().size(); index++) {
             var contact = request.emergencyContacts().get(index);
             patient.addEmergencyContact(
@@ -997,7 +1020,14 @@ public class PatientApplicationService {
                     index);
         }
         patient.recordCreation(auditActor, createdAt);
-        return toDetails(patientRepository.save(patient));
+        PatientEntity saved = patientRepository.save(patient);
+        if (coverage.member() != null) {
+            linkMemberToPatient(coverage.member(), saved.getId(), auditActor, createdAt);
+        }
+        if (request.conventionCarnet() != null) {
+            persistConventionCarnet(saved, request.conventionCarnet(), auditActor, createdAt);
+        }
+        return toDetails(saved);
     }
 
     @Transactional
@@ -1038,6 +1068,16 @@ public class PatientApplicationService {
                 .orElseThrow(() -> new PatientNotFoundException(patientId.toString()));
         assertPatientAccess(accessScope, patient);
         assertNoDuplicate(request, patient.getId());
+        boolean requiresCarnetUpload = request.coverageType() == PatientCoverageType.CONVENTION
+                && !patientDocumentRepository.existsByPatientIdAndDocumentType(
+                        patient.getId(), PatientDocumentType.CONVENTION_CARNET);
+        CoverageAssignment coverage = resolveCoverageAssignment(
+                request.coverageType(),
+                request.partnerCompanyId(),
+                request.partnerCompanyMemberId(),
+                patient.getRegistrationHospitalId(),
+                requiresCarnetUpload,
+                request.conventionCarnet());
         patient.updateProfile(
                 request.firstName().trim(),
                 request.lastName().trim(),
@@ -1047,12 +1087,20 @@ public class PatientApplicationService {
                 trimToNull(request.phoneNumber()),
                 trimToNull(request.email()),
                 trimToNull(request.address()));
+        patient.assignCoverage(coverage.coverageType(), coverage.partnerCompanyId(), coverage.partnerCompanyMemberId());
         replaceEmergencyContacts(patient, request.emergencyContacts());
+        Instant updatedAt = Instant.now();
+        if (coverage.member() != null) {
+            linkMemberToPatient(coverage.member(), patient.getId(), auditActor, updatedAt);
+        }
+        if (request.conventionCarnet() != null) {
+            persistConventionCarnet(patient, request.conventionCarnet(), auditActor, updatedAt);
+        }
         patient.recordModification(
                 auditActor,
                 PatientAuditEventType.UPDATED,
                 "Informations administratives mises à jour.",
-                Instant.now());
+                updatedAt);
         return toDetails(patient);
     }
 
@@ -1209,6 +1257,18 @@ public class PatientApplicationService {
     }
 
     private PatientResponse toDetails(PatientEntity patient) {
+        String partnerCompanyName = null;
+        String partnerCompanyMemberName = null;
+        if (patient.getPartnerCompanyId() != null) {
+            partnerCompanyName = partnerCompanyRepository.findById(patient.getPartnerCompanyId())
+                    .map(PartnerCompanyEntity::getName)
+                    .orElse(null);
+        }
+        if (patient.getPartnerCompanyMemberId() != null) {
+            partnerCompanyMemberName = partnerCompanyMemberRepository.findById(patient.getPartnerCompanyMemberId())
+                    .map(PartnerCompanyMemberEntity::getFullName)
+                    .orElse(null);
+        }
         return new PatientResponse(
                 patient.getId(),
                 patient.getCode(),
@@ -1230,6 +1290,11 @@ public class PatientApplicationService {
                         .toList(),
                 patient.getRegistrationHospitalId(),
                 patient.getRegistrationHospitalCode(),
+                patient.getCoverageType() == null ? PatientCoverageType.PRIVATE : patient.getCoverageType(),
+                patient.getPartnerCompanyId(),
+                partnerCompanyName,
+                patient.getPartnerCompanyMemberId(),
+                partnerCompanyMemberName,
                 patient.isActive(),
                 patient.getCreatedAt(),
                 patient.getCreatedByUsername(),
@@ -1243,6 +1308,95 @@ public class PatientApplicationService {
                                 event.getOperatorUsername(),
                                 event.getOccurredAt()))
                         .toList());
+    }
+
+    private CoverageAssignment resolveCoverageAssignment(
+            PatientCoverageType coverageType,
+            UUID partnerCompanyId,
+            UUID partnerCompanyMemberId,
+            UUID registrationHospitalId,
+            boolean requireConventionCarnet,
+            CreatePatientDocumentRequest conventionCarnet) {
+        PatientCoverageType resolvedType = coverageType == null ? PatientCoverageType.PRIVATE : coverageType;
+        if (resolvedType == PatientCoverageType.PRIVATE) {
+            if (partnerCompanyId != null || partnerCompanyMemberId != null || conventionCarnet != null) {
+                throw new InvalidPatientCoverageException(
+                        "Un patient privé ne doit pas être rattaché à une entreprise conventionnée.");
+            }
+            return new CoverageAssignment(PatientCoverageType.PRIVATE, null, null, null);
+        }
+        if (partnerCompanyId == null || partnerCompanyMemberId == null) {
+            throw new InvalidPatientCoverageException(
+                    "Une entreprise et une personne liée sont obligatoires pour un patient conventionné.");
+        }
+        if (registrationHospitalId == null) {
+            throw new InvalidPatientCoverageException(
+                    "L’hôpital d’enregistrement est obligatoire pour rattacher une convention.");
+        }
+        PartnerCompanyEntity company = partnerCompanyApplicationService.requireActiveCompanyForHospital(
+                partnerCompanyId, registrationHospitalId);
+        PartnerCompanyMemberEntity member = partnerCompanyApplicationService.requireActiveMemberForCoverage(
+                company.getId(), partnerCompanyMemberId);
+        if (requireConventionCarnet && conventionCarnet == null) {
+            throw new InvalidPatientCoverageException(
+                    "Le carnet de fois est obligatoire pour enregistrer un patient conventionné.");
+        }
+        if (conventionCarnet != null && conventionCarnet.documentType() != PatientDocumentType.CONVENTION_CARNET) {
+            throw new InvalidPatientCoverageException(
+                    "Le document de preuve doit être un carnet de fois.");
+        }
+        return new CoverageAssignment(
+                PatientCoverageType.CONVENTION,
+                company.getId(),
+                member.getId(),
+                member);
+    }
+
+    private void linkMemberToPatient(
+            PartnerCompanyMemberEntity member,
+            UUID patientId,
+            AuditActor auditActor,
+            Instant occurredAt) {
+        if (member.getPatientId() != null && !member.getPatientId().equals(patientId)) {
+            throw new InvalidPatientCoverageException(
+                    "Cette personne liée est déjà rattachée à un autre dossier patient.");
+        }
+        if (member.getPatientId() == null) {
+            member.linkPatient(patientId, auditActor, occurredAt);
+            partnerCompanyMemberRepository.save(member);
+        }
+    }
+
+    private void persistConventionCarnet(
+            PatientEntity patient,
+            CreatePatientDocumentRequest request,
+            AuditActor auditActor,
+            Instant createdAt) {
+        DocumentContent content = validateDocument(request);
+        PatientDocumentEntity document = new PatientDocumentEntity(
+                UUID.randomUUID(),
+                patient.getId(),
+                PatientDocumentType.CONVENTION_CARNET,
+                request.fileName().trim(),
+                content.contentType(),
+                content.sizeBytes(),
+                content.contentBase64(),
+                createdAt,
+                auditActor.userId(),
+                auditActor.username());
+        patientDocumentRepository.save(document);
+        patient.recordModification(
+                auditActor,
+                PatientAuditEventType.DOCUMENT_ADDED,
+                "Pièce ajoutée au dossier : " + documentTypeLabel(PatientDocumentType.CONVENTION_CARNET) + ".",
+                createdAt);
+    }
+
+    private record CoverageAssignment(
+            PatientCoverageType coverageType,
+            UUID partnerCompanyId,
+            UUID partnerCompanyMemberId,
+            PartnerCompanyMemberEntity member) {
     }
 
     private String nextPatientCode() {
@@ -1401,6 +1555,7 @@ public class PatientApplicationService {
             case BIRTH_CERTIFICATE -> "acte de naissance";
             case HEALTH_INSURANCE -> "assurance ou prise en charge";
             case REFERRAL_LETTER -> "lettre de référence";
+            case CONVENTION_CARNET -> "carnet de fois";
             case OTHER -> "autre pièce";
         };
     }

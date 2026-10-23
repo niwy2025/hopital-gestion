@@ -1,6 +1,7 @@
 package com.hopital.patient.application.dto;
 
 import com.hopital.patient.application.domain.Gender;
+import com.hopital.patient.application.domain.PatientCoverageType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -22,5 +23,9 @@ public record CreatePatientRequest(
         @Size(max = 255) String address,
         @Size(max = 100) String nationalIdentifier,
         @NotNull @Size(max = 5) List<@Valid EmergencyContactRequest> emergencyContacts,
-        @NotNull UUID registrationHospitalId) {
+        @NotNull UUID registrationHospitalId,
+        @NotNull PatientCoverageType coverageType,
+        UUID partnerCompanyId,
+        UUID partnerCompanyMemberId,
+        @Valid CreatePatientDocumentRequest conventionCarnet) {
 }

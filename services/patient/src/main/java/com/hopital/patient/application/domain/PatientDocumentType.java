@@ -8,5 +8,6 @@ public enum PatientDocumentType {
     BIRTH_CERTIFICATE,
     HEALTH_INSURANCE,
     REFERRAL_LETTER,
+    CONVENTION_CARNET,
     OTHER
 }

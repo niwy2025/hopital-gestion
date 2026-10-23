@@ -29,6 +29,8 @@ public interface PatientDocumentRepository extends JpaRepository<PatientDocument
 
     Optional<PatientDocumentEntity> findByIdAndPatientId(UUID id, UUID patientId);
 
+    boolean existsByPatientIdAndDocumentType(UUID patientId, PatientDocumentType documentType);
+
     @Modifying
     @Query("DELETE FROM PatientDocumentEntity document WHERE document.patientId = :patientId AND document.documentType = :documentType")
     void deleteByPatientIdAndDocumentType(

@@ -4,6 +4,7 @@ import com.hopital.patient.application.dto.ApiError;
 import com.hopital.patient.application.exception.DuplicatePatientException;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.InvalidRegistrationHospitalException;
+import com.hopital.patient.application.exception.InvalidPatientCoverageException;
 import com.hopital.patient.application.exception.InvalidPatientDocumentException;
 import com.hopital.patient.application.exception.InvalidResponsiblePersonnelException;
 import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
@@ -49,6 +50,13 @@ public class PatientExceptionHandler {
     @ExceptionHandler(InvalidPatientDocumentException.class)
     ResponseEntity<ApiError> handleInvalidDocument(InvalidPatientDocumentException exception, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "PATIENT_DOCUMENT_INVALID", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidPatientCoverageException.class)
+    ResponseEntity<ApiError> handleInvalidCoverage(
+            InvalidPatientCoverageException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, "PATIENT_COVERAGE_INVALID", exception.getMessage(), request);
     }
 
     @ExceptionHandler(InvalidResponsiblePersonnelException.class)

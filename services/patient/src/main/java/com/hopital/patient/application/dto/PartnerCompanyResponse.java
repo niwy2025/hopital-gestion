@@ -8,6 +8,7 @@ public record PartnerCompanyResponse(
         UUID hospitalId,
         String code,
         String name,
+        String legalName,
         String phoneNumber,
         String email,
         String address,

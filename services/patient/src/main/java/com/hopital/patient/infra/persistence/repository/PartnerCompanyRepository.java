@@ -23,6 +23,7 @@ public interface PartnerCompanyRepository extends JpaRepository<PartnerCompanyEn
                 :query = ''
                 OR LOWER(company.code) LIKE LOWER(CONCAT('%', :query, '%'))
                 OR LOWER(company.name) LIKE LOWER(CONCAT('%', :query, '%'))
+                OR LOWER(COALESCE(company.legalName, '')) LIKE LOWER(CONCAT('%', :query, '%'))
               )
             ORDER BY company.name ASC
             """)

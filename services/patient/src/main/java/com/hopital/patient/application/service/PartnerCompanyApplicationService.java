@@ -87,6 +87,7 @@ public class PartnerCompanyApplicationService {
                 hospital.hospitalId(),
                 code,
                 request.name().trim(),
+                trimToNull(request.legalName()),
                 trimToNull(request.phoneNumber()),
                 trimToNull(request.email()),
                 trimToNull(request.address()),
@@ -104,6 +105,7 @@ public class PartnerCompanyApplicationService {
         PartnerCompanyEntity company = requireAccessibleCompany(companyId, accessScope);
         company.updateProfile(
                 request.name().trim(),
+                trimToNull(request.legalName()),
                 trimToNull(request.phoneNumber()),
                 trimToNull(request.email()),
                 trimToNull(request.address()),
@@ -281,6 +283,7 @@ public class PartnerCompanyApplicationService {
                 company.getHospitalId(),
                 company.getCode(),
                 company.getName(),
+                company.getLegalName(),
                 company.getPhoneNumber(),
                 company.getEmail(),
                 company.getAddress(),

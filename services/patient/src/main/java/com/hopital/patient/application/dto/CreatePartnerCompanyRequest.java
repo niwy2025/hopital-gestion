@@ -10,6 +10,7 @@ public record CreatePartnerCompanyRequest(
         @NotNull UUID hospitalId,
         @NotBlank @Size(max = 30) String code,
         @NotBlank @Size(max = 200) String name,
+        @Size(max = 200) String legalName,
         @Size(max = 30) String phoneNumber,
         @Email @Size(max = 255) String email,
         @Size(max = 255) String address) {

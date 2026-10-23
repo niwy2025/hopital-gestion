@@ -24,6 +24,9 @@ public class PartnerCompanyEntity {
     @Column(nullable = false, length = 200)
     private String name;
 
+    @Column(name = "legal_name", length = 200)
+    private String legalName;
+
     @Column(name = "phone_number", length = 30)
     private String phoneNumber;
 
@@ -62,6 +65,7 @@ public class PartnerCompanyEntity {
             UUID hospitalId,
             String code,
             String name,
+            String legalName,
             String phoneNumber,
             String email,
             String address,
@@ -71,6 +75,7 @@ public class PartnerCompanyEntity {
         this.hospitalId = hospitalId;
         this.code = code;
         this.name = name;
+        this.legalName = legalName;
         this.phoneNumber = phoneNumber;
         this.email = email;
         this.address = address;
@@ -85,12 +90,14 @@ public class PartnerCompanyEntity {
 
     public void updateProfile(
             String name,
+            String legalName,
             String phoneNumber,
             String email,
             String address,
             AuditActor actor,
             Instant updatedAt) {
         this.name = name;
+        this.legalName = legalName;
         this.phoneNumber = phoneNumber;
         this.email = email;
         this.address = address;
@@ -122,6 +129,10 @@ public class PartnerCompanyEntity {
 
     public String getName() {
         return name;
+    }
+
+    public String getLegalName() {
+        return legalName;
     }
 
     public String getPhoneNumber() {

@@ -26,6 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/organizations/patrimony")
 public class PatrimonyController {
+    /** Empêche /assets/search (et équivalents) d’être capturés par /assets/{id}. */
+    private static final String ID = "{id:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}}";
+
     private final PatrimonyService service; private final PatrimonyClients clients; private final HospitalizationBoardService board;
     public PatrimonyController(PatrimonyService service, PatrimonyClients clients, HospitalizationBoardService board) { this.service=service; this.clients=clients; this.board=board; }
     @GetMapping("/bed-board")
@@ -41,14 +44,14 @@ public class PatrimonyController {
         @RequestParam(name="page",defaultValue="0") int page,@RequestParam(name="size",defaultValue="30") int size,@AuthenticationPrincipal Jwt jwt) {
         return board.locations(kind,query,hospital,building,page,size,clients.scope(jwt));
     }
-    @GetMapping("/passages/{id}/hospitalization")
+    @GetMapping("/passages/" + ID + "/hospitalization")
     public Map<String,Object> hospitalization(@PathVariable("id") UUID id,@RequestParam(name="page",defaultValue="0") int page,
         @RequestParam(name="size",defaultValue="10") int size,@AuthenticationPrincipal Jwt jwt) { return service.hospitalization(id,page,size,clients.scope(jwt)); }
-    @PostMapping("/passages/{id}/bed-assignment")
+    @PostMapping("/passages/" + ID + "/bed-assignment")
     public Map<String,Object> bedAssignment(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.BedAssignment r,@AuthenticationPrincipal Jwt jwt) {
         return service.assignPassageBed(id,r,clients.scope(jwt));
     }
-    @PostMapping("/passages/{id}/bed-release") @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PostMapping("/passages/" + ID + "/bed-release") @ResponseStatus(HttpStatus.NO_CONTENT)
     public void bedRelease(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.BedRelease r,@AuthenticationPrincipal Jwt jwt) {
         service.releasePassageBed(id,r,clients.scope(jwt));
     }
@@ -62,23 +65,23 @@ public class PatrimonyController {
     @GetMapping("/categories") public List<Map<String,Object>> categories(@AuthenticationPrincipal Jwt jwt) { return service.categories(clients.scope(jwt)); }
     @PostMapping("/locations") @ResponseStatus(HttpStatus.CREATED)
     public Map<String,Object> location(@Valid @RequestBody PatrimonyRequests.Location r,@AuthenticationPrincipal Jwt jwt) { return service.createLocation(r,clients.scope(jwt)); }
-    @PatchMapping("/locations/{id}/status") @ResponseStatus(HttpStatus.NO_CONTENT) public void locationStatus(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.LocationStatus r,@AuthenticationPrincipal Jwt jwt) { service.locationStatus(id,r.active(),clients.scope(jwt)); }
+    @PatchMapping("/locations/" + ID + "/status") @ResponseStatus(HttpStatus.NO_CONTENT) public void locationStatus(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.LocationStatus r,@AuthenticationPrincipal Jwt jwt) { service.locationStatus(id,r.active(),clients.scope(jwt)); }
     @PostMapping("/assets") @ResponseStatus(HttpStatus.CREATED)
     public Map<String,Object> create(@Valid @RequestBody PatrimonyRequests.Asset r,@AuthenticationPrincipal Jwt jwt) { return service.saveAsset(null,r,clients.scope(jwt)); }
-    @PutMapping("/assets/{id}") public Map<String,Object> update(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Asset r,@AuthenticationPrincipal Jwt jwt) { return service.saveAsset(id,r,clients.scope(jwt)); }
-    @GetMapping("/assets/{id}") public Map<String,Object> get(@PathVariable("id") UUID id,@AuthenticationPrincipal Jwt jwt) { return service.asset(id,clients.scope(jwt)); }
-    @PostMapping("/assets/{id}/assignment") @ResponseStatus(HttpStatus.NO_CONTENT) public void assign(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Assignment r,@AuthenticationPrincipal Jwt jwt) { service.assign(id,r,clients.scope(jwt)); }
-    @PostMapping("/assets/{id}/movements") @ResponseStatus(HttpStatus.NO_CONTENT) public void move(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Movement r,@AuthenticationPrincipal Jwt jwt) { service.move(id,r,clients.scope(jwt)); }
-    @PostMapping("/assets/{id}/operations") @ResponseStatus(HttpStatus.CREATED)
+    @PutMapping("/assets/" + ID) public Map<String,Object> update(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Asset r,@AuthenticationPrincipal Jwt jwt) { return service.saveAsset(id,r,clients.scope(jwt)); }
+    @GetMapping("/assets/" + ID) public Map<String,Object> get(@PathVariable("id") UUID id,@AuthenticationPrincipal Jwt jwt) { return service.asset(id,clients.scope(jwt)); }
+    @PostMapping("/assets/" + ID + "/assignment") @ResponseStatus(HttpStatus.NO_CONTENT) public void assign(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Assignment r,@AuthenticationPrincipal Jwt jwt) { service.assign(id,r,clients.scope(jwt)); }
+    @PostMapping("/assets/" + ID + "/movements") @ResponseStatus(HttpStatus.NO_CONTENT) public void move(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Movement r,@AuthenticationPrincipal Jwt jwt) { service.move(id,r,clients.scope(jwt)); }
+    @PostMapping("/assets/" + ID + "/operations") @ResponseStatus(HttpStatus.CREATED)
     public Map<String,Object> operation(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Operation r,@AuthenticationPrincipal Jwt jwt) { return service.createOperation(id,r,clients.scope(jwt)); }
-    @PostMapping("/operations/{id}/decision") @ResponseStatus(HttpStatus.NO_CONTENT) public void complete(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.CompleteOperation r,@AuthenticationPrincipal Jwt jwt) { service.completeOperation(id,r,clients.scope(jwt)); }
-    @PostMapping("/assets/{id}/documents") @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/operations/" + ID + "/decision") @ResponseStatus(HttpStatus.NO_CONTENT) public void complete(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.CompleteOperation r,@AuthenticationPrincipal Jwt jwt) { service.completeOperation(id,r,clients.scope(jwt)); }
+    @PostMapping("/assets/" + ID + "/documents") @ResponseStatus(HttpStatus.CREATED)
     public Map<String,Object> document(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Document r,@AuthenticationPrincipal Jwt jwt) { return service.addDocument(id,r,clients.scope(jwt)); }
-    @GetMapping("/documents/{id}") public Map<String,Object> download(@PathVariable("id") UUID id,@AuthenticationPrincipal Jwt jwt) { return service.document(id,clients.scope(jwt)); }
-    @PostMapping("/beds/{id}/occupancy") public Map<String,Object> occupy(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Bed r,@AuthenticationPrincipal Jwt jwt) { return service.occupy(id,r,clients.scope(jwt)); }
-    @GetMapping("/beds/{id}") public Map<String,Object> bed(@PathVariable("id") UUID id,@AuthenticationPrincipal Jwt jwt) { return service.bed(id,clients.scope(jwt)); }
-    @PostMapping("/beds/{id}/release") @ResponseStatus(HttpStatus.NO_CONTENT) public void release(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Note r,@AuthenticationPrincipal Jwt jwt) { service.release(id,r.note(),clients.scope(jwt)); }
-    @GetMapping("/assets/{id}/label") public Map<String,String> label(@PathVariable("id") UUID id,@AuthenticationPrincipal Jwt jwt) throws com.google.zxing.WriterException {
+    @GetMapping("/documents/" + ID) public Map<String,Object> download(@PathVariable("id") UUID id,@AuthenticationPrincipal Jwt jwt) { return service.document(id,clients.scope(jwt)); }
+    @PostMapping("/beds/" + ID + "/occupancy") public Map<String,Object> occupy(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Bed r,@AuthenticationPrincipal Jwt jwt) { return service.occupy(id,r,clients.scope(jwt)); }
+    @GetMapping("/beds/" + ID) public Map<String,Object> bed(@PathVariable("id") UUID id,@AuthenticationPrincipal Jwt jwt) { return service.bed(id,clients.scope(jwt)); }
+    @PostMapping("/beds/" + ID + "/release") @ResponseStatus(HttpStatus.NO_CONTENT) public void release(@PathVariable("id") UUID id,@Valid @RequestBody PatrimonyRequests.Note r,@AuthenticationPrincipal Jwt jwt) { service.release(id,r.note(),clients.scope(jwt)); }
+    @GetMapping("/assets/" + ID + "/label") public Map<String,String> label(@PathVariable("id") UUID id,@AuthenticationPrincipal Jwt jwt) throws com.google.zxing.WriterException {
         var a=service.asset(id,clients.scope(jwt)); String code=a.get("code").toString();
         var matrix=new QRCodeWriter().encode(code,BarcodeFormat.QR_CODE,180,180);
         var svg=new StringBuilder("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 180 180\"><rect width=\"180\" height=\"180\" fill=\"white\"/><path fill=\"black\" d=\"");

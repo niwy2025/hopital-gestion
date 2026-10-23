@@ -28,7 +28,8 @@ public class PatrimonyClients {
         var response = auth.get().uri("/internal/auth/access-scopes/{username}", jwt.getClaimAsString("preferred_username"))
                 .retrieve().body(Scope.class);
         if (response == null) throw new IllegalStateException("Périmètre indisponible");
-        return new PatrimonyScope(response.administrator(), response.laboratoryCode()==null?response.hospitalId():null, response.roleCodes(), jwt.getSubject(), jwt.getClaimAsString("preferred_username"));
+        // Conserver l’hôpital même pour une affectation HOSPITAL_LABORATORY (laboratoryCode renseigné).
+        return new PatrimonyScope(response.administrator(), response.hospitalId(), response.roleCodes(), jwt.getSubject(), jwt.getClaimAsString("preferred_username"));
     }
     public Passage passage(UUID id) {
         var response = patients.get().uri("/internal/patients/passages/{id}/hospitalization-reference", id).retrieve().body(Passage.class);

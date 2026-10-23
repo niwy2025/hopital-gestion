@@ -51,6 +51,7 @@ public class PartnerCompanyApplicationService {
             int page,
             int size,
             DataAccessScope accessScope) {
+        requirePartnerCompanyManager(accessScope);
         HospitalReferenceClient.HospitalReference hospital = resolveAccessibleHospital(hospitalId, accessScope);
         var companies = partnerCompanyRepository.search(
                 hospital.hospitalId(),
@@ -66,6 +67,7 @@ public class PartnerCompanyApplicationService {
     }
 
     public PartnerCompanyResponse getCompany(UUID companyId, DataAccessScope accessScope) {
+        requirePartnerCompanyManager(accessScope);
         return toCompany(requireAccessibleCompany(companyId, accessScope));
     }
 
@@ -74,6 +76,7 @@ public class PartnerCompanyApplicationService {
             CreatePartnerCompanyRequest request,
             DataAccessScope accessScope,
             AuditActor auditActor) {
+        requirePartnerCompanyManager(accessScope);
         HospitalReferenceClient.HospitalReference hospital = resolveAccessibleHospital(
                 request.hospitalId(), accessScope);
         String code = normalizeCode(request.code());
@@ -102,6 +105,7 @@ public class PartnerCompanyApplicationService {
             UpdatePartnerCompanyRequest request,
             DataAccessScope accessScope,
             AuditActor auditActor) {
+        requirePartnerCompanyManager(accessScope);
         PartnerCompanyEntity company = requireAccessibleCompany(companyId, accessScope);
         company.updateProfile(
                 request.name().trim(),
@@ -120,6 +124,7 @@ public class PartnerCompanyApplicationService {
             UpdatePartnerCompanyStatusRequest request,
             DataAccessScope accessScope,
             AuditActor auditActor) {
+        requirePartnerCompanyManager(accessScope);
         PartnerCompanyEntity company = requireAccessibleCompany(companyId, accessScope);
         company.setActive(Boolean.TRUE.equals(request.active()), auditActor, Instant.now());
         return toCompany(company);
@@ -132,6 +137,7 @@ public class PartnerCompanyApplicationService {
             int page,
             int size,
             DataAccessScope accessScope) {
+        requirePartnerCompanyManager(accessScope);
         PartnerCompanyEntity company = requireAccessibleCompany(companyId, accessScope);
         var members = partnerCompanyMemberRepository.search(
                 company.getId(),
@@ -150,6 +156,7 @@ public class PartnerCompanyApplicationService {
             UUID companyId,
             UUID memberId,
             DataAccessScope accessScope) {
+        requirePartnerCompanyManager(accessScope);
         requireAccessibleCompany(companyId, accessScope);
         return toMember(requireMember(companyId, memberId));
     }
@@ -160,6 +167,7 @@ public class PartnerCompanyApplicationService {
             CreatePartnerCompanyMemberRequest request,
             DataAccessScope accessScope,
             AuditActor auditActor) {
+        requirePartnerCompanyManager(accessScope);
         PartnerCompanyEntity company = requireAccessibleCompany(companyId, accessScope);
         UUID sponsorMemberId = validateMemberRole(company.getId(), request.memberRole(), request.sponsorMemberId());
         Instant now = Instant.now();
@@ -182,6 +190,7 @@ public class PartnerCompanyApplicationService {
             UpdatePartnerCompanyMemberRequest request,
             DataAccessScope accessScope,
             AuditActor auditActor) {
+        requirePartnerCompanyManager(accessScope);
         requireAccessibleCompany(companyId, accessScope);
         PartnerCompanyMemberEntity member = requireMember(companyId, memberId);
         UUID sponsorMemberId = validateMemberRole(companyId, request.memberRole(), request.sponsorMemberId());
@@ -205,6 +214,7 @@ public class PartnerCompanyApplicationService {
             UpdatePartnerCompanyMemberStatusRequest request,
             DataAccessScope accessScope,
             AuditActor auditActor) {
+        requirePartnerCompanyManager(accessScope);
         requireAccessibleCompany(companyId, accessScope);
         PartnerCompanyMemberEntity member = requireMember(companyId, memberId);
         member.setActive(Boolean.TRUE.equals(request.active()), auditActor, Instant.now());
@@ -262,6 +272,12 @@ public class PartnerCompanyApplicationService {
                     "Le titulaire sélectionné doit être un employé actif de l’entreprise.");
         }
         return sponsor.getId();
+    }
+
+    private void requirePartnerCompanyManager(DataAccessScope accessScope) {
+        if (!accessScope.canManagePartnerCompanies()) {
+            throw new DataAccessDeniedException();
+        }
     }
 
     private HospitalReferenceClient.HospitalReference resolveAccessibleHospital(

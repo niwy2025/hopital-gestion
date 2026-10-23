@@ -43,6 +43,11 @@ public record DataAccessScope(
         return administrator || hasAnyRole("HOSPITAL_ADMIN", "DOCTOR", "NURSE");
     }
 
+    /** Entreprises conventionnées : administrateur central ou administrateur d’hôpital. */
+    public boolean canManagePartnerCompanies() {
+        return administrator || hasAnyRole("HOSPITAL_ADMIN");
+    }
+
     /**
      * Triage remains primarily a nursing activity. A doctor may only add a
      * reassessment when they are the personnel explicitly responsible for the

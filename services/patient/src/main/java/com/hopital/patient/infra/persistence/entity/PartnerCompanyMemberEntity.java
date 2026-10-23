@@ -1,6 +1,7 @@
 package com.hopital.patient.infra.persistence.entity;
 
 import com.hopital.patient.application.domain.AuditActor;
+import com.hopital.patient.application.domain.PartnerCompanyDependentRelationship;
 import com.hopital.patient.application.domain.PartnerCompanyMemberRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -37,6 +38,10 @@ public class PartnerCompanyMemberEntity {
     @Column(name = "sponsor_member_id")
     private UUID sponsorMemberId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "dependent_relationship", length = 20)
+    private PartnerCompanyDependentRelationship dependentRelationship;
+
     @Column(nullable = false)
     private boolean active;
 
@@ -68,6 +73,7 @@ public class PartnerCompanyMemberEntity {
             String employeeNumber,
             PartnerCompanyMemberRole memberRole,
             UUID sponsorMemberId,
+            PartnerCompanyDependentRelationship dependentRelationship,
             AuditActor actor,
             Instant createdAt) {
         this.id = id;
@@ -76,6 +82,7 @@ public class PartnerCompanyMemberEntity {
         this.employeeNumber = employeeNumber;
         this.memberRole = memberRole;
         this.sponsorMemberId = sponsorMemberId;
+        this.dependentRelationship = dependentRelationship;
         this.active = true;
         this.createdAt = createdAt;
         this.createdByUserId = actor.userId();
@@ -90,12 +97,14 @@ public class PartnerCompanyMemberEntity {
             String employeeNumber,
             PartnerCompanyMemberRole memberRole,
             UUID sponsorMemberId,
+            PartnerCompanyDependentRelationship dependentRelationship,
             AuditActor actor,
             Instant updatedAt) {
         this.fullName = fullName;
         this.employeeNumber = employeeNumber;
         this.memberRole = memberRole;
         this.sponsorMemberId = sponsorMemberId;
+        this.dependentRelationship = dependentRelationship;
         touch(actor, updatedAt);
     }
 
@@ -141,6 +150,10 @@ public class PartnerCompanyMemberEntity {
 
     public UUID getSponsorMemberId() {
         return sponsorMemberId;
+    }
+
+    public PartnerCompanyDependentRelationship getDependentRelationship() {
+        return dependentRelationship;
     }
 
     public boolean isActive() {

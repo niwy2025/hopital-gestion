@@ -2,10 +2,14 @@ package com.hopital.patient.application.service;
 
 import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.DataAccessScope;
+import com.hopital.patient.application.domain.PartnerCompanyDependentRelationship;
+import com.hopital.patient.application.domain.PartnerCompanyDocumentType;
 import com.hopital.patient.application.domain.PartnerCompanyMemberRole;
+import com.hopital.patient.application.dto.CreatePartnerCompanyDocumentRequest;
 import com.hopital.patient.application.dto.CreatePartnerCompanyMemberRequest;
 import com.hopital.patient.application.dto.CreatePartnerCompanyRequest;
 import com.hopital.patient.application.dto.PageResponse;
+import com.hopital.patient.application.dto.PartnerCompanyDocumentResponse;
 import com.hopital.patient.application.dto.PartnerCompanyMemberResponse;
 import com.hopital.patient.application.dto.PartnerCompanyResponse;
 import com.hopital.patient.application.dto.UpdatePartnerCompanyMemberRequest;
@@ -14,14 +18,19 @@ import com.hopital.patient.application.dto.UpdatePartnerCompanyRequest;
 import com.hopital.patient.application.dto.UpdatePartnerCompanyStatusRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.InvalidPatientCoverageException;
+import com.hopital.patient.application.exception.InvalidPatientDocumentException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
+import com.hopital.patient.infra.persistence.entity.PartnerCompanyDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PartnerCompanyEntity;
 import com.hopital.patient.infra.persistence.entity.PartnerCompanyMemberEntity;
+import com.hopital.patient.infra.persistence.repository.PartnerCompanyDocumentRepository;
 import com.hopital.patient.infra.persistence.repository.PartnerCompanyMemberRepository;
 import com.hopital.patient.infra.persistence.repository.PartnerCompanyRepository;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -31,16 +40,27 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class PartnerCompanyApplicationService {
 
+    private static final Set<String> SUPPORTED_DOCUMENT_CONTENT_TYPES = Set.of(
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "image/jpeg",
+            "image/png",
+            "image/webp");
+
     private final PartnerCompanyRepository partnerCompanyRepository;
     private final PartnerCompanyMemberRepository partnerCompanyMemberRepository;
+    private final PartnerCompanyDocumentRepository partnerCompanyDocumentRepository;
     private final HospitalReferenceClient hospitalReferenceClient;
 
     public PartnerCompanyApplicationService(
             PartnerCompanyRepository partnerCompanyRepository,
             PartnerCompanyMemberRepository partnerCompanyMemberRepository,
+            PartnerCompanyDocumentRepository partnerCompanyDocumentRepository,
             HospitalReferenceClient hospitalReferenceClient) {
         this.partnerCompanyRepository = partnerCompanyRepository;
         this.partnerCompanyMemberRepository = partnerCompanyMemberRepository;
+        this.partnerCompanyDocumentRepository = partnerCompanyDocumentRepository;
         this.hospitalReferenceClient = hospitalReferenceClient;
     }
 
@@ -134,6 +154,7 @@ public class PartnerCompanyApplicationService {
             UUID companyId,
             String query,
             Boolean active,
+            UUID sponsorMemberId,
             int page,
             int size,
             DataAccessScope accessScope) {
@@ -143,6 +164,7 @@ public class PartnerCompanyApplicationService {
                 company.getId(),
                 normalizeSearchFilter(query),
                 active,
+                sponsorMemberId,
                 PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100)));
         return new PageResponse<>(
                 members.getContent().stream().map(this::toMember).toList(),
@@ -169,7 +191,11 @@ public class PartnerCompanyApplicationService {
             AuditActor auditActor) {
         requirePartnerCompanyManager(accessScope);
         PartnerCompanyEntity company = requireAccessibleCompany(companyId, accessScope);
-        UUID sponsorMemberId = validateMemberRole(company.getId(), request.memberRole(), request.sponsorMemberId());
+        MemberLinkage linkage = validateMemberRole(
+                company.getId(),
+                request.memberRole(),
+                request.sponsorMemberId(),
+                request.dependentRelationship());
         Instant now = Instant.now();
         PartnerCompanyMemberEntity member = new PartnerCompanyMemberEntity(
                 UUID.randomUUID(),
@@ -177,7 +203,8 @@ public class PartnerCompanyApplicationService {
                 request.fullName().trim(),
                 trimToNull(request.employeeNumber()),
                 request.memberRole(),
-                sponsorMemberId,
+                linkage.sponsorMemberId(),
+                linkage.dependentRelationship(),
                 auditActor,
                 now);
         return toMember(partnerCompanyMemberRepository.save(member));
@@ -193,18 +220,82 @@ public class PartnerCompanyApplicationService {
         requirePartnerCompanyManager(accessScope);
         requireAccessibleCompany(companyId, accessScope);
         PartnerCompanyMemberEntity member = requireMember(companyId, memberId);
-        UUID sponsorMemberId = validateMemberRole(companyId, request.memberRole(), request.sponsorMemberId());
-        if (sponsorMemberId != null && sponsorMemberId.equals(member.getId())) {
+        MemberLinkage linkage = validateMemberRole(
+                companyId,
+                request.memberRole(),
+                request.sponsorMemberId(),
+                request.dependentRelationship());
+        if (linkage.sponsorMemberId() != null && linkage.sponsorMemberId().equals(member.getId())) {
             throw new InvalidPatientCoverageException("Une personne liée ne peut pas être son propre titulaire.");
         }
         member.updateProfile(
                 request.fullName().trim(),
                 trimToNull(request.employeeNumber()),
                 request.memberRole(),
-                sponsorMemberId,
+                linkage.sponsorMemberId(),
+                linkage.dependentRelationship(),
                 auditActor,
                 Instant.now());
         return toMember(member);
+    }
+
+    public PageResponse<PartnerCompanyDocumentResponse> searchDocuments(
+            UUID companyId,
+            String query,
+            PartnerCompanyDocumentType documentType,
+            int page,
+            int size,
+            DataAccessScope accessScope) {
+        requirePartnerCompanyManager(accessScope);
+        PartnerCompanyEntity company = requireAccessibleCompany(companyId, accessScope);
+        var documents = partnerCompanyDocumentRepository.search(
+                company.getId(),
+                normalizeSearchFilter(query),
+                documentType,
+                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100)));
+        return new PageResponse<>(
+                documents.getContent().stream().map(this::toDocument).toList(),
+                documents.getNumber(),
+                documents.getSize(),
+                documents.getTotalElements(),
+                documents.getTotalPages());
+    }
+
+    @Transactional
+    public PartnerCompanyDocumentResponse addDocument(
+            UUID companyId,
+            CreatePartnerCompanyDocumentRequest request,
+            DataAccessScope accessScope,
+            AuditActor auditActor) {
+        requirePartnerCompanyManager(accessScope);
+        PartnerCompanyEntity company = requireAccessibleCompany(companyId, accessScope);
+        DocumentContent content = validateDocument(request);
+        Instant now = Instant.now();
+        PartnerCompanyDocumentEntity document = new PartnerCompanyDocumentEntity(
+                UUID.randomUUID(),
+                company.getId(),
+                request.documentType(),
+                request.fileName().trim(),
+                content.contentType(),
+                content.sizeBytes(),
+                content.contentBase64(),
+                now,
+                auditActor.userId(),
+                auditActor.username());
+        return toDocument(partnerCompanyDocumentRepository.save(document));
+    }
+
+    @Transactional
+    public void deleteDocument(
+            UUID companyId,
+            UUID documentId,
+            DataAccessScope accessScope) {
+        requirePartnerCompanyManager(accessScope);
+        requireAccessibleCompany(companyId, accessScope);
+        PartnerCompanyDocumentEntity document = partnerCompanyDocumentRepository
+                .findByIdAndPartnerCompanyId(documentId, companyId)
+                .orElseThrow(() -> new PatientNotFoundException(documentId.toString()));
+        partnerCompanyDocumentRepository.delete(document);
     }
 
     @Transactional
@@ -251,27 +342,54 @@ public class PartnerCompanyApplicationService {
                 .orElseThrow(() -> new PatientNotFoundException(memberId.toString()));
     }
 
-    private UUID validateMemberRole(
+    private MemberLinkage validateMemberRole(
             UUID companyId,
             PartnerCompanyMemberRole memberRole,
-            UUID sponsorMemberId) {
+            UUID sponsorMemberId,
+            PartnerCompanyDependentRelationship dependentRelationship) {
         if (memberRole == PartnerCompanyMemberRole.EMPLOYEE) {
-            if (sponsorMemberId != null) {
+            if (sponsorMemberId != null || dependentRelationship != null) {
                 throw new InvalidPatientCoverageException(
-                        "Un titulaire (employé) ne doit pas référencer un autre titulaire.");
+                        "Un titulaire (employé) ne doit pas référencer un autre titulaire ni un lien de parenté.");
             }
-            return null;
+            return new MemberLinkage(null, null);
         }
         if (sponsorMemberId == null) {
             throw new InvalidPatientCoverageException(
                     "Un ayant droit doit être rattaché à un titulaire de la même entreprise.");
+        }
+        if (dependentRelationship == null) {
+            throw new InvalidPatientCoverageException(
+                    "Précisez le lien de parenté de la personne à charge (conjoint, enfant, parent ou autre).");
         }
         PartnerCompanyMemberEntity sponsor = requireMember(companyId, sponsorMemberId);
         if (!sponsor.isActive() || sponsor.getMemberRole() != PartnerCompanyMemberRole.EMPLOYEE) {
             throw new InvalidPatientCoverageException(
                     "Le titulaire sélectionné doit être un employé actif de l’entreprise.");
         }
-        return sponsor.getId();
+        return new MemberLinkage(sponsor.getId(), dependentRelationship);
+    }
+
+    private DocumentContent validateDocument(CreatePartnerCompanyDocumentRequest request) {
+        String contentType = request.contentType() == null ? "" : request.contentType().trim().toLowerCase(Locale.ROOT);
+        if (!SUPPORTED_DOCUMENT_CONTENT_TYPES.contains(contentType)) {
+            throw new InvalidPatientDocumentException(
+                    "Formats acceptés : PDF, Word, JPEG, PNG ou WebP · 2 Mo maximum.");
+        }
+        String contentBase64 = request.contentBase64().replaceAll("\\s", "");
+        if (contentBase64.startsWith("data:")) {
+            throw new InvalidPatientDocumentException("Le contenu du fichier est invalide.");
+        }
+        byte[] decoded;
+        try {
+            decoded = Base64.getDecoder().decode(contentBase64);
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidPatientDocumentException("Le contenu du fichier est invalide.");
+        }
+        if (decoded.length == 0 || decoded.length > 2_000_000) {
+            throw new InvalidPatientDocumentException("Chaque fichier ne peut pas dépasser 2 Mo.");
+        }
+        return new DocumentContent(contentType, decoded.length, contentBase64);
     }
 
     private void requirePartnerCompanyManager(DataAccessScope accessScope) {
@@ -319,11 +437,33 @@ public class PartnerCompanyApplicationService {
                 member.getMemberRole(),
                 member.getPatientId(),
                 member.getSponsorMemberId(),
+                member.getDependentRelationship(),
                 member.isActive(),
                 member.getCreatedAt(),
                 member.getCreatedByUsername(),
                 member.getUpdatedAt(),
                 member.getUpdatedByUsername());
+    }
+
+    private PartnerCompanyDocumentResponse toDocument(PartnerCompanyDocumentEntity document) {
+        return new PartnerCompanyDocumentResponse(
+                document.getId(),
+                document.getPartnerCompanyId(),
+                document.getDocumentType(),
+                document.getFileName(),
+                document.getContentType(),
+                document.getSizeBytes(),
+                document.getCreatedAt(),
+                document.getCreatedByUsername(),
+                document.getContentBase64());
+    }
+
+    private record MemberLinkage(
+            UUID sponsorMemberId,
+            PartnerCompanyDependentRelationship dependentRelationship) {
+    }
+
+    private record DocumentContent(String contentType, int sizeBytes, String contentBase64) {
     }
 
     private String normalizeCode(String value) {

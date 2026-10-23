@@ -2,9 +2,12 @@ package com.hopital.patient.api;
 
 import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.DataAccessScope;
+import com.hopital.patient.application.domain.PartnerCompanyDocumentType;
+import com.hopital.patient.application.dto.CreatePartnerCompanyDocumentRequest;
 import com.hopital.patient.application.dto.CreatePartnerCompanyMemberRequest;
 import com.hopital.patient.application.dto.CreatePartnerCompanyRequest;
 import com.hopital.patient.application.dto.PageResponse;
+import com.hopital.patient.application.dto.PartnerCompanyDocumentResponse;
 import com.hopital.patient.application.dto.PartnerCompanyMemberResponse;
 import com.hopital.patient.application.dto.PartnerCompanyResponse;
 import com.hopital.patient.application.dto.UpdatePartnerCompanyMemberRequest;
@@ -19,6 +22,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -95,9 +99,40 @@ public class PartnerCompanyController {
             @RequestParam(name = "size", defaultValue = "20") int size,
             @RequestParam(name = "query", required = false) String query,
             @RequestParam(name = "active", required = false) Boolean active,
+            @RequestParam(name = "sponsorMemberId", required = false) UUID sponsorMemberId,
             @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(partnerCompanyApplicationService.searchMembers(
-                companyId, query, active, page, size, accessScope(jwt)));
+                companyId, query, active, sponsorMemberId, page, size, accessScope(jwt)));
+    }
+
+    @GetMapping("/{companyId}/documents")
+    public ResponseEntity<PageResponse<PartnerCompanyDocumentResponse>> searchDocuments(
+            @PathVariable("companyId") UUID companyId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "query", required = false) String query,
+            @RequestParam(name = "documentType", required = false) PartnerCompanyDocumentType documentType,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(partnerCompanyApplicationService.searchDocuments(
+                companyId, query, documentType, page, size, accessScope(jwt)));
+    }
+
+    @PostMapping("/{companyId}/documents")
+    public ResponseEntity<PartnerCompanyDocumentResponse> addDocument(
+            @PathVariable("companyId") UUID companyId,
+            @Valid @RequestBody CreatePartnerCompanyDocumentRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(partnerCompanyApplicationService.addDocument(
+                companyId, request, accessScope(jwt), auditActor(jwt)));
+    }
+
+    @DeleteMapping("/{companyId}/documents/{documentId}")
+    public ResponseEntity<Void> deleteDocument(
+            @PathVariable("companyId") UUID companyId,
+            @PathVariable("documentId") UUID documentId,
+            @AuthenticationPrincipal Jwt jwt) {
+        partnerCompanyApplicationService.deleteDocument(companyId, documentId, accessScope(jwt));
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{companyId}/members")

@@ -1,5 +1,6 @@
 package com.hopital.patient.application.dto;
 
+import com.hopital.patient.application.domain.PartnerCompanyDependentRelationship;
 import com.hopital.patient.application.domain.PartnerCompanyMemberRole;
 import java.time.Instant;
 import java.util.UUID;
@@ -12,6 +13,7 @@ public record PartnerCompanyMemberResponse(
         PartnerCompanyMemberRole memberRole,
         UUID patientId,
         UUID sponsorMemberId,
+        PartnerCompanyDependentRelationship dependentRelationship,
         boolean active,
         Instant createdAt,
         String createdByUsername,

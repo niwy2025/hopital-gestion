@@ -17,6 +17,7 @@ public interface PartnerCompanyMemberRepository extends JpaRepository<PartnerCom
             SELECT member FROM PartnerCompanyMemberEntity member
             WHERE member.partnerCompanyId = :partnerCompanyId
               AND (:active IS NULL OR member.active = :active)
+              AND (:sponsorMemberId IS NULL OR member.sponsorMemberId = :sponsorMemberId)
               AND (
                 :query = ''
                 OR LOWER(member.fullName) LIKE LOWER(CONCAT('%', :query, '%'))
@@ -28,5 +29,6 @@ public interface PartnerCompanyMemberRepository extends JpaRepository<PartnerCom
             @Param("partnerCompanyId") UUID partnerCompanyId,
             @Param("query") String query,
             @Param("active") Boolean active,
+            @Param("sponsorMemberId") UUID sponsorMemberId,
             Pageable pageable);
 }

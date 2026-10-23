@@ -12,6 +12,7 @@ import com.hopital.patient.application.domain.PatientTransferStatus;
 import com.hopital.patient.application.dto.CreatePatientTransferRequest;
 import com.hopital.patient.application.dto.ReceivePatientTransferRequest;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
+import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientTransferEntity;
@@ -43,7 +44,9 @@ class PatientTransferPersistenceTest {
     @Autowired PatientTransferRepository transfers;
     @Autowired EntityManager entityManager;
     @MockBean HospitalReferenceClient hospitals;
+    @MockBean PersonnelReferenceClient personnelReferenceClient;
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+    private final UUID receivingDoctorId = UUID.randomUUID();
     @org.springframework.boot.test.context.TestConfiguration
     static class Config {
         @org.springframework.context.annotation.Bean
@@ -105,8 +108,12 @@ class PatientTransferPersistenceTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM patient_hospitalization_outbox WHERE passage_id=? AND status='PENDING'",Long.class,source.getId())).isEqualTo(1);
         entityManager.flush();
         entityManager.clear();
+        when(personnelReferenceClient.resolveActivePersonnelForHospital(receivingDoctorId, destination))
+                .thenReturn(new PersonnelReferenceClient.PersonnelReference(
+                        receivingDoctorId, "MED-DEST", "Paul", "Mukendi", null, "MEDICAL", "Médecin"));
         var received = service.receive(created.id(),
-                new ReceivePatientTransferRequest(PatientPassageType.HOSPITALIZATION, "Médecine interne", "Arrivée constatée"),
+                new ReceivePatientTransferRequest(
+                        PatientPassageType.HOSPITALIZATION, "Médecine interne", "Arrivée constatée", receivingDoctorId),
                 receiver, actor);
         entityManager.flush();
         entityManager.clear();

@@ -2191,7 +2191,7 @@ public class PatientApplicationService {
             case TRIAGE -> "Triage";
             case PRESCRIPTION -> "Ordonnance";
             case LABORATORY_REQUEST -> "Demande d’analyse";
-            case SERVICE_TRANSFER -> "Changement de service";
+            case SERVICE_TRANSFER -> "Réception après transfert";
         };
     }
 

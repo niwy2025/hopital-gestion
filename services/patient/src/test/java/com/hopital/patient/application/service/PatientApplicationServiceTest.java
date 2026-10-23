@@ -3,6 +3,7 @@ package com.hopital.patient.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -286,7 +287,7 @@ class PatientApplicationServiceTest {
         PatientPassageResponse response = patientApplicationService.assignPassageResponsiblePersonnel(
                 patient.getId(),
                 passage.getId(),
-                new AssignPatientPassageResponsiblePersonnelRequest(personnelId),
+                new AssignPatientPassageResponsiblePersonnelRequest(personnelId, null, null),
                 new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
                 auditActor());
 

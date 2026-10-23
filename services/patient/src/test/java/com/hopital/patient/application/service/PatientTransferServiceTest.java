@@ -18,10 +18,12 @@ import com.hopital.patient.application.dto.ReceivePatientTransferRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
+import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientTransferEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageResponsibilityStepRepository;
 import com.hopital.patient.infra.persistence.repository.PatientTransferRepository;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -39,11 +41,14 @@ class PatientTransferServiceTest {
     @Mock PatientTransferRepository transfers;
     @Mock PatientPassageRepository passages;
     @Mock HospitalReferenceClient hospitals;
+    @Mock PersonnelReferenceClient personnelReferenceClient;
+    @Mock PatientPassageResponsibilityStepRepository responsibilitySteps;
     @InjectMocks PatientTransferService service;
     @Mock PatientHospitalizationOutboxService hospitalizationOutbox;
     private final UUID origin = UUID.randomUUID();
     private final UUID destination = UUID.randomUUID();
     private final UUID doctorId = UUID.randomUUID();
+    private final UUID receivingDoctorId = UUID.randomUUID();
     private final AuditActor actor = new AuditActor("doctor-id", "medecin.test");
 
     private PatientPassageEntity source() {
@@ -129,22 +134,28 @@ class PatientTransferServiceTest {
         source.changeStatus(PatientPassageStatus.TRANSFERRED, actor, Instant.now());
         when(transfers.findForUpdate(transfer.getId())).thenReturn(Optional.of(transfer));
         when(hospitals.resolveActiveHospital(destination)).thenReturn(new HospitalReferenceClient.HospitalReference(destination, "DEST", true));
-        var request = new ReceivePatientTransferRequest(PatientPassageType.EMERGENCY, "Urgences", "Patient arrivé");
+        when(personnelReferenceClient.resolveActivePersonnelForHospital(receivingDoctorId, destination))
+                .thenReturn(new PersonnelReferenceClient.PersonnelReference(
+                        receivingDoctorId, "MED-DEST", "Paul", "Mukendi", null, "MEDICAL", "Médecin"));
+        when(responsibilitySteps.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var request = new ReceivePatientTransferRequest(
+                PatientPassageType.EMERGENCY, "Urgences", "Patient arrivé", receivingDoctorId);
         var result = service.receive(transfer.getId(), request, receiver(), actor);
         assertThat(result.status()).isEqualTo(PatientTransferStatus.RECEIVED);
         assertThat(result.patientId()).isEqualTo(source.getPatient().getId());
         assertThat(result.destinationPassageId()).isNotEqualTo(source.getId());
         assertThat(transfer.getDestinationPassage().getStatus()).isEqualTo(PatientPassageStatus.OPEN);
         assertThat(transfer.getDestinationPassage().getHospitalId()).isEqualTo(destination);
-        assertThat(transfer.getDestinationPassage().getResponsiblePersonnelId()).isNull();
+        assertThat(transfer.getDestinationPassage().getResponsiblePersonnelId()).isEqualTo(receivingDoctorId);
         assertThat(service.receive(transfer.getId(), request, receiver(), actor).destinationPassageId()).isEqualTo(result.destinationPassageId());
         verify(passages, times(1)).saveAndFlush(any(PatientPassageEntity.class));
+        verify(responsibilitySteps, times(1)).save(any());
     }
 
     @Test void cannotReceiveBeforeDepartureOrAtWrongHospital() {
         var transfer = new PatientTransferEntity(source(), request(true), destination, "DEST", actor);
         when(transfers.findForUpdate(transfer.getId())).thenReturn(Optional.of(transfer));
-        var request = new ReceivePatientTransferRequest(PatientPassageType.CONSULTATION, null, null);
+        var request = new ReceivePatientTransferRequest(PatientPassageType.CONSULTATION, null, null, receivingDoctorId);
         assertThatThrownBy(() -> service.receive(transfer.getId(), request, receiver(), actor))
                 .isInstanceOf(InvalidPatientPassageStateException.class);
         transfer.dispatch(actor, Instant.now());

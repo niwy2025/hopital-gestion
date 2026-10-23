@@ -2,6 +2,7 @@ package com.hopital.patient.application.service;
 
 import com.hopital.patient.application.domain.AuditActor;
 import com.hopital.patient.application.domain.DataAccessScope;
+import com.hopital.patient.application.domain.PassageResponsibilityStepKind;
 import com.hopital.patient.application.domain.PatientAuditEventType;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
@@ -13,11 +14,15 @@ import com.hopital.patient.application.dto.PatientTransferSummaryResponse;
 import com.hopital.patient.application.dto.ReceivePatientTransferRequest;
 import com.hopital.patient.application.exception.DataAccessDeniedException;
 import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
+import com.hopital.patient.application.exception.InvalidResponsiblePersonnelException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
+import com.hopital.patient.infra.integration.personnel.PersonnelReferenceClient;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageResponsibilityStepEntity;
 import com.hopital.patient.infra.persistence.entity.PatientTransferEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageResponsibilityStepRepository;
 import com.hopital.patient.infra.persistence.repository.PatientTransferRepository;
 import jakarta.persistence.criteria.Predicate;
 import java.time.Instant;
@@ -38,13 +43,22 @@ public class PatientTransferService {
     private final PatientTransferRepository transfers;
     private final PatientPassageRepository passages;
     private final HospitalReferenceClient hospitals;
+    private final PersonnelReferenceClient personnelReferenceClient;
+    private final PatientPassageResponsibilityStepRepository responsibilitySteps;
     private final PatientHospitalizationOutboxService hospitalizationOutbox;
 
-    public PatientTransferService(PatientTransferRepository transfers, PatientPassageRepository passages,
-            HospitalReferenceClient hospitals, PatientHospitalizationOutboxService hospitalizationOutbox) {
+    public PatientTransferService(
+            PatientTransferRepository transfers,
+            PatientPassageRepository passages,
+            HospitalReferenceClient hospitals,
+            PersonnelReferenceClient personnelReferenceClient,
+            PatientPassageResponsibilityStepRepository responsibilitySteps,
+            PatientHospitalizationOutboxService hospitalizationOutbox) {
         this.transfers = transfers;
         this.passages = passages;
         this.hospitals = hospitals;
+        this.personnelReferenceClient = personnelReferenceClient;
+        this.responsibilitySteps = responsibilitySteps;
         this.hospitalizationOutbox = hospitalizationOutbox;
     }
 
@@ -151,12 +165,41 @@ public class PatientTransferService {
         if (request.type() == null || !Set.of(PatientPassageType.CONSULTATION, PatientPassageType.EMERGENCY,
                 PatientPassageType.HOSPITALIZATION, PatientPassageType.OTHER).contains(request.type()))
             fail("Choisissez un type de prise en charge à l’arrivée : consultation, urgence, hospitalisation ou autre.");
+        if (request.responsiblePersonnelId() == null) {
+            throw new InvalidResponsiblePersonnelException(
+                    "Le responsable de cette étape (réception du transfert) est obligatoire.");
+        }
         var hospital = hospitals.resolveActiveHospital(transfer.getDestinationHospitalId());
+        Instant now = Instant.now();
+        PersonnelReferenceClient.PersonnelReference personnel = personnelReferenceClient
+                .resolveActivePersonnelForHospital(request.responsiblePersonnelId(), hospital.hospitalId());
+        String fullName = java.util.stream.Stream.of(personnel.lastName(), personnel.firstName(), personnel.middleName())
+                .filter(value -> value != null && !value.isBlank())
+                .collect(java.util.stream.Collectors.joining(" "));
         var passage = new PatientPassageEntity(UUID.randomUUID(),
                 "PAS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT),
                 transfer.getSourcePassage().getPatient(), hospital.hospitalId(), hospital.hospitalCode(),
-                request.type(), clean(request.serviceName()), transfer.getReason(), actor, Instant.now());
+                request.type(), clean(request.serviceName()), transfer.getReason(), actor, now);
+        passage.assignResponsiblePersonnel(
+                personnel.id(),
+                personnel.employeeNumber(),
+                fullName,
+                personnel.jobTitle(),
+                actor,
+                now);
         passages.saveAndFlush(passage);
+        responsibilitySteps.save(new PatientPassageResponsibilityStepEntity(
+                UUID.randomUUID(),
+                passage.getId(),
+                PassageResponsibilityStepKind.SERVICE_TRANSFER,
+                "Réception après transfert",
+                transfer.getId(),
+                personnel.id(),
+                personnel.employeeNumber(),
+                fullName,
+                personnel.jobTitle(),
+                actor,
+                now));
         transfer.receive(passage, actor, request.receptionNote());
         audit(transfer, PatientAuditEventType.TRANSFER_RECEIVED, actor);
         return response(transfer, scope);

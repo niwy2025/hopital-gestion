@@ -17,5 +17,5 @@ public record CreatePatientPassagePrescriptionRequest(
         @NotEmpty(message = "Ajoutez au moins un médicament.")
         @Size(max = 30, message = "Une ordonnance ne peut pas contenir plus de 30 médicaments.")
         List<@Valid PrescriptionItemRequest> items,
-        UUID responsiblePersonnelId) {
+        @NotNull(message = "Le responsable de cette étape est obligatoire.") UUID responsiblePersonnelId) {
 }

@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.util.UUID;
 
 /** A new entry is appended to the journal and is never overwritten. */
 public record CreatePatientPassageClinicalEntryRequest(
@@ -16,5 +17,6 @@ public record CreatePatientPassageClinicalEntryRequest(
         @Size(max = 4000, message = "Le diagnostic est trop long.") String diagnosis,
         @Size(max = 8000, message = "La conduite à tenir est trop longue.") String carePlan,
         @NotNull(message = "L’orientation est obligatoire.") ClinicalOrientation orientation,
-        LocalDate followUpOn) {
+        LocalDate followUpOn,
+        @NotNull(message = "Le responsable de cette étape est obligatoire.") UUID responsiblePersonnelId) {
 }

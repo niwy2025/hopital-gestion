@@ -9,10 +9,12 @@ import com.hopital.patient.application.domain.Gender;
 import com.hopital.patient.application.domain.PatientAuditEventType;
 import com.hopital.patient.application.domain.PatientCoverageType;
 import com.hopital.patient.application.domain.PatientDocumentType;
+import com.hopital.patient.application.domain.PassageResponsibilityStepKind;
 import com.hopital.patient.application.domain.PatientPassageStatus;
 import com.hopital.patient.application.domain.PatientPassageType;
 import com.hopital.patient.application.domain.PharmacyDispenseAccountingEventType;
 import com.hopital.patient.application.domain.PrescriptionSource;
+import com.hopital.patient.application.exception.InvalidResponsiblePersonnelException;
 import com.hopital.patient.application.domain.PrescriptionStatus;
 import com.hopital.patient.application.domain.PrescriptionDispenseCompletion;
 import com.hopital.patient.application.domain.TriageConsciousnessLevel;
@@ -38,6 +40,7 @@ import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
 import com.hopital.patient.application.dto.PatientPassageClinicalEntryResponse;
 import com.hopital.patient.application.dto.PatientPassageTriageAssessmentResponse;
+import com.hopital.patient.application.dto.PassageResponsibilityStepResponse;
 import com.hopital.patient.application.dto.PatientPassageLaboratoryReferenceResponse;
 import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
 import com.hopital.patient.application.dto.PharmacyPrescriptionResponse;
@@ -69,6 +72,7 @@ import com.hopital.patient.infra.persistence.entity.PatientEntity;
 import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageResponsibilityStepEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageTriageAssessmentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseEntity;
@@ -77,6 +81,7 @@ import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionIt
 import com.hopital.patient.infra.persistence.entity.PharmacyDispensePaymentSettlementEventEntity;
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageResponsibilityStepRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageTriageAssessmentRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionItemRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionRepository;
@@ -137,6 +142,7 @@ public class PatientApplicationService {
     private final PartnerCompanyApplicationService partnerCompanyApplicationService;
     private final PartnerCompanyRepository partnerCompanyRepository;
     private final PartnerCompanyMemberRepository partnerCompanyMemberRepository;
+    private final PatientPassageResponsibilityStepRepository patientPassageResponsibilityStepRepository;
 
     public PatientApplicationService(
             PatientRepository patientRepository,
@@ -156,7 +162,8 @@ public class PatientApplicationService {
             PharmacyDispensePaymentSettlementEventRepository pharmacyDispensePaymentSettlementEventRepository,
             PartnerCompanyApplicationService partnerCompanyApplicationService,
             PartnerCompanyRepository partnerCompanyRepository,
-            PartnerCompanyMemberRepository partnerCompanyMemberRepository) {
+            PartnerCompanyMemberRepository partnerCompanyMemberRepository,
+            PatientPassageResponsibilityStepRepository patientPassageResponsibilityStepRepository) {
         this.patientRepository = patientRepository;
         this.hospitalizationOutbox = hospitalizationOutbox;
         this.patientDocumentRepository = patientDocumentRepository;
@@ -175,6 +182,7 @@ public class PatientApplicationService {
         this.partnerCompanyApplicationService = partnerCompanyApplicationService;
         this.partnerCompanyRepository = partnerCompanyRepository;
         this.partnerCompanyMemberRepository = partnerCompanyMemberRepository;
+        this.patientPassageResponsibilityStepRepository = patientPassageResponsibilityStepRepository;
     }
 
     /** Compatibility endpoint for existing dependent forms. New registry screens use the paginated search endpoint. */
@@ -776,7 +784,6 @@ public class PatientApplicationService {
             DataAccessScope accessScope,
             AuditActor auditActor) {
         PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
-        assertCanManagePassageStatus(accessScope, passage);
         if (passage.getStatus() != PatientPassageStatus.OPEN) {
             throw new InvalidPatientPassageStateException(
                     "Le suivi clinique ne peut être modifié que sur un passage en cours.");
@@ -794,8 +801,16 @@ public class PatientApplicationService {
                 request.followUpOn(),
                 auditActor,
                 recordedAt);
-        PatientPassageClinicalEntryResponse response = toClinicalEntry(
-                patientPassageClinicalEntryRepository.save(entry));
+        PatientPassageClinicalEntryEntity saved = patientPassageClinicalEntryRepository.save(entry);
+        assignResponsiblePersonnel(
+                passage,
+                request.responsiblePersonnelId(),
+                PassageResponsibilityStepKind.CLINICAL_ENTRY,
+                clinicalOrientationLabel(request.orientation()),
+                saved.getId(),
+                auditActor,
+                recordedAt);
+        PatientPassageClinicalEntryResponse response = toClinicalEntry(saved);
         passage.getPatient().recordModification(
                 auditActor,
                 PatientAuditEventType.CLINICAL_ENTRY_ADDED,
@@ -855,8 +870,16 @@ public class PatientApplicationService {
                 trimToNull(request.handoverNotes()),
                 auditActor,
                 recordedAt);
-        PatientPassageTriageAssessmentResponse response = toTriageAssessment(
-                patientPassageTriageAssessmentRepository.save(assessment));
+        PatientPassageTriageAssessmentEntity saved = patientPassageTriageAssessmentRepository.save(assessment);
+        assignResponsiblePersonnel(
+                passage,
+                request.responsiblePersonnelId(),
+                PassageResponsibilityStepKind.TRIAGE,
+                "Triage " + triagePriorityLabel(request.priority()),
+                saved.getId(),
+                auditActor,
+                recordedAt);
+        PatientPassageTriageAssessmentResponse response = toTriageAssessment(saved);
         passage.getPatient().recordModification(
                 auditActor,
                 PatientAuditEventType.TRIAGE_RECORDED,
@@ -876,6 +899,10 @@ public class PatientApplicationService {
         if (passage.getStatus() != PatientPassageStatus.OPEN) {
             throw new InvalidPatientPassageStateException(
                     "Une ordonnance ne peut être ajoutée que sur un passage en cours.");
+        }
+        if (request.responsiblePersonnelId() == null) {
+            throw new InvalidResponsiblePersonnelException(
+                    "Le responsable de cette étape (ordonnance) est obligatoire.");
         }
         String externalPrescriberName = request.source() == PrescriptionSource.EXTERNAL_PAPER
                 ? trimToNull(request.externalPrescriberName())
@@ -915,6 +942,14 @@ public class PatientApplicationService {
                     index));
         }
         List<PatientPassagePrescriptionItemEntity> savedItems = patientPassagePrescriptionItemRepository.saveAll(items);
+        assignResponsiblePersonnel(
+                passage,
+                request.responsiblePersonnelId(),
+                PassageResponsibilityStepKind.PRESCRIPTION,
+                request.source() == PrescriptionSource.MEDICAL ? "Ordonnance médicale" : "Ordonnance externe",
+                prescription.getId(),
+                auditActor,
+                createdAt);
         passage.getPatient().recordModification(
                 auditActor,
                 PatientAuditEventType.PRESCRIPTION_ADDED,
@@ -956,7 +991,8 @@ public class PatientApplicationService {
                         request.externalPrescriberName(),
                         null,
                         request.notes(),
-                        request.items()),
+                        request.items(),
+                        request.responsiblePersonnelId()),
                 accessScope,
                 auditActor);
     }
@@ -1052,10 +1088,18 @@ public class PatientApplicationService {
                 trimToNull(request.reason()),
                 auditActor,
                 Instant.now());
+        PatientPassageEntity saved = patientPassageRepository.save(passage);
         if (request.responsiblePersonnelId() != null) {
-            assignResponsiblePersonnel(passage, request.responsiblePersonnelId(), auditActor);
+            assignResponsiblePersonnel(
+                    saved,
+                    request.responsiblePersonnelId(),
+                    PassageResponsibilityStepKind.ASSIGNMENT,
+                    "Responsable initial du passage",
+                    null,
+                    auditActor,
+                    Instant.now());
         }
-        return toPassage(patientPassageRepository.save(passage));
+        return toPassage(saved);
     }
 
     @Transactional
@@ -1155,8 +1199,39 @@ public class PatientApplicationService {
             throw new InvalidPatientPassageStateException(
                     "Le personnel responsable ne peut être modifié que sur un passage en cours.");
         }
-        assignResponsiblePersonnel(passage, request.personnelId(), auditActor);
+        PassageResponsibilityStepKind stepKind = request.stepKind() == null
+                ? PassageResponsibilityStepKind.ASSIGNMENT
+                : request.stepKind();
+        String stepLabel = request.stepLabel() == null || request.stepLabel().isBlank()
+                ? defaultStepLabel(stepKind)
+                : request.stepLabel().trim();
+        assignResponsiblePersonnel(
+                passage,
+                request.personnelId(),
+                stepKind,
+                stepLabel,
+                null,
+                auditActor,
+                Instant.now());
         return toPassage(passage);
+    }
+
+    public PageResponse<PassageResponsibilityStepResponse> searchResponsibilitySteps(
+            UUID patientId,
+            UUID passageId,
+            int page,
+            int size,
+            DataAccessScope accessScope) {
+        PatientPassageEntity passage = getPassageForPatientScope(patientId, passageId, accessScope);
+        var steps = patientPassageResponsibilityStepRepository.searchByPassageId(
+                passage.getId(),
+                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100)));
+        return new PageResponse<>(
+                steps.getContent().stream().map(this::toResponsibilityStep).toList(),
+                steps.getNumber(),
+                steps.getSize(),
+                steps.getTotalElements(),
+                steps.getTotalPages());
     }
 
     @Transactional
@@ -2050,7 +2125,11 @@ public class PatientApplicationService {
     private void assignResponsiblePersonnel(
             PatientPassageEntity passage,
             UUID personnelId,
-            AuditActor auditActor) {
+            PassageResponsibilityStepKind stepKind,
+            String stepLabel,
+            UUID relatedEntityId,
+            AuditActor auditActor,
+            Instant assignedAt) {
         PersonnelReferenceClient.PersonnelReference personnel = personnelReferenceClient
                 .resolveActivePersonnelForHospital(personnelId, passage.getHospitalId());
         String fullName = java.util.stream.Stream.of(personnel.lastName(), personnel.firstName(), personnel.middleName())
@@ -2062,7 +2141,58 @@ public class PatientApplicationService {
                 fullName,
                 personnel.jobTitle(),
                 auditActor,
-                Instant.now());
+                assignedAt);
+        patientPassageResponsibilityStepRepository.save(new PatientPassageResponsibilityStepEntity(
+                UUID.randomUUID(),
+                passage.getId(),
+                stepKind,
+                stepLabel,
+                relatedEntityId,
+                personnel.id(),
+                personnel.employeeNumber(),
+                fullName,
+                personnel.jobTitle(),
+                auditActor,
+                assignedAt));
+    }
+
+    private PassageResponsibilityStepResponse toResponsibilityStep(PatientPassageResponsibilityStepEntity step) {
+        return new PassageResponsibilityStepResponse(
+                step.getId(),
+                step.getPassageId(),
+                step.getStepKind(),
+                step.getStepLabel(),
+                step.getRelatedEntityId(),
+                step.getResponsiblePersonnelId(),
+                step.getResponsiblePersonnelEmployeeNumber(),
+                step.getResponsiblePersonnelName(),
+                step.getResponsiblePersonnelJobTitle(),
+                step.getAssignedAt(),
+                step.getAssignedByUsername());
+    }
+
+    private String clinicalOrientationLabel(ClinicalOrientation orientation) {
+        return switch (orientation) {
+            case OBSERVATION -> "Orientation : observation";
+            case HOSPITALIZATION -> "Orientation : hospitalisation";
+            case REFERRAL -> "Orientation : orientation externe";
+            case LABORATORY -> "Orientation : laboratoire";
+            case PHARMACY -> "Orientation : pharmacie";
+            case FOLLOW_UP -> "Orientation : suivi";
+            case DISCHARGE -> "Orientation : sortie";
+            case OTHER -> "Orientation : autre";
+        };
+    }
+
+    private String defaultStepLabel(PassageResponsibilityStepKind stepKind) {
+        return switch (stepKind) {
+            case ASSIGNMENT -> "Affectation du responsable";
+            case CLINICAL_ENTRY -> "Évolution clinique";
+            case TRIAGE -> "Triage";
+            case PRESCRIPTION -> "Ordonnance";
+            case LABORATORY_REQUEST -> "Demande d’analyse";
+            case SERVICE_TRANSFER -> "Changement de service";
+        };
     }
 
     private record DocumentContent(String contentType, int sizeBytes, String contentBase64) {

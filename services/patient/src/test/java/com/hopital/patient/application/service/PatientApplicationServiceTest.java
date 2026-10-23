@@ -140,6 +140,9 @@ class PatientApplicationServiceTest {
     @Mock
     private PartnerCompanyMemberRepository partnerCompanyMemberRepository;
 
+    @Mock
+    private com.hopital.patient.infra.persistence.repository.PatientPassageResponsibilityStepRepository patientPassageResponsibilityStepRepository;
+
     @InjectMocks
     private PatientApplicationService patientApplicationService;
 
@@ -370,6 +373,10 @@ class PatientApplicationServiceTest {
         when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
         when(patientPassageClinicalEntryRepository.save(any(PatientPassageClinicalEntryEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(patientPassageResponsibilityStepRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(personnelReferenceClient.resolveActivePersonnelForHospital(responsiblePersonnelId, patient.getRegistrationHospitalId()))
+                .thenReturn(new PersonnelReferenceClient.PersonnelReference(
+                        responsiblePersonnelId, "MED-001", "Amina", "Kasongo", null, "MEDICAL", "Médecin"));
 
         var response = patientApplicationService.addClinicalEntry(
                 patient.getId(),
@@ -380,7 +387,8 @@ class PatientApplicationServiceTest {
                         "Infection respiratoire à confirmer",
                         "Hydratation, surveillance et bilan complémentaire.",
                         ClinicalOrientation.LABORATORY,
-                        LocalDate.of(2026, 9, 4)),
+                        LocalDate.of(2026, 9, 4),
+                        responsiblePersonnelId),
                 new DataAccessScope(false, false, responsiblePersonnelId, patient.getRegistrationHospitalId(), "HP-GOMA"),
                 auditActor());
 
@@ -440,9 +448,14 @@ class PatientApplicationServiceTest {
         PatientPassageEntity passage = new PatientPassageEntity(
                 UUID.randomUUID(), "PAS-20260907-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
                 PatientPassageType.EMERGENCY, "Accueil et triage", "Fièvre et fatigue", auditActor(), Instant.now());
+        UUID stepResponsibleId = UUID.randomUUID();
         when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
         when(patientPassageTriageAssessmentRepository.save(any(PatientPassageTriageAssessmentEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(patientPassageResponsibilityStepRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(personnelReferenceClient.resolveActivePersonnelForHospital(stepResponsibleId, patient.getRegistrationHospitalId()))
+                .thenReturn(new PersonnelReferenceClient.PersonnelReference(
+                        stepResponsibleId, "INF-001", "Grace", "Mwamba", null, "NURSING", "Infirmier"));
 
         var response = patientApplicationService.addTriageAssessment(
                 patient.getId(),
@@ -468,7 +481,8 @@ class PatientApplicationServiceTest {
                         null,
                         Set.of(TriageDangerSign.SEVERE_PAIN),
                         "Installation et hydratation orale.",
-                        "À transmettre au médecin de garde."),
+                        "À transmettre au médecin de garde.",
+                        stepResponsibleId),
                 new DataAccessScope(
                         false,
                         false,
@@ -498,6 +512,10 @@ class PatientApplicationServiceTest {
         when(patientPassageRepository.findById(passage.getId())).thenReturn(Optional.of(passage));
         when(patientPassageTriageAssessmentRepository.save(any(PatientPassageTriageAssessmentEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(patientPassageResponsibilityStepRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(personnelReferenceClient.resolveActivePersonnelForHospital(responsiblePersonnelId, patient.getRegistrationHospitalId()))
+                .thenReturn(new PersonnelReferenceClient.PersonnelReference(
+                        responsiblePersonnelId, "MED-001", "Amina", "Kasongo", null, "MEDICAL", "Médecin"));
 
         var response = patientApplicationService.addTriageAssessment(
                 patient.getId(),
@@ -506,7 +524,7 @@ class PatientApplicationServiceTest {
                         "Contrôle avant consultation", false, TriagePriority.GREEN, "État stable.",
                         null, null, null, null, null, null, null, null, null,
                         TriageConsciousnessLevel.ALERT, TriagePregnancyStatus.NOT_APPLICABLE,
-                        null, null, null, Set.of(), null, null),
+                        null, null, null, Set.of(), null, null, responsiblePersonnelId),
                 new DataAccessScope(
                         false,
                         false,
@@ -537,7 +555,7 @@ class PatientApplicationServiceTest {
                         "Contrôle avant consultation", false, TriagePriority.GREEN, "État stable.",
                         null, null, null, null, null, null, null, null, null,
                         TriageConsciousnessLevel.ALERT, TriagePregnancyStatus.NOT_APPLICABLE,
-                        null, null, null, Set.of(), null, null),
+                        null, null, null, Set.of(), null, null, UUID.randomUUID()),
                 new DataAccessScope(
                         false,
                         false,
@@ -555,6 +573,7 @@ class PatientApplicationServiceTest {
     @Test
     void recordsAnExternalPrescriptionWithoutImpersonatingAPlatformDoctor() {
         PatientEntity patient = patient("HP-GOMA");
+        UUID responsiblePersonnelId = UUID.randomUUID();
         PatientPassageEntity passage = new PatientPassageEntity(
                 UUID.randomUUID(), "PAS-20260901-ABCD1234", patient, patient.getRegistrationHospitalId(), "HP-GOMA",
                 PatientPassageType.PHARMACY, "Pharmacie hospitalière", null, auditActor(), Instant.now());
@@ -562,6 +581,10 @@ class PatientApplicationServiceTest {
         when(patientPassagePrescriptionRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
         when(patientPassagePrescriptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(patientPassagePrescriptionItemRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(patientPassageResponsibilityStepRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(personnelReferenceClient.resolveActivePersonnelForHospital(responsiblePersonnelId, patient.getRegistrationHospitalId()))
+                .thenReturn(new PersonnelReferenceClient.PersonnelReference(
+                        responsiblePersonnelId, "PHA-001", "Paul", "Ilunga", null, "PHARMACY", "Pharmacien"));
 
         var response = patientApplicationService.addPrescription(
                 patient.getId(),
@@ -572,7 +595,8 @@ class PatientApplicationServiceTest {
                         "ORD-PAPIER-54",
                         "Ordonnance apportée par le patient.",
                         List.of(new PrescriptionItemRequest(
-                                null, "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null))),
+                                null, "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null)),
+                        responsiblePersonnelId),
                 new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
                 auditActor());
 
@@ -588,6 +612,7 @@ class PatientApplicationServiceTest {
     @Test
     void createsThePharmacyPassageBeforeRecordingAnExternalPrescription() {
         PatientEntity patient = patient("HP-GOMA");
+        UUID responsiblePersonnelId = UUID.randomUUID();
         AtomicReference<PatientPassageEntity> createdPassage = new AtomicReference<>();
         when(patientRepository.findById(patient.getId())).thenReturn(Optional.of(patient));
         when(patientPassageRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
@@ -600,6 +625,10 @@ class PatientApplicationServiceTest {
         when(patientPassagePrescriptionRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
         when(patientPassagePrescriptionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(patientPassagePrescriptionItemRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(patientPassageResponsibilityStepRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(personnelReferenceClient.resolveActivePersonnelForHospital(eq(responsiblePersonnelId), any()))
+                .thenReturn(new PersonnelReferenceClient.PersonnelReference(
+                        responsiblePersonnelId, "PHA-001", "Paul", "Ilunga", null, "PHARMACY", "Pharmacien"));
 
         var response = patientApplicationService.createPharmacyExternalPrescription(
                 new CreatePharmacyExternalPrescriptionRequest(
@@ -608,7 +637,8 @@ class PatientApplicationServiceTest {
                         "Dr. Mavungu",
                         "Vente au comptoir.",
                         List.of(new PrescriptionItemRequest(
-                                null, "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null))),
+                                null, "Amoxicilline", "500 mg", "Voie orale", "3 fois par jour", "7 jours", "21 gélules", null)),
+                        responsiblePersonnelId),
                 new DataAccessScope(false, patient.getRegistrationHospitalId(), "HP-GOMA"),
                 auditActor());
 

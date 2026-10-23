@@ -13,6 +13,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.Set;
+import java.util.UUID;
 
 /** A dated triage assessment appended to an open patient passage. */
 public record CreatePatientPassageTriageAssessmentRequest(
@@ -62,5 +63,6 @@ public record CreatePatientPassageTriageAssessmentRequest(
         BigDecimal oxygenFlowLitersPerMinute,
         @Size(max = 20, message = "Trop de signes d’alerte ont été sélectionnés.") Set<TriageDangerSign> dangerSigns,
         @Size(max = 4000, message = "Les soins à l’arrivée sont trop longs.") String careOnArrival,
-        @Size(max = 4000, message = "Les observations de transmission sont trop longues.") String handoverNotes) {
+        @Size(max = 4000, message = "Les observations de transmission sont trop longues.") String handoverNotes,
+        @NotNull(message = "Le responsable de cette étape est obligatoire.") UUID responsiblePersonnelId) {
 }

@@ -28,6 +28,7 @@ import com.hopital.patient.application.dto.UpdatePatientPassageStatusRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageClinicalEntryRequest;
 import com.hopital.patient.application.dto.CreatePatientPassageTriageAssessmentRequest;
 import com.hopital.patient.application.dto.CreatePatientPassagePrescriptionRequest;
+import com.hopital.patient.application.dto.PassageResponsibilityStepResponse;
 import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
 import com.hopital.patient.application.dto.PharmacyPrescriptionResponse;
 import com.hopital.patient.application.dto.PrescriptionDispenseResponse;
@@ -332,6 +333,17 @@ public class PatientController {
                 request,
                 accessScope(jwt),
                 auditActor(jwt)));
+    }
+
+    @GetMapping("/{patientId}/passages/{passageId}/responsibility-steps")
+    public ResponseEntity<PageResponse<PassageResponsibilityStepResponse>> searchResponsibilitySteps(
+            @PathVariable("patientId") UUID patientId,
+            @PathVariable("passageId") UUID passageId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(patientApplicationService.searchResponsibilitySteps(
+                patientId, passageId, page, size, accessScope(jwt)));
     }
 
     @PatchMapping("/{patientId}/status")

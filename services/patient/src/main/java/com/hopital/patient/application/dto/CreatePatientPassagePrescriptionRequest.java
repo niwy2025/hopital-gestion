@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.UUID;
 
 /** A prescription is always attached to one patient passage. */
 public record CreatePatientPassagePrescriptionRequest(
@@ -15,5 +16,6 @@ public record CreatePatientPassagePrescriptionRequest(
         @Size(max = 4000, message = "La note est trop longue.") String notes,
         @NotEmpty(message = "Ajoutez au moins un médicament.")
         @Size(max = 30, message = "Une ordonnance ne peut pas contenir plus de 30 médicaments.")
-        List<@Valid PrescriptionItemRequest> items) {
+        List<@Valid PrescriptionItemRequest> items,
+        UUID responsiblePersonnelId) {
 }

@@ -20,5 +20,6 @@ public record CreatePharmacyExternalPrescriptionRequest(
         @Size(max = 4000, message = "La note est trop longue.") String notes,
         @NotEmpty(message = "Ajoutez au moins un médicament.")
         @Size(max = 30, message = "Une ordonnance ne peut pas contenir plus de 30 médicaments.")
-        List<@Valid PrescriptionItemRequest> items) {
+        List<@Valid PrescriptionItemRequest> items,
+        @NotNull(message = "Le responsable de cette étape est obligatoire.") UUID responsiblePersonnelId) {
 }

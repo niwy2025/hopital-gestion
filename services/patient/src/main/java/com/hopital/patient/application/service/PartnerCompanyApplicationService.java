@@ -71,7 +71,6 @@ public class PartnerCompanyApplicationService {
             int page,
             int size,
             DataAccessScope accessScope) {
-        requirePartnerCompanyManager(accessScope);
         HospitalReferenceClient.HospitalReference hospital = resolveAccessibleHospital(hospitalId, accessScope);
         var companies = partnerCompanyRepository.search(
                 hospital.hospitalId(),
@@ -158,7 +157,6 @@ public class PartnerCompanyApplicationService {
             int page,
             int size,
             DataAccessScope accessScope) {
-        requirePartnerCompanyManager(accessScope);
         PartnerCompanyEntity company = requireAccessibleCompany(companyId, accessScope);
         var members = partnerCompanyMemberRepository.search(
                 company.getId(),

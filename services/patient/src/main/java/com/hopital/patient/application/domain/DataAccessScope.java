@@ -58,7 +58,7 @@ public record DataAccessScope(
 
     /** Catalogue hospitalier des mesures et signes d’alerte de triage. */
     public boolean canManageTriageCatalog() {
-        return administrator || hasAnyRole("HOSPITAL_ADMIN");
+        return administrator || hasAnyRole("HOSPITAL_ADMIN", "NURSE");
     }
 
     private boolean hasAnyRole(String... expectedRoles) {

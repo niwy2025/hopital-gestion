@@ -18,6 +18,7 @@ import com.hopital.patient.application.exception.InvalidResponsiblePersonnelExce
 import com.hopital.patient.application.domain.PrescriptionStatus;
 import com.hopital.patient.application.domain.PrescriptionDispenseCompletion;
 import com.hopital.patient.application.domain.TriageConsciousnessLevel;
+import com.hopital.patient.application.domain.TriageMeasurementValueKind;
 import com.hopital.patient.application.domain.TriagePregnancyStatus;
 import com.hopital.patient.application.domain.TriagePriority;
 import com.hopital.patient.application.dto.CreatePrescriptionDispenseRequest;
@@ -40,6 +41,9 @@ import com.hopital.patient.application.dto.PatientPassageResponse;
 import com.hopital.patient.application.dto.PatientPassageSummaryResponse;
 import com.hopital.patient.application.dto.PatientPassageClinicalEntryResponse;
 import com.hopital.patient.application.dto.PatientPassageTriageAssessmentResponse;
+import com.hopital.patient.application.dto.TriageCustomAlertSignResponse;
+import com.hopital.patient.application.dto.TriageCustomMeasurementValueRequest;
+import com.hopital.patient.application.dto.TriageCustomMeasurementValueResponse;
 import com.hopital.patient.application.dto.PassageResponsibilityStepResponse;
 import com.hopital.patient.application.dto.PatientPassageLaboratoryReferenceResponse;
 import com.hopital.patient.application.dto.PatientPassagePrescriptionResponse;
@@ -61,6 +65,7 @@ import com.hopital.patient.application.exception.InvalidPatientCoverageException
 import com.hopital.patient.application.exception.InvalidPatientDocumentException;
 import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
 import com.hopital.patient.application.exception.InvalidPrescriptionException;
+import com.hopital.patient.application.exception.InvalidTriageCatalogException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import com.hopital.patient.application.exception.PrescriptionDispenseNotFoundException;
 import com.hopital.patient.infra.integration.organization.HospitalReferenceClient;
@@ -73,7 +78,11 @@ import com.hopital.patient.infra.persistence.entity.PatientDocumentEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageClinicalEntryEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageResponsibilityStepEntity;
+import com.hopital.patient.infra.persistence.entity.HospitalTriageAlertSignEntity;
+import com.hopital.patient.infra.persistence.entity.HospitalTriageMeasurementEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassageTriageAssessmentEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageTriageCustomAlertSignEntity;
+import com.hopital.patient.infra.persistence.entity.PatientPassageTriageCustomValueEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseEntity;
 import com.hopital.patient.infra.persistence.entity.PatientPassagePrescriptionDispenseItemEntity;
@@ -82,7 +91,11 @@ import com.hopital.patient.infra.persistence.entity.PharmacyDispensePaymentSettl
 import com.hopital.patient.infra.persistence.repository.PatientPassageRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageClinicalEntryRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageResponsibilityStepRepository;
+import com.hopital.patient.infra.persistence.repository.HospitalTriageAlertSignRepository;
+import com.hopital.patient.infra.persistence.repository.HospitalTriageMeasurementRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassageTriageAssessmentRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageTriageCustomAlertSignRepository;
+import com.hopital.patient.infra.persistence.repository.PatientPassageTriageCustomValueRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionItemRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionRepository;
 import com.hopital.patient.infra.persistence.repository.PatientPassagePrescriptionDispenseItemRepository;
@@ -100,6 +113,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -143,6 +157,10 @@ public class PatientApplicationService {
     private final PartnerCompanyRepository partnerCompanyRepository;
     private final PartnerCompanyMemberRepository partnerCompanyMemberRepository;
     private final PatientPassageResponsibilityStepRepository patientPassageResponsibilityStepRepository;
+    private final HospitalTriageMeasurementRepository hospitalTriageMeasurementRepository;
+    private final HospitalTriageAlertSignRepository hospitalTriageAlertSignRepository;
+    private final PatientPassageTriageCustomValueRepository patientPassageTriageCustomValueRepository;
+    private final PatientPassageTriageCustomAlertSignRepository patientPassageTriageCustomAlertSignRepository;
 
     public PatientApplicationService(
             PatientRepository patientRepository,
@@ -163,7 +181,11 @@ public class PatientApplicationService {
             PartnerCompanyApplicationService partnerCompanyApplicationService,
             PartnerCompanyRepository partnerCompanyRepository,
             PartnerCompanyMemberRepository partnerCompanyMemberRepository,
-            PatientPassageResponsibilityStepRepository patientPassageResponsibilityStepRepository) {
+            PatientPassageResponsibilityStepRepository patientPassageResponsibilityStepRepository,
+            HospitalTriageMeasurementRepository hospitalTriageMeasurementRepository,
+            HospitalTriageAlertSignRepository hospitalTriageAlertSignRepository,
+            PatientPassageTriageCustomValueRepository patientPassageTriageCustomValueRepository,
+            PatientPassageTriageCustomAlertSignRepository patientPassageTriageCustomAlertSignRepository) {
         this.patientRepository = patientRepository;
         this.hospitalizationOutbox = hospitalizationOutbox;
         this.patientDocumentRepository = patientDocumentRepository;
@@ -183,6 +205,10 @@ public class PatientApplicationService {
         this.partnerCompanyRepository = partnerCompanyRepository;
         this.partnerCompanyMemberRepository = partnerCompanyMemberRepository;
         this.patientPassageResponsibilityStepRepository = patientPassageResponsibilityStepRepository;
+        this.hospitalTriageMeasurementRepository = hospitalTriageMeasurementRepository;
+        this.hospitalTriageAlertSignRepository = hospitalTriageAlertSignRepository;
+        this.patientPassageTriageCustomValueRepository = patientPassageTriageCustomValueRepository;
+        this.patientPassageTriageCustomAlertSignRepository = patientPassageTriageCustomAlertSignRepository;
     }
 
     /** Compatibility endpoint for existing dependent forms. New registry screens use the paginated search endpoint. */
@@ -411,8 +437,17 @@ public class PatientApplicationService {
                         Math.max(page, 0),
                         Math.min(Math.max(size, 1), 100),
                         Sort.by("recordedAt").descending()));
+        Map<UUID, List<TriageCustomMeasurementValueResponse>> customValuesByAssessment =
+                loadTriageCustomMeasurements(assessments.getContent());
+        Map<UUID, List<TriageCustomAlertSignResponse>> customAlertsByAssessment =
+                loadTriageCustomAlertSigns(assessments.getContent());
         return new PageResponse<>(
-                assessments.getContent().stream().map(this::toTriageAssessment).toList(),
+                assessments.getContent().stream()
+                        .map(assessment -> toTriageAssessment(
+                                assessment,
+                                customValuesByAssessment.getOrDefault(assessment.getId(), List.of()),
+                                customAlertsByAssessment.getOrDefault(assessment.getId(), List.of())))
+                        .toList(),
                 assessments.getNumber(),
                 assessments.getSize(),
                 assessments.getTotalElements(),
@@ -820,10 +855,9 @@ public class PatientApplicationService {
     }
 
     /**
-     * Appends a triage assessment made by a nurse, hospital administrator, or
-     * the doctor responsible for this passage. There is deliberately no
-     * automatic priority calculation: the recorded values inform, but never
-     * replace, clinical judgement.
+     * Appends a triage assessment made by a nurse or hospital administrator.
+     * Doctors consult the recorded values; they do not fill the triage form.
+     * There is deliberately no automatic priority calculation.
      */
     @Transactional
     public PatientPassageTriageAssessmentResponse addTriageAssessment(
@@ -871,6 +905,7 @@ public class PatientApplicationService {
                 auditActor,
                 recordedAt);
         PatientPassageTriageAssessmentEntity saved = patientPassageTriageAssessmentRepository.save(assessment);
+        saveTriageCustomCatalogValues(saved.getId(), passage.getHospitalId(), request);
         assignResponsiblePersonnel(
                 passage,
                 request.responsiblePersonnelId(),
@@ -1878,7 +1913,7 @@ public class PatientApplicationService {
     private void assertCanWriteTriage(DataAccessScope accessScope, PatientPassageEntity passage) {
         if (!accessScope.canWriteTriage(passage.getResponsiblePersonnelId())) {
             throw new DataAccessDeniedException(
-                    "Seul un infirmier, un administrateur d’hôpital ou le médecin responsable peut saisir une fiche de triage.");
+                    "Seul un infirmier ou un administrateur d’hôpital peut saisir une fiche de triage.");
         }
     }
 
@@ -1955,6 +1990,16 @@ public class PatientApplicationService {
 
     private PatientPassageTriageAssessmentResponse toTriageAssessment(
             PatientPassageTriageAssessmentEntity assessment) {
+        return toTriageAssessment(
+                assessment,
+                loadTriageCustomMeasurements(List.of(assessment)).getOrDefault(assessment.getId(), List.of()),
+                loadTriageCustomAlertSigns(List.of(assessment)).getOrDefault(assessment.getId(), List.of()));
+    }
+
+    private PatientPassageTriageAssessmentResponse toTriageAssessment(
+            PatientPassageTriageAssessmentEntity assessment,
+            List<TriageCustomMeasurementValueResponse> customMeasurements,
+            List<TriageCustomAlertSignResponse> customAlertSigns) {
         return new PatientPassageTriageAssessmentResponse(
                 assessment.getId(),
                 assessment.getPassageId(),
@@ -1977,10 +2022,162 @@ public class PatientApplicationService {
                 assessment.getOxygenSupport(),
                 assessment.getOxygenFlowLitersPerMinute(),
                 assessment.getDangerSigns(),
+                customMeasurements,
+                customAlertSigns,
                 assessment.getCareOnArrival(),
                 assessment.getHandoverNotes(),
                 assessment.getRecordedAt(),
                 assessment.getRecordedByUsername());
+    }
+
+    private void saveTriageCustomCatalogValues(
+            UUID assessmentId,
+            UUID hospitalId,
+            CreatePatientPassageTriageAssessmentRequest request) {
+        List<TriageCustomMeasurementValueRequest> customMeasurements = request.customMeasurements() == null
+                ? List.of()
+                : request.customMeasurements();
+        Set<UUID> customAlertSignIds = request.customAlertSignIds() == null
+                ? Set.of()
+                : request.customAlertSignIds();
+        if (customMeasurements.isEmpty() && customAlertSignIds.isEmpty()) {
+            return;
+        }
+
+        Set<UUID> measurementIds = new LinkedHashSet<>();
+        for (TriageCustomMeasurementValueRequest value : customMeasurements) {
+            if (value == null || value.measurementId() == null || !measurementIds.add(value.measurementId())) {
+                throw new InvalidTriageCatalogException("Chaque mesure personnalisée ne peut être saisie qu’une seule fois.");
+            }
+        }
+        Map<UUID, HospitalTriageMeasurementEntity> measurementsById = hospitalTriageMeasurementRepository
+                .findAllByIdInAndHospitalId(measurementIds, hospitalId)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(HospitalTriageMeasurementEntity::getId, item -> item));
+        if (measurementsById.size() != measurementIds.size()) {
+            throw new InvalidTriageCatalogException(
+                    "Une mesure personnalisée est inactive, introuvable ou n’appartient pas à cet hôpital.");
+        }
+        List<PatientPassageTriageCustomValueEntity> values = new ArrayList<>();
+        for (TriageCustomMeasurementValueRequest value : customMeasurements) {
+            HospitalTriageMeasurementEntity measurement = measurementsById.get(value.measurementId());
+            if (!measurement.isActive()) {
+                throw new InvalidTriageCatalogException("La mesure « " + measurement.getLabel() + " » n’est plus active.");
+            }
+            if (measurement.getValueKind() == TriageMeasurementValueKind.NUMBER) {
+                if (value.numericValue() == null) {
+                    throw new InvalidTriageCatalogException(
+                            "La mesure « " + measurement.getLabel() + " » exige une valeur numérique.");
+                }
+                if (measurement.getMinValue() != null && value.numericValue().compareTo(measurement.getMinValue()) < 0
+                        || measurement.getMaxValue() != null && value.numericValue().compareTo(measurement.getMaxValue()) > 0) {
+                    throw new InvalidTriageCatalogException(
+                            "La valeur de « " + measurement.getLabel() + " » est hors des bornes autorisées.");
+                }
+                values.add(new PatientPassageTriageCustomValueEntity(
+                        assessmentId, measurement.getId(), value.numericValue(), null));
+            } else {
+                String text = trimToNull(value.textValue());
+                if (text == null) {
+                    throw new InvalidTriageCatalogException(
+                            "La mesure « " + measurement.getLabel() + " » exige une valeur texte.");
+                }
+                values.add(new PatientPassageTriageCustomValueEntity(
+                        assessmentId, measurement.getId(), null, text));
+            }
+        }
+        if (!values.isEmpty()) {
+            patientPassageTriageCustomValueRepository.saveAll(values);
+        }
+
+        if (customAlertSignIds.isEmpty()) {
+            return;
+        }
+        Map<UUID, HospitalTriageAlertSignEntity> alertSignsById = hospitalTriageAlertSignRepository
+                .findAllByIdInAndHospitalId(customAlertSignIds, hospitalId)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(HospitalTriageAlertSignEntity::getId, item -> item));
+        if (alertSignsById.size() != customAlertSignIds.size()) {
+            throw new InvalidTriageCatalogException(
+                    "Un signe d’alerte personnalisé est inactif, introuvable ou n’appartient pas à cet hôpital.");
+        }
+        List<PatientPassageTriageCustomAlertSignEntity> selectedAlerts = new ArrayList<>();
+        for (UUID alertSignId : customAlertSignIds) {
+            HospitalTriageAlertSignEntity alertSign = alertSignsById.get(alertSignId);
+            if (!alertSign.isActive()) {
+                throw new InvalidTriageCatalogException(
+                        "Le signe d’alerte « " + alertSign.getLabel() + " » n’est plus actif.");
+            }
+            selectedAlerts.add(new PatientPassageTriageCustomAlertSignEntity(assessmentId, alertSignId));
+        }
+        patientPassageTriageCustomAlertSignRepository.saveAll(selectedAlerts);
+    }
+
+    private Map<UUID, List<TriageCustomMeasurementValueResponse>> loadTriageCustomMeasurements(
+            List<PatientPassageTriageAssessmentEntity> assessments) {
+        if (assessments.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> assessmentIds = assessments.stream().map(PatientPassageTriageAssessmentEntity::getId).toList();
+        List<PatientPassageTriageCustomValueEntity> values =
+                patientPassageTriageCustomValueRepository.findAllByTriageAssessmentIdIn(assessmentIds);
+        if (values.isEmpty()) {
+            return Map.of();
+        }
+        Set<UUID> measurementIds = values.stream()
+                .map(PatientPassageTriageCustomValueEntity::getMeasurementId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Map<UUID, HospitalTriageMeasurementEntity> measurementsById = hospitalTriageMeasurementRepository
+                .findAllById(measurementIds)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(HospitalTriageMeasurementEntity::getId, item -> item));
+        Map<UUID, List<TriageCustomMeasurementValueResponse>> byAssessment = new HashMap<>();
+        for (PatientPassageTriageCustomValueEntity value : values) {
+            HospitalTriageMeasurementEntity measurement = measurementsById.get(value.getMeasurementId());
+            if (measurement == null) {
+                continue;
+            }
+            byAssessment.computeIfAbsent(value.getTriageAssessmentId(), ignored -> new ArrayList<>()).add(
+                    new TriageCustomMeasurementValueResponse(
+                            measurement.getId(),
+                            measurement.getCode(),
+                            measurement.getLabel(),
+                            measurement.getUnit(),
+                            measurement.getValueKind(),
+                            value.getNumericValue(),
+                            value.getTextValue()));
+        }
+        return byAssessment;
+    }
+
+    private Map<UUID, List<TriageCustomAlertSignResponse>> loadTriageCustomAlertSigns(
+            List<PatientPassageTriageAssessmentEntity> assessments) {
+        if (assessments.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> assessmentIds = assessments.stream().map(PatientPassageTriageAssessmentEntity::getId).toList();
+        List<PatientPassageTriageCustomAlertSignEntity> selected =
+                patientPassageTriageCustomAlertSignRepository.findAllByTriageAssessmentIdIn(assessmentIds);
+        if (selected.isEmpty()) {
+            return Map.of();
+        }
+        Set<UUID> alertSignIds = selected.stream()
+                .map(PatientPassageTriageCustomAlertSignEntity::getAlertSignId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Map<UUID, HospitalTriageAlertSignEntity> alertSignsById = hospitalTriageAlertSignRepository
+                .findAllById(alertSignIds)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(HospitalTriageAlertSignEntity::getId, item -> item));
+        Map<UUID, List<TriageCustomAlertSignResponse>> byAssessment = new HashMap<>();
+        for (PatientPassageTriageCustomAlertSignEntity value : selected) {
+            HospitalTriageAlertSignEntity alertSign = alertSignsById.get(value.getAlertSignId());
+            if (alertSign == null) {
+                continue;
+            }
+            byAssessment.computeIfAbsent(value.getTriageAssessmentId(), ignored -> new ArrayList<>()).add(
+                    new TriageCustomAlertSignResponse(alertSign.getId(), alertSign.getCode(), alertSign.getLabel()));
+        }
+        return byAssessment;
     }
 
     private String triagePriorityLabel(TriagePriority priority) {

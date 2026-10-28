@@ -49,16 +49,16 @@ public record DataAccessScope(
     }
 
     /**
-     * Triage remains primarily a nursing activity. A doctor may only add a
-     * reassessment when they are the personnel explicitly responsible for the
-     * passage; merely holding the doctor role is not sufficient.
+     * Triage is a nursing (or hospital-admin) activity. Doctors consult the
+     * recorded assessments; they do not fill the triage form.
      */
     public boolean canWriteTriage(UUID responsiblePersonnelId) {
-        return administrator
-                || hasAnyRole("HOSPITAL_ADMIN", "NURSE")
-                || (hasAnyRole("DOCTOR")
-                && personnelId != null
-                && personnelId.equals(responsiblePersonnelId));
+        return administrator || hasAnyRole("HOSPITAL_ADMIN", "NURSE");
+    }
+
+    /** Catalogue hospitalier des mesures et signes d’alerte de triage. */
+    public boolean canManageTriageCatalog() {
+        return administrator || hasAnyRole("HOSPITAL_ADMIN");
     }
 
     private boolean hasAnyRole(String... expectedRoles) {

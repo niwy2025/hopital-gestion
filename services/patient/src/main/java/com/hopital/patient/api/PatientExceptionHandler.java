@@ -9,6 +9,7 @@ import com.hopital.patient.application.exception.InvalidPatientDocumentException
 import com.hopital.patient.application.exception.InvalidResponsiblePersonnelException;
 import com.hopital.patient.application.exception.InvalidPatientPassageStateException;
 import com.hopital.patient.application.exception.InvalidPrescriptionException;
+import com.hopital.patient.application.exception.InvalidTriageCatalogException;
 import com.hopital.patient.application.exception.PatientNotFoundException;
 import com.hopital.patient.application.exception.PrescriptionDispenseNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -71,6 +72,13 @@ public class PatientExceptionHandler {
             InvalidPatientPassageStateException exception,
             HttpServletRequest request) {
         return error(HttpStatus.CONFLICT, "PASSAGE_STATE_INVALID", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidTriageCatalogException.class)
+    ResponseEntity<ApiError> handleInvalidTriageCatalog(
+            InvalidTriageCatalogException exception,
+            HttpServletRequest request) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, "TRIAGE_CATALOG_INVALID", exception.getMessage(), request);
     }
 
     @ExceptionHandler(InvalidPrescriptionException.class)

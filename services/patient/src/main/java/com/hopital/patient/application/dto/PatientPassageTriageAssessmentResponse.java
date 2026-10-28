@@ -6,6 +6,7 @@ import com.hopital.patient.application.domain.TriagePregnancyStatus;
 import com.hopital.patient.application.domain.TriagePriority;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -32,6 +33,8 @@ public record PatientPassageTriageAssessmentResponse(
         String oxygenSupport,
         BigDecimal oxygenFlowLitersPerMinute,
         Set<TriageDangerSign> dangerSigns,
+        List<TriageCustomMeasurementValueResponse> customMeasurements,
+        List<TriageCustomAlertSignResponse> customAlertSigns,
         String careOnArrival,
         String handoverNotes,
         Instant recordedAt,

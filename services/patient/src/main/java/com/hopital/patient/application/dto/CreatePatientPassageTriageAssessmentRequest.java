@@ -4,6 +4,7 @@ import com.hopital.patient.application.domain.TriageConsciousnessLevel;
 import com.hopital.patient.application.domain.TriageDangerSign;
 import com.hopital.patient.application.domain.TriagePregnancyStatus;
 import com.hopital.patient.application.domain.TriagePriority;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -12,6 +13,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -62,6 +64,10 @@ public record CreatePatientPassageTriageAssessmentRequest(
         @DecimalMax(value = "100.0", message = "Le débit d’oxygène est invalide.")
         BigDecimal oxygenFlowLitersPerMinute,
         @Size(max = 20, message = "Trop de signes d’alerte ont été sélectionnés.") Set<TriageDangerSign> dangerSigns,
+        @Size(max = 30, message = "Trop de mesures personnalisées ont été saisies.")
+        List<@Valid TriageCustomMeasurementValueRequest> customMeasurements,
+        @Size(max = 30, message = "Trop de signes d’alerte personnalisés ont été sélectionnés.")
+        Set<UUID> customAlertSignIds,
         @Size(max = 4000, message = "Les soins à l’arrivée sont trop longs.") String careOnArrival,
         @Size(max = 4000, message = "Les observations de transmission sont trop longues.") String handoverNotes,
         @NotNull(message = "Le responsable de cette étape est obligatoire.") UUID responsiblePersonnelId) {

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hopital.accounting.application.domain.*;
+import com.hopital.accounting.application.service.AccountingApplicationService;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
@@ -27,6 +28,7 @@ class BillingPersistenceTest {
     @Autowired BillingService service;
     @Autowired JdbcTemplate db;
     @MockBean BillingReferences references;
+    @MockBean AccountingApplicationService accounting;
     final UUID hospital=UUID.randomUUID(),passage=UUID.randomUUID(),patient=UUID.randomUUID();
     final DataAccessScope scope=new DataAccessScope(false,false,hospital,"HOP-TEST");
     final AuditActor actor=new AuditActor("operator-id","facturation.test");

@@ -4,10 +4,13 @@ import static com.hopital.accounting.billing.BillingStore.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hopital.accounting.application.domain.*;
+import com.hopital.accounting.application.dto.AccountingInvoiceResponse;
 import com.hopital.accounting.application.dto.PageResponse;
+import com.hopital.accounting.application.service.AccountingApplicationService;
 import java.math.*;
 import java.time.*;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -15,17 +18,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Pre-invoicing only: neither a payment nor a journal entry is created here. */
+/** Passage charges catalogue and invoicing of selected unbilled lines. */
 @Service
 @Transactional(readOnly=true)
 public class BillingService {
     private final BillingStore db;
     private final BillingReferences references;
+    private final AccountingApplicationService accounting;
     private final ObjectMapper json;
     private final ZoneId zone;
-    public BillingService(BillingStore db,BillingReferences references,ObjectMapper json,
+    public BillingService(BillingStore db,BillingReferences references,AccountingApplicationService accounting,ObjectMapper json,
             @Value("${hospital.billing.zone:Africa/Kinshasa}") String zone) {
-        this.db=db;this.references=references;this.json=json;this.zone=ZoneId.of(zone);
+        this.db=db;this.references=references;this.accounting=accounting;this.json=json;this.zone=ZoneId.of(zone);
     }
     private LocalDate today(){return LocalDate.now(zone);}
     private static ResponseStatusException error(HttpStatus status,String message){return new ResponseStatusException(status,message);}
@@ -146,7 +150,7 @@ public class BillingService {
     public Map<String,Object> workspace(UUID passageId,int page,int size,String query,String status,DataAccessScope scope){
         var passage=passage(passageId,scope);var params=p("passage",passageId,"query","%"+text(query,200).toLowerCase(Locale.ROOT)+"%");
         String from="FROM billing_passage_charges WHERE passage_id=:passage AND (lower(service_name) LIKE :query OR lower(code) LIKE :query)";
-        if(status!=null&&!status.isBlank()){from+=" AND status=:status";params.addValue("status",choice(status,"UNBILLED","CANCELLED"));}
+        if(status!=null&&!status.isBlank()){from+=" AND status=:status";params.addValue("status",choice(status,"UNBILLED","BILLED","CANCELLED"));}
         return Map.of("passage",passage,"charges",page("SELECT *",from,"performed_on DESC,created_at DESC,id",params,page,size),
             "totals",db.rows("SELECT currency,sum(total_amount) AS amount,count(*) AS line_count FROM billing_passage_charges WHERE passage_id=:passage AND status='UNBILLED' GROUP BY currency ORDER BY currency",p("passage",passageId)));
     }
@@ -186,5 +190,88 @@ public class BillingService {
         db.update("UPDATE billing_passage_charges SET status='CANCELLED',cancelled_at=now(),cancelled_by_id=:actor,cancelled_by=:name,cancellation_reason=:reason WHERE id=:id",
             p("id",chargeId,"actor",actor.userId(),"name",actor.username(),"reason",reason));
         return db.one("SELECT * FROM billing_passage_charges WHERE id=:id",p("id",chargeId));
+    }
+
+    @Transactional
+    public Map<String,Object> invoiceCharges(UUID passageId,BillingRequests.InvoiceCharges request,DataAccessScope scope,AuditActor actor){
+        var passage=passage(passageId,scope);
+        require(request.requestId()!=null,"La clé de la demande est obligatoire.");
+        require(request.chargeIds()!=null&&!request.chargeIds().isEmpty(),"Sélectionnez au moins une ligne de frais à facturer.");
+        require(request.chargeIds().size()<=100,"Trop de lignes sélectionnées pour une seule facture.");
+        List<UUID> chargeIds=request.chargeIds().stream().distinct().toList();
+        require(chargeIds.size()==request.chargeIds().size(),"Chaque frais ne peut être facturé qu’une seule fois dans la sélection.");
+        String sourceCode="CHG-"+request.requestId().toString().replace("-","").toUpperCase(Locale.ROOT);
+        if(sourceCode.length()>80)sourceCode=sourceCode.substring(0,80);
+        db.rows("SELECT pg_advisory_xact_lock(hashtextextended(:key,3))",p("key",passage.hospitalId()+":"+request.requestId()));
+
+        var already=db.rows("""
+            SELECT * FROM billing_passage_charges
+            WHERE hospital_id=:hospital AND invoice_id IS NOT NULL
+              AND id IN (:ids)
+            """,p("hospital",passage.hospitalId(),"ids",chargeIds));
+        if(!already.isEmpty()&&already.size()==chargeIds.size()){
+            Object invoiceId=already.get(0).get("invoiceId");
+            boolean sameInvoice=already.stream().allMatch(row->Objects.equals(invoiceId,row.get("invoiceId")));
+            require(sameInvoice,"Cette sélection mélange des frais déjà rattachés à des factures différentes.");
+            AccountingInvoiceResponse existing=accounting.getInvoice(UUID.fromString(invoiceId.toString()),scope);
+            return Map.of("invoice",existing,"charges",already,"reused",true);
+        }
+
+        List<Map<String,Object>> rows=db.rows("""
+            SELECT * FROM billing_passage_charges
+            WHERE passage_id=:passage AND id IN (:ids)
+            FOR UPDATE
+            """,p("passage",passageId,"ids",chargeIds));
+        require(rows.size()==chargeIds.size(),"Un ou plusieurs frais sélectionnés sont introuvables sur ce passage.");
+        for(Map<String,Object> row:rows){
+            require("UNBILLED".equals(row.get("status")),"Seuls les frais « à facturer » peuvent être inclus dans une facture.");
+            require(passage.hospitalId().equals(id(row,"hospitalId")),"Les frais doivent appartenir à l’hôpital du passage.");
+        }
+        String currency=String.valueOf(rows.get(0).get("currency"));
+        require(rows.stream().allMatch(row->currency.equals(String.valueOf(row.get("currency")))),
+                "Tous les frais d’une même facture doivent être dans la même devise.");
+        BigDecimal total=rows.stream()
+                .map(row->(BigDecimal)row.get("totalAmount"))
+                .reduce(BigDecimal.ZERO,BigDecimal::add)
+                .setScale(2,RoundingMode.HALF_UP);
+        String description=rows.stream()
+                .map(row->String.valueOf(row.get("serviceName")))
+                .distinct()
+                .limit(8)
+                .collect(Collectors.joining(", "));
+        if(rows.size()>8)description=description+"…";
+        description="Frais de passage "+passage.code()+" : "+description;
+        if(description.length()>1000)description=description.substring(0,997)+"...";
+
+        AccountingInvoiceResponse invoice=accounting.createAndIssuePassageChargesInvoice(
+                passage.hospitalId(),
+                passage.hospitalCode(),
+                passage.patientId(),
+                passage.patientCode(),
+                passage.id(),
+                passage.code(),
+                request.issuedOn()==null?today():request.issuedOn(),
+                AccountingCurrency.valueOf(currency),
+                total,
+                description,
+                sourceCode,
+                scope,
+                actor);
+
+        db.update("""
+            UPDATE billing_passage_charges
+            SET status='BILLED',
+                invoice_id=:invoiceId,
+                invoice_code=:invoiceCode,
+                billed_at=now(),
+                billed_by_id=:actor,
+                billed_by=:name
+            WHERE passage_id=:passage AND id IN (:ids) AND status='UNBILLED'
+            """,p("invoiceId",invoice.id(),"invoiceCode",invoice.code(),"actor",actor.userId(),"name",actor.username(),
+                "passage",passageId,"ids",chargeIds));
+        List<Map<String,Object>> billed=db.rows(
+                "SELECT * FROM billing_passage_charges WHERE passage_id=:passage AND id IN (:ids) ORDER BY performed_on DESC,id",
+                p("passage",passageId,"ids",chargeIds));
+        return Map.of("invoice",invoice,"charges",billed,"reused",false);
     }
 }

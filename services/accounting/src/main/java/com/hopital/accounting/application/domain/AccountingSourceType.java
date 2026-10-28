@@ -4,6 +4,7 @@ package com.hopital.accounting.application.domain;
 public enum AccountingSourceType {
     MANUAL_ENTRY,
     MANUAL_INVOICE,
+    PASSAGE_CHARGES,
     PHARMACY_DISPENSE,
     PHARMACY_STOCK_RECEIPT,
     PHARMACY_STOCK_MOVEMENT,

@@ -3,6 +3,7 @@ package com.hopital.accounting.billing;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public final class BillingRequests {
@@ -17,4 +18,8 @@ public final class BillingRequests {
         @NotNull @DecimalMin(value="0",inclusive=false) @Digits(integer=6,fraction=3) BigDecimal quantity,
         @NotBlank String currency,@NotNull UUID requestId,@NotBlank @Size(max=1000) String note) {}
     public record Note(@NotBlank @Size(max=1000) String reason) {}
+    public record InvoiceCharges(
+            @NotEmpty @Size(max=100) List<@NotNull UUID> chargeIds,
+            @NotNull UUID requestId,
+            LocalDate issuedOn) {}
 }

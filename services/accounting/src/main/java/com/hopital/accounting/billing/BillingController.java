@@ -48,4 +48,6 @@ public class BillingController {
     public Object charge(@PathVariable("id") UUID id,@Valid @RequestBody BillingRequests.Charge r,@AuthenticationPrincipal Jwt jwt){return service.charge(id,r,scope(jwt),actor(jwt));}
     @PostMapping("/passages/{id}/charges/{charge}/cancel") @PreAuthorize(WRITE)
     public Object cancelCharge(@PathVariable("id") UUID id,@PathVariable("charge") UUID charge,@Valid @RequestBody BillingRequests.Note r,@AuthenticationPrincipal Jwt jwt){return service.cancelCharge(id,charge,r.reason(),scope(jwt),actor(jwt));}
+    @PostMapping("/passages/{id}/invoices") @PreAuthorize(WRITE)
+    public Object invoiceCharges(@PathVariable("id") UUID id,@Valid @RequestBody BillingRequests.InvoiceCharges r,@AuthenticationPrincipal Jwt jwt){return service.invoiceCharges(id,r,scope(jwt),actor(jwt));}
 }

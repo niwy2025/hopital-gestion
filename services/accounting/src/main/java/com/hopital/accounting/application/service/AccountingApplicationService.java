@@ -339,6 +339,83 @@ public class AccountingApplicationService {
         return toInvoice(invoice);
     }
 
+    /**
+     * Creates and immediately issues an invoice from selected passage billing charges.
+     * Idempotent on (hospital, PASSAGE_CHARGES, sourceCode).
+     */
+    @Transactional
+    public AccountingInvoiceResponse createAndIssuePassageChargesInvoice(
+            UUID hospitalId,
+            String hospitalCode,
+            UUID patientId,
+            String patientCode,
+            UUID passageId,
+            String passageCode,
+            LocalDate issuedOn,
+            AccountingCurrency currency,
+            BigDecimal totalAmount,
+            String description,
+            String sourceCode,
+            DataAccessScope scope,
+            AuditActor actor) {
+        assertOwned(hospitalId, scope);
+        HospitalContext hospital = new HospitalContext(hospitalId, hospitalCode);
+        ensureHospitalBook(hospital);
+        var existing = invoiceRepository.findByHospitalIdAndSourceTypeAndSourceCode(
+                hospital.id(), AccountingSourceType.PASSAGE_CHARGES, sourceCode);
+        if (existing.isPresent()) {
+            return toInvoice(existing.get());
+        }
+        BigDecimal total = money(totalAmount);
+        if (total.signum() <= 0) {
+            throw new AccountingValidationException("Le total d'une facture doit être supérieur à zéro.");
+        }
+        LocalDate date = issuedOn == null ? LocalDate.now() : issuedOn;
+        String code = nextCode("FAC", value -> invoiceRepository.existsByHospitalIdAndCode(hospital.id(), value));
+        AccountingInvoiceEntity invoice = invoiceRepository.save(new AccountingInvoiceEntity(
+                UUID.randomUUID(),
+                hospital.id(),
+                hospital.code(),
+                code,
+                AccountingSourceType.PASSAGE_CHARGES,
+                sourceCode,
+                patientId,
+                trimToNull(patientCode),
+                passageId,
+                trimToNull(passageCode),
+                date,
+                currency,
+                total,
+                description.trim(),
+                actor.userId(),
+                actor.username(),
+                Instant.now()));
+        invoice.issue();
+        createAndPostEntry(
+                hospital,
+                invoice.getIssuedOn(),
+                journal(hospital, "VEN"),
+                AccountingSourceType.PASSAGE_CHARGES,
+                sourceCode + ":INVOICE",
+                "Émission de la facture " + invoice.getCode() + " (frais de passage)",
+                invoice.getCurrency(),
+                actor,
+                List.of(
+                        new LineSpec(
+                                account(hospital, ACCOUNT_RECEIVABLES),
+                                "Créance facture " + invoice.getCode(),
+                                invoice.getTotalAmount(),
+                                BigDecimal.ZERO,
+                                invoice.getPatientCode()),
+                        new LineSpec(
+                                account(hospital, ACCOUNT_CARE_REVENUE),
+                                "Produit facture " + invoice.getCode(),
+                                BigDecimal.ZERO,
+                                invoice.getTotalAmount(),
+                                invoice.getPatientCode())));
+        return toInvoice(invoice);
+    }
+
     @Transactional
     public AccountingInvoiceResponse issueInvoice(UUID invoiceId, DataAccessScope scope, AuditActor actor) {
         AccountingInvoiceEntity invoice = ownedInvoice(invoiceId, scope);
@@ -346,7 +423,7 @@ public class AccountingApplicationService {
         HospitalContext hospital = new HospitalContext(invoice.getHospitalId(), invoice.getHospitalCode()); ensureHospitalBook(hospital);
         invoice.issue();
         if (invoice.getTotalAmount().signum() > 0) {
-            createAndPostEntry(hospital, invoice.getIssuedOn(), journal(hospital, "VEN"), AccountingSourceType.MANUAL_INVOICE,
+            createAndPostEntry(hospital, invoice.getIssuedOn(), journal(hospital, "VEN"), invoice.getSourceType(),
                     invoice.getCode() + ":INVOICE", "Émission de la facture " + invoice.getCode(), invoice.getCurrency(), actor,
                     List.of(new LineSpec(account(hospital, ACCOUNT_RECEIVABLES), "Créance facture " + invoice.getCode(), invoice.getTotalAmount(), BigDecimal.ZERO, invoice.getPatientCode()),
                             new LineSpec(account(hospital, ACCOUNT_CARE_REVENUE), "Produit facture " + invoice.getCode(), BigDecimal.ZERO, invoice.getTotalAmount(), invoice.getPatientCode())));
@@ -359,7 +436,8 @@ public class AccountingApplicationService {
         AccountingInvoiceEntity invoice = ownedInvoice(invoiceId, scope);
         if (invoice.getStatus() == InvoiceStatus.CANCELLED) return toInvoice(invoice);
         if (invoice.getSourceType() != AccountingSourceType.MANUAL_INVOICE) {
-            throw new AccountingValidationException("Une facture issue d'une délivrance pharmacie ne peut pas être annulée manuellement.");
+            throw new AccountingValidationException(
+                    "Seule une facture saisie manuellement peut être annulée ici. Les factures issues des frais de passage ou de la pharmacie suivent leur circuit dédié.");
         }
         if (invoice.getStatus() != InvoiceStatus.DRAFT && invoice.getStatus() != InvoiceStatus.ISSUED) {
             throw new AccountingValidationException("Seule une facture brouillon ou émise non encaissée peut être annulée.");
